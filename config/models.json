@@ -1,0 +1,6 @@
+{
+  "preferred_models": [
+    "qwen3:8b",
+    "llama3.1:8b"
+  ]
+}

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+.env
+*.key
+*.pem
+
+# Logs
+logs/
+*.log
+
+# Local config
+config.local.json
+
+# Ollama / модели
+models/
+*.gguf
+
+# OS
+Thumbs.db
+Desktop.ini
