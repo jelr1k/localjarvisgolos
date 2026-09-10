@@ -8,6 +8,7 @@ env/
 # IDE
 .vscode/
 .idea/
+project.code-workspace
 
 # Secrets
 .env

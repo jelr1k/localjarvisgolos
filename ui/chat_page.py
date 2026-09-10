@@ -1,4 +1,4 @@
-from PySide6.QtCore import Signal, QEvent, Qt
+from PySide6.QtCore import Signal, QEvent, Qt, QTimer
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -21,7 +21,15 @@ class ChatPage(QWidget):
         self.answer = ""
         self.thinking = ""
 
-        # Имя ассистента из настроек
+        # Буферы для потокового вывода.
+        # Они позволяют не перерисовывать QTextEdit
+        # на каждый маленький chunk.
+        self.pending_answer = ""
+        self.pending_thinking = ""
+
+        self.thinking_started = False
+        self.answer_started = False
+
         self.assistant_name = config.get(
             "assistant_name",
             "JARVIS"
@@ -52,6 +60,14 @@ class ChatPage(QWidget):
         layout.addLayout(bottom)
 
         self.input.installEventFilter(self)
+
+        # Таймер обновления интерфейса.
+        #
+        # 30 FPS достаточно для плавного потокового текста,
+        # но намного легче для GUI, чем обновление на каждый chunk.
+        self.stream_timer = QTimer(self)
+        self.stream_timer.timeout.connect(self.flush_stream)
+        self.stream_timer.start(33)
 
     def update_model_label(self, model):
         self.model_label.setText(
@@ -104,41 +120,116 @@ class ChatPage(QWidget):
         self.answer = ""
         self.thinking = ""
 
+        self.pending_answer = ""
+        self.pending_thinking = ""
+
+        self.thinking_started = False
+        self.answer_started = False
+
         self.send_button.setEnabled(False)
 
         self.send_requested.emit(text)
 
     def on_chunk(self, chunk):
+        # Не изменяем QTextEdit здесь.
+        #
+        # Только складываем полученные данные в буфер.
+        # Интерфейс обработает их через flush_stream().
         if chunk.thinking:
             self.thinking += chunk.thinking
+            self.pending_thinking += chunk.thinking
 
-        if not chunk.text:
+        if chunk.text:
+            self.answer += chunk.text
+            self.pending_answer += chunk.text
+
+    def flush_stream(self):
+        """
+        Выводит накопившийся потоковый текст в QTextEdit.
+
+        Вызывается примерно 30 раз в секунду.
+        """
+
+        if not self.pending_thinking and not self.pending_answer:
             return
 
-        if not self.answer:
-            self.chat.append(
-                f"<b>{self.assistant_name}:</b>"
-            )
-
-        self.answer += chunk.text
-
         cursor = self.chat.textCursor()
-
         cursor.movePosition(
             cursor.MoveOperation.End
         )
 
-        self.chat.setTextCursor(cursor)
+        # =========================
+        # Раздумья
+        # =========================
 
-        self.chat.insertPlainText(
-            chunk.text
-        )
+        if self.pending_thinking:
+            if not self.thinking_started:
+                self.chat.append(
+                    f"<b>{self.assistant_name}:</b>"
+                )
 
+                cursor = self.chat.textCursor()
+                cursor.movePosition(
+                    cursor.MoveOperation.End
+                )
+
+                cursor.insertHtml(
+                    "<br><i>Раздумья:</i><br>"
+                )
+
+                self.thinking_started = True
+
+            cursor = self.chat.textCursor()
+            cursor.movePosition(
+                cursor.MoveOperation.End
+            )
+
+            cursor.insertText(
+                self.pending_thinking
+            )
+
+            self.pending_thinking = ""
+
+        # =========================
+        # Ответ
+        # =========================
+
+        if self.pending_answer:
+            if not self.answer_started:
+                if self.thinking_started:
+                    cursor = self.chat.textCursor()
+                    cursor.movePosition(
+                        cursor.MoveOperation.End
+                    )
+
+                    cursor.insertHtml(
+                        "<br><br><b>Ответ:</b><br>"
+                    )
+                else:
+                    self.chat.append(
+                        f"<b>{self.assistant_name}:</b>"
+                    )
+
+                self.answer_started = True
+
+            cursor = self.chat.textCursor()
+            cursor.movePosition(
+                cursor.MoveOperation.End
+            )
+
+            cursor.insertText(
+                self.pending_answer
+            )
+
+            self.pending_answer = ""
+
+        # Один раз прокручиваем чат после обновления.
         self.chat.ensureCursorVisible()
 
     def finish_generation(self):
-        if self.answer:
-            self.chat.append("")
+        # Перед завершением обязательно выводим
+        # всё, что могло остаться в буфере.
+        self.flush_stream()
 
         self.send_button.setEnabled(True)
         self.input.setFocus()

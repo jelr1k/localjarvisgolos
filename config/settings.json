@@ -1,7 +1,7 @@
 {
   "assistant_name": "Jelr1k",
   "model": "qwen3:1.7b",
-  "thinking": false,
+  "thinking": true,
   "temperature": 0.7,
   "context_length": 4096,
   "max_tokens": 4096,

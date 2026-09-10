@@ -11,16 +11,23 @@ class GenerationWorker(QObject):
 
     def __init__(self, provider, request):
         super().__init__()
+
         self.provider = provider
         self.request = request
 
     def run(self):
         try:
-            for item in self.provider.stream_chat(self.request):
-                self.chunk.emit(item)
+            for item in self.provider.stream_chat(
+                self.request
+            ):
+                # Отправляем обычные chunks
+                if not item.done:
+                    self.chunk.emit(item)
+                    continue
 
-                if item.done:
-                    self.finished.emit(item.stats)
+                # Сначала заканчиваем поток,
+                # затем отдельно отправляем finished.
+                self.finished.emit(item.stats)
 
         except Exception as exc:
             self.failed.emit(str(exc))
@@ -45,7 +52,10 @@ class ChatService(QObject):
         self._current_answer = ""
 
     def send(self, text):
-        if self._thread and self._thread.isRunning():
+        if (
+            self._thread
+            and self._thread.isRunning()
+        ):
             return
 
         text = text.strip()
@@ -53,14 +63,22 @@ class ChatService(QObject):
         if not text:
             return
 
-        self.conversation.add("user", text)
+        self.conversation.add(
+            "user",
+            text
+        )
 
         self._current_answer = ""
 
         request = ChatRequest(
             model=self.config.get("model"),
-            messages=self.conversation.as_ollama_messages(),
-            thinking=self.config.get("thinking"),
+            messages=(
+                self.conversation
+                .as_ollama_messages()
+            ),
+            thinking=self.config.get(
+                "thinking"
+            ),
             temperature=float(
                 self.config.get("temperature")
             ),
@@ -79,7 +97,9 @@ class ChatService(QObject):
             request
         )
 
-        self._worker.moveToThread(self._thread)
+        self._worker.moveToThread(
+            self._thread
+        )
 
         self._thread.started.connect(
             self._worker.run
@@ -112,24 +132,37 @@ class ChatService(QObject):
         self._thread.start()
 
     def _on_chunk(self, chunk):
+        """
+        Получает потоковые chunks от worker.
+
+        Этот метод выполняется в GUI-потоке,
+        поэтому здесь нельзя делать тяжёлые операции.
+        """
+
         if chunk.text:
             self._current_answer += chunk.text
 
+        # Передаём chunk дальше в ChatPage.
+        #
+        # ChatPage сама буферизует текст и обновляет GUI
+        # с ограниченной частотой.
         self.chunk_received.emit(chunk)
 
     def _on_finished(self, stats):
-        # Сохраняем ответ JARVIS в историю
+        # Сохраняем только обычный ответ.
+        #
+        # Thinking в историю разговора не добавляем.
         if self._current_answer.strip():
             self.conversation.add(
                 "assistant",
                 self._current_answer
             )
 
-        self.generation_finished.emit(stats)
+        self.generation_finished.emit(
+            stats
+        )
 
     def _on_failed(self, error):
-        # Если генерация упала, пользовательское сообщение
-        # не должно оставаться с фальшивым ответом.
         self.error.emit(error)
 
     def _cleanup(self):
