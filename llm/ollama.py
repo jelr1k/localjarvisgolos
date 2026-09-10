@@ -21,18 +21,13 @@ class OllamaProvider(LLMProvider):
 
     def list_models(self):
         try:
-            response = requests.get(
-                self._url("/api/tags"),
-                timeout=5
-            )
+            response = requests.get(self._url("/api/tags"), timeout=5)
             response.raise_for_status()
-
             return [
                 model.get("name", "")
                 for model in response.json().get("models", [])
                 if model.get("name")
             ]
-
         except requests.RequestException as exc:
             raise LLMConnectionError(
                 f"Не удалось подключиться к Ollama:\n{exc}"
@@ -51,6 +46,9 @@ class OllamaProvider(LLMProvider):
             },
         }
 
+        if request.tools:
+            payload["tools"] = request.tools
+
         started = time.perf_counter()
         first_token_at = None
 
@@ -61,7 +59,6 @@ class OllamaProvider(LLMProvider):
                 stream=True,
                 timeout=(10, 600),
             ) as response:
-
                 response.raise_for_status()
 
                 for line in response.iter_lines(
@@ -77,19 +74,18 @@ class OllamaProvider(LLMProvider):
                         continue
 
                     message = chunk.get("message") or {}
-
                     text = message.get("content") or ""
                     thinking = message.get("thinking") or ""
+                    tool_calls = message.get("tool_calls") or []
 
-                    if text or thinking:
+                    if text or thinking or tool_calls:
                         if first_token_at is None:
-                            first_token_at = (
-                                time.perf_counter() - started
-                            )
+                            first_token_at = time.perf_counter() - started
 
                         yield StreamChunk(
                             text=text,
                             thinking=thinking,
+                            tool_calls=tool_calls,
                             done=False,
                             raw=chunk,
                         )
@@ -100,12 +96,9 @@ class OllamaProvider(LLMProvider):
                             first_token_at,
                             request.thinking,
                         )
-
-                        stats = GenerationStats(**stats_dict)
-
                         yield StreamChunk(
                             done=True,
-                            stats=stats,
+                            stats=GenerationStats(**stats_dict),
                             raw=chunk,
                         )
 
@@ -113,12 +106,10 @@ class OllamaProvider(LLMProvider):
             raise LLMRequestError(
                 "Ollama слишком долго не отвечает."
             ) from exc
-
         except requests.ConnectionError as exc:
             raise LLMConnectionError(
                 "Не удалось подключиться к Ollama."
             ) from exc
-
         except requests.RequestException as exc:
             raise LLMRequestError(
                 f"Ошибка запроса к Ollama:\n{exc}"

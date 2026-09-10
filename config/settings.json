@@ -7,5 +7,9 @@
   "max_tokens": 4096,
   "ollama": {
     "base_url": "http://localhost:11434"
+  },
+  "tools": {
+    "delete_file": true,
+    "launch_application": true
   }
 }

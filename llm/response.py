@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+
 @dataclass
 class GenerationStats:
     model: str = ""
@@ -15,10 +16,12 @@ class GenerationStats:
     ttft_s: float = 0.0
     thinking: bool = False
 
+
 @dataclass
 class StreamChunk:
     text: str = ""
     thinking: str = ""
+    tool_calls: list[dict] = field(default_factory=list)
     done: bool = False
     stats: GenerationStats | None = None
     raw: dict = field(default_factory=dict)

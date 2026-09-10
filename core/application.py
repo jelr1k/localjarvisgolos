@@ -6,6 +6,7 @@ from core.ollama_manager import OllamaManager
 from llm.ollama import OllamaProvider
 
 from services.chat_service import ChatService
+from tools.paths import prepare_tool_workspace
 
 from ui.main_window import MainWindow
 
@@ -15,6 +16,7 @@ class JarvisApplication(QMainWindow):
         super().__init__()
 
         self.config = ConfigManager()
+        prepare_tool_workspace()
 
         self.ollama_manager = OllamaManager(
             self.config.ollama_url

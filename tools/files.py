@@ -1,84 +1,34 @@
 from pathlib import Path
 
+from tools.paths import TOOL_WORKSPACE, is_path_allowed, resolve_tool_path
 
-# Пока разрешаем удаление только из этой папки.
-# Позже перенесём это в настройки JARVIS.
-ALLOWED_DELETE_DIRECTORIES = [
-    Path(r"C:\JARVIS\test").resolve(),
-]
+ALLOWED_DELETE_DIRECTORIES = [TOOL_WORKSPACE]
 
 
 def _is_path_allowed(path: Path) -> bool:
-    """
-    Проверяет, находится ли файл внутри разрешённой папки.
-    """
-
-    path = path.resolve()
-
-    for allowed_directory in ALLOWED_DELETE_DIRECTORIES:
-        try:
-            path.relative_to(allowed_directory)
-            return True
-
-        except ValueError:
-            continue
-
-    return False
+    return is_path_allowed(path)
 
 
 def delete_file(path: str) -> dict:
-    """
-    Удаляет один файл.
-    """
-
+    """Удаляет один файл только внутри workspace."""
     if not path:
+        return {"success": False, "error": "Не указан путь к файлу."}
+
+    file_path, matches = resolve_tool_path(path)
+    if len(matches) > 1:
         return {
             "success": False,
-            "error": "Не указан путь к файлу."
+            "error": "Найдено несколько файлов с таким именем.",
+            "ambiguous": True,
+            "matches": [str(item) for item in matches],
         }
-
-    file_path = Path(path).expanduser()
-
-    if not file_path.exists():
-        return {
-            "success": False,
-            "error": f"Файл не найден: {file_path}"
-        }
-
-    if not file_path.is_file():
-        return {
-            "success": False,
-            "error": f"Это не файл: {file_path}"
-        }
-
-    try:
-        file_path = file_path.resolve()
-
-    except OSError as exc:
-        return {
-            "success": False,
-            "error": f"Не удалось определить путь: {exc}"
-        }
-
-    if not _is_path_allowed(file_path):
-        return {
-            "success": False,
-            "error": (
-                "Удаление из этой папки запрещено: "
-                f"{file_path}"
-            )
-        }
+    if file_path is None:
+        return {"success": False, "error": f"Файл не найден в рабочей папке JARVIS: {path}"}
+    if not file_path.is_file() or not is_path_allowed(file_path):
+        return {"success": False, "error": "Удалять можно только файлы внутри рабочей папки."}
 
     try:
         file_path.unlink()
-
-        return {
-            "success": True,
-            "message": f"Файл удалён: {file_path}"
-        }
-
+        return {"success": True, "message": f"Файл удалён: {file_path}"}
     except OSError as exc:
-        return {
-            "success": False,
-            "error": f"Не удалось удалить файл: {exc}"
-        }
+        return {"success": False, "error": f"Не удалось удалить файл: {exc}"}

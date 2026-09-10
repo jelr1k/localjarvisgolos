@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+
 @dataclass
 class ChatRequest:
     model: str
@@ -8,3 +9,4 @@ class ChatRequest:
     temperature: float = 0.7
     context_length: int = 32768
     max_tokens: int = 4096
+    tools: list[dict] = field(default_factory=list)

@@ -1,34 +1,87 @@
+import json
+from threading import Event
+
 from PySide6.QtCore import QObject, Signal, QThread
+from PySide6.QtWidgets import QMessageBox
 
 from chat.conversation import Conversation
 from llm.request import ChatRequest
+from tools.executor import ToolExecutor
+from tools.registry import ollama_tools
 
 
 class GenerationWorker(QObject):
     chunk = Signal(object)
     finished = Signal(object)
     failed = Signal(str)
+    confirmation_requested = Signal(str, object, object)
 
-    def __init__(self, provider, request):
+    def __init__(self, provider, request, enabled_tools):
         super().__init__()
-
         self.provider = provider
         self.request = request
+        self.executor = ToolExecutor(enabled_tools)
+        self.max_tool_rounds = 5
+
+    def _confirm_tool(self, tool_name, arguments):
+        event = Event()
+        result = [False]
+        self.confirmation_requested.emit(tool_name, arguments, (event, result))
+        event.wait()
+        return result[0]
+
+    @staticmethod
+    def _normalize_arguments(arguments):
+        if isinstance(arguments, dict):
+            return arguments
+        if isinstance(arguments, str):
+            try:
+                return json.loads(arguments)
+            except json.JSONDecodeError:
+                return {}
+        return {}
 
     def run(self):
         try:
-            for item in self.provider.stream_chat(
-                self.request
-            ):
-                # Отправляем обычные chunks
-                if not item.done:
-                    self.chunk.emit(item)
-                    continue
+            messages = list(self.request.messages)
+            stats = None
+            for _ in range(self.max_tool_rounds):
+                self.request.messages = messages
+                tool_calls = []
+                assistant_message = None
+                for item in self.provider.stream_chat(self.request):
+                    if not item.done:
+                        if item.tool_calls:
+                            tool_calls.extend(item.tool_calls)
+                            assistant_message = item.raw.get("message") or assistant_message
+                        self.chunk.emit(item)
+                        continue
+                    stats = item.stats
+                    if item.raw.get("message"):
+                        assistant_message = item.raw["message"]
 
-                # Сначала заканчиваем поток,
-                # затем отдельно отправляем finished.
-                self.finished.emit(item.stats)
+                if not tool_calls:
+                    self.finished.emit(stats)
+                    return
 
+                assistant_message = dict(assistant_message or {"role": "assistant", "content": ""})
+                assistant_message["role"] = "assistant"
+                assistant_message["tool_calls"] = tool_calls
+                messages.append(assistant_message)
+
+                for tool_call in tool_calls:
+                    function = tool_call.get("function") or {}
+                    tool_name = function.get("name")
+                    arguments = self._normalize_arguments(function.get("arguments", {}))
+                    if not tool_name:
+                        continue
+                    result = self.executor.execute(tool_name, arguments, self._confirm_tool)
+                    messages.append({
+                        "role": "tool",
+                        "content": json.dumps(result, ensure_ascii=False),
+                    })
+
+            raise RuntimeError("Слишком много последовательных вызовов инструментов.")
         except Exception as exc:
             self.failed.emit(str(exc))
 
@@ -40,144 +93,90 @@ class ChatService(QObject):
 
     def __init__(self, provider, config):
         super().__init__()
-
         self.provider = provider
         self.config = config
-
         self.conversation = Conversation()
-
         self._thread = None
         self._worker = None
-
         self._current_answer = ""
 
+    def _enabled_tools(self):
+        configured = self.config.get("tools", {})
+        return {
+            name for name in ("delete_file", "launch_application")
+            if bool(configured.get(name, True))
+        }
+
+    def refresh_tools(self):
+        # Настройки читаются заново при каждом следующем запросе.
+        pass
+
     def send(self, text):
-        if (
-            self._thread
-            and self._thread.isRunning()
-        ):
+        if self._thread and self._thread.isRunning():
             return
-
         text = text.strip()
-
         if not text:
             return
 
-        self.conversation.add(
-            "user",
-            text
-        )
-
+        self.conversation.add("user", text)
         self._current_answer = ""
-
+        enabled_tools = self._enabled_tools()
         request = ChatRequest(
             model=self.config.get("model"),
-            messages=(
-                self.conversation
-                .as_ollama_messages()
-            ),
-            thinking=self.config.get(
-                "thinking"
-            ),
-            temperature=float(
-                self.config.get("temperature")
-            ),
-            context_length=int(
-                self.config.get("context_length")
-            ),
-            max_tokens=int(
-                self.config.get("max_tokens")
-            ),
+            messages=self.conversation.as_ollama_messages(),
+            thinking=self.config.get("thinking"),
+            temperature=float(self.config.get("temperature")),
+            context_length=int(self.config.get("context_length")),
+            max_tokens=int(self.config.get("max_tokens")),
+            tools=ollama_tools(enabled_tools),
         )
 
         self._thread = QThread()
-
-        self._worker = GenerationWorker(
-            self.provider,
-            request
-        )
-
-        self._worker.moveToThread(
-            self._thread
-        )
-
-        self._thread.started.connect(
-            self._worker.run
-        )
-
-        self._worker.chunk.connect(
-            self._on_chunk
-        )
-
-        self._worker.finished.connect(
-            self._on_finished
-        )
-
-        self._worker.failed.connect(
-            self._on_failed
-        )
-
-        self._worker.finished.connect(
-            self._thread.quit
-        )
-
-        self._worker.failed.connect(
-            self._thread.quit
-        )
-
-        self._thread.finished.connect(
-            self._cleanup
-        )
-
+        self._worker = GenerationWorker(self.provider, request, enabled_tools)
+        self._worker.moveToThread(self._thread)
+        self._thread.started.connect(self._worker.run)
+        self._worker.chunk.connect(self._on_chunk)
+        self._worker.finished.connect(self._on_finished)
+        self._worker.failed.connect(self._on_failed)
+        self._worker.confirmation_requested.connect(self._on_confirmation_requested)
+        self._worker.finished.connect(self._thread.quit)
+        self._worker.failed.connect(self._thread.quit)
+        self._thread.finished.connect(self._cleanup)
         self._thread.start()
 
     def _on_chunk(self, chunk):
-        """
-        Получает потоковые chunks от worker.
-
-        Этот метод выполняется в GUI-потоке,
-        поэтому здесь нельзя делать тяжёлые операции.
-        """
-
         if chunk.text:
             self._current_answer += chunk.text
-
-        # Передаём chunk дальше в ChatPage.
-        #
-        # ChatPage сама буферизует текст и обновляет GUI
-        # с ограниченной частотой.
         self.chunk_received.emit(chunk)
 
     def _on_finished(self, stats):
-        # Сохраняем только обычный ответ.
-        #
-        # Thinking в историю разговора не добавляем.
         if self._current_answer.strip():
-            self.conversation.add(
-                "assistant",
-                self._current_answer
-            )
-
-        self.generation_finished.emit(
-            stats
-        )
+            self.conversation.add("assistant", self._current_answer)
+        self.generation_finished.emit(stats)
 
     def _on_failed(self, error):
         self.error.emit(error)
 
+    def _on_confirmation_requested(self, tool_name, arguments, payload):
+        event, result = payload
+        if tool_name == "delete_file":
+            path = arguments.get("path", "")
+            answer = QMessageBox.question(
+                None, "Подтверждение удаления", f"Удалить файл?\n\n{path}",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            result[0] = answer == QMessageBox.StandardButton.Yes
+        event.set()
+
     def _cleanup(self):
         if self._worker:
             self._worker.deleteLater()
-
         if self._thread:
             self._thread.deleteLater()
-
         self._worker = None
         self._thread = None
 
     def add_assistant_message(self, text):
         if text and text.strip():
-            self.conversation.add(
-                "assistant",
-                text
-            )
+            self.conversation.add("assistant", text)
