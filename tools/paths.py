@@ -35,7 +35,7 @@ def _matches_name(path: Path, name: str) -> bool:
         return False
     if path.name.lower() == wanted:
         return True
-    return not Path(wanted).suffix and path.stem.lower() == wanted
+    return path.stem.lower() == Path(wanted).stem.lower()
 
 
 def find_by_name(name: str, extension: str | None = None) -> list[Path]:
