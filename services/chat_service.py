@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 from threading import Event
 
@@ -6,8 +8,9 @@ from PySide6.QtWidgets import QMessageBox
 
 from chat.conversation import Conversation
 from llm.request import ChatRequest
+from services.command_router import CommandRouter
 from tools.executor import ToolExecutor
-from tools.registry import ollama_tools
+from tools.registry import TOOLS, ollama_tools
 
 
 class GenerationWorker(QObject):
@@ -16,11 +19,12 @@ class GenerationWorker(QObject):
     failed = Signal(str)
     confirmation_requested = Signal(str, object, object)
 
-    def __init__(self, provider, request, enabled_tools):
+    def __init__(self, provider, request, config):
         super().__init__()
         self.provider = provider
         self.request = request
-        self.executor = ToolExecutor(enabled_tools)
+        self.config = config
+        self.executor = ToolExecutor(config)
         self.max_tool_rounds = 5
 
     def _confirm_tool(self, tool_name, arguments):
@@ -89,27 +93,26 @@ class GenerationWorker(QObject):
 class ChatService(QObject):
     chunk_received = Signal(object)
     generation_finished = Signal(object)
+    direct_response = Signal(str)
     error = Signal(str)
 
-    def __init__(self, provider, config):
+    def __init__(self, provider, config, ollama_manager=None):
         super().__init__()
         self.provider = provider
         self.config = config
+        self.ollama_manager = ollama_manager
         self.conversation = Conversation()
+        self.router = CommandRouter(config, ollama_manager) if ollama_manager else None
         self._thread = None
         self._worker = None
         self._current_answer = ""
 
     def _enabled_tools(self):
         configured = self.config.get("tools", {})
-        return {
-            name for name in ("delete_file", "launch_application")
-            if bool(configured.get(name, True))
-        }
+        return {name for name in TOOLS if bool(configured.get(name, False))}
 
     def refresh_tools(self):
-        # Настройки читаются заново при каждом следующем запросе.
-        pass
+        self.router = CommandRouter(self.config, self.ollama_manager) if self.ollama_manager else self.router
 
     def send(self, text):
         if self._thread and self._thread.isRunning():
@@ -119,6 +122,17 @@ class ChatService(QObject):
             return
 
         self.conversation.add("user", text)
+
+        if self.router:
+            try:
+                direct = self.router.route(text, self._confirm_direct)
+            except Exception as exc:
+                direct = f"Не удалось выполнить прямую команду: {exc}"
+            if direct is not None:
+                self.conversation.add("assistant", direct)
+                self.direct_response.emit(direct)
+                return
+
         self._current_answer = ""
         enabled_tools = self._enabled_tools()
         request = ChatRequest(
@@ -132,7 +146,7 @@ class ChatService(QObject):
         )
 
         self._thread = QThread()
-        self._worker = GenerationWorker(self.provider, request, enabled_tools)
+        self._worker = GenerationWorker(self.provider, request, self.config)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.chunk.connect(self._on_chunk)
@@ -157,17 +171,34 @@ class ChatService(QObject):
     def _on_failed(self, error):
         self.error.emit(error)
 
+    def _confirm_direct(self, tool_name, arguments):
+        return self._show_confirmation(tool_name, arguments)
+
     def _on_confirmation_requested(self, tool_name, arguments, payload):
         event, result = payload
-        if tool_name == "delete_file":
-            path = arguments.get("path", "")
-            answer = QMessageBox.question(
-                None, "Подтверждение удаления", f"Удалить файл?\n\n{path}",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
-            result[0] = answer == QMessageBox.StandardButton.Yes
+        result[0] = self._show_confirmation(tool_name, arguments)
         event.set()
+
+    @staticmethod
+    def _show_confirmation(tool_name, arguments):
+        labels = {
+            "delete_file": "Подтверждение удаления",
+            "write_file": "Подтверждение перезаписи",
+            "rename_file": "Подтверждение переименования",
+            "copy_file": "Подтверждение копирования",
+            "move_file": "Подтверждение перемещения",
+            "close_application": "Подтверждение закрытия приложения",
+        }
+        title = labels.get(tool_name, "Подтверждение действия")
+        description = json.dumps(arguments, ensure_ascii=False, indent=2)
+        answer = QMessageBox.question(
+            None,
+            title,
+            description,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
 
     def _cleanup(self):
         if self._worker:
