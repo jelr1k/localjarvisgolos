@@ -6,6 +6,6 @@ cd /d "%~dp0"
 call "%~dp0install_dependencies.bat"
 if errorlevel 1 exit /b 1
 
-start "" pythonw main.py
+start "" pythonw "%~dp0bootstrap.py"
 
 exit
