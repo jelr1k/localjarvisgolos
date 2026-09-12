@@ -1,7 +1,11 @@
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QLabel, QCheckBox, QVBoxLayout, QGroupBox, QWidget
+from __future__ import annotations
 
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QCheckBox, QGroupBox, QLabel, QVBoxLayout, QWidget
+
+from security.permissions import PermissionManager
 from tools.paths import TOOL_WORKSPACE
+from tools.registry import TOOLS
 
 
 class ToolsPage(QWidget):
@@ -10,41 +14,29 @@ class ToolsPage(QWidget):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        tools = config.get("tools", {})
+        self.permissions = PermissionManager(config)
+        self.checkboxes = {}
 
-        title = QLabel("Инструменты JARVIS")
+        title = QLabel("Инструменты Jarvis")
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
 
         workspace = QLabel(f"Рабочая папка: {TOOL_WORKSPACE}")
         workspace.setWordWrap(True)
 
-        self.delete_file = QCheckBox("Удаление файлов")
-        self.delete_file.setToolTip(
-            "Разрешает удалять отдельные файлы внутри рабочей папки после подтверждения."
-        )
-        self.delete_file.setChecked(bool(tools.get("delete_file", True)))
-        self.delete_file.toggled.connect(
-            lambda value: self._set_tool("delete_file", value)
-        )
-
-        self.launch_application = QCheckBox("Запуск файлов и ярлыков")
-        self.launch_application.setToolTip(
-            "Разрешает открывать и запускать файлы, программы и ярлыки внутри рабочей папки."
-        )
-        self.launch_application.setChecked(
-            bool(tools.get("launch_application", True))
-        )
-        self.launch_application.toggled.connect(
-            lambda value: self._set_tool("launch_application", value)
-        )
-
         box = QGroupBox("Доступные инструменты")
         box_layout = QVBoxLayout(box)
-        box_layout.addWidget(self.delete_file)
-        box_layout.addWidget(self.launch_application)
+
+        for name, tool in TOOLS.items():
+            checkbox = QCheckBox(name)
+            checkbox.setChecked(self.permissions.is_enabled(name))
+            checkbox.setToolTip(tool.get("description", ""))
+            checkbox.toggled.connect(lambda value, tool_name=name: self._set_tool(tool_name, value))
+            self.checkboxes[name] = checkbox
+            box_layout.addWidget(checkbox)
 
         hint = QLabel(
-            "Отключённый инструмент не передаётся модели и дополнительно блокируется при выполнении."
+            "Отключённый инструмент одновременно убирается из доступных модели и блокируется повторной проверкой при выполнении. "
+            "Все файловые инструменты ограничены workspace."
         )
         hint.setWordWrap(True)
 
@@ -56,6 +48,5 @@ class ToolsPage(QWidget):
         layout.addStretch()
 
     def _set_tool(self, name, enabled):
-        self.config.data.setdefault("tools", {})[name] = bool(enabled)
-        self.config.save()
+        self.permissions.update(name, enabled)
         self.tools_changed.emit()
