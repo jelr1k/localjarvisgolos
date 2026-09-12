@@ -9,6 +9,11 @@ import psutil
 from security.validator import validate_non_empty, validate_url
 from tools.paths import resolve_tool_path
 
+try:
+    import win32com.client
+except ImportError:  # pragma: no cover - Windows dependency
+    win32com = None
+
 _WINDOWS_APP_DIRS = [
     Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
     Path(os.environ.get("PROGRAMDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
@@ -25,16 +30,75 @@ def _result(success: bool, *, path=None, error=None, **extra):
     return data
 
 
-def _running_process_matches(name: str) -> list[dict]:
+def _normalize_executable(path: str | Path | None) -> str | None:
+    if not path:
+        return None
+    try:
+        return str(Path(path).resolve()).lower()
+    except (OSError, RuntimeError):
+        return os.path.normcase(os.path.abspath(str(path)))
+
+
+def _resolve_shortcut_target(path: Path) -> Path | None:
+    """Resolve a Windows .lnk into its target executable."""
+    if path.suffix.lower() != ".lnk":
+        return path
+    if win32com is None:
+        return None
+    try:
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortcut(str(path))
+        target = (shortcut.TargetPath or "").strip()
+        if not target:
+            return None
+        return Path(target).resolve()
+    except (OSError, RuntimeError, AttributeError):
+        return None
+
+
+def _resolve_application(name: str) -> dict:
+    """Resolve display name/path into a stable application identity."""
+    found = find_application(name)
+    if not found.get("success"):
+        return found
+
+    shortcut = Path(found["path"])
+    target = _resolve_shortcut_target(shortcut)
+    executable = target if target and target.suffix.lower() == ".exe" else (shortcut if shortcut.suffix.lower() == ".exe" else None)
+
+    return _result(
+        True,
+        path=shortcut,
+        identity={
+            "display_name": name,
+            "shortcut": str(shortcut),
+            "target_executable": str(target) if target else None,
+            "normalized_executable": _normalize_executable(executable),
+        },
+    )
+
+
+def _running_process_matches(name: str, *, executable: str | Path | None = None) -> list[dict]:
+    """Find processes by resolved executable, with display-name fallback."""
     wanted = name.lower().strip()
+    normalized_executable = _normalize_executable(executable)
+    wanted_stem = Path(wanted).stem
     result = []
+
     for proc in psutil.process_iter(["pid", "name", "exe"]):
         try:
             proc_name = (proc.info.get("name") or "").lower()
-            exe = proc.info.get("exe") or ""
-            stem = Path(exe).stem.lower() if exe else Path(proc_name).stem
-            if wanted in {proc_name, stem} or wanted == Path(proc_name).stem:
-                result.append({"pid": proc.info["pid"], "name": proc.info.get("name"), "exe": exe})
+            proc_exe = proc.info.get("exe") or ""
+            proc_normalized_exe = _normalize_executable(proc_exe)
+            proc_stem = Path(proc_exe).stem.lower() if proc_exe else Path(proc_name).stem.lower()
+
+            if normalized_executable:
+                matches = proc_normalized_exe == normalized_executable or proc_stem == Path(normalized_executable).stem.lower()
+            else:
+                matches = wanted in {proc_name, proc_stem} or wanted_stem == Path(proc_name).stem.lower()
+
+            if matches:
+                result.append({"pid": proc.info["pid"], "name": proc.info.get("name"), "exe": proc_exe})
         except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
             continue
     return result
@@ -76,8 +140,13 @@ def find_application(name: str) -> dict:
 
 def get_process_status(name: str) -> dict:
     try:
-        name = validate_non_empty(name, "название процесса")
-        matches = _running_process_matches(name)
+        name = validate_non_empty(name, "название приложения")
+        resolved = _resolve_application(name)
+        if resolved.get("success"):
+            identity = resolved["identity"]
+            matches = _running_process_matches(name, executable=identity.get("normalized_executable"))
+        else:
+            matches = _running_process_matches(name)
         return _result(True, running=bool(matches), processes=matches)
     except ValueError as exc:
         return _result(False, error=str(exc))
@@ -114,20 +183,38 @@ def _start_path(path: Path) -> dict:
 
 def close_application(name: str) -> dict:
     try:
-        name = validate_non_empty(name, "название процесса")
-        matches = _running_process_matches(name)
+        name = validate_non_empty(name, "название приложения")
+        resolved = _resolve_application(name)
+        if resolved.get("success"):
+            identity = resolved["identity"]
+            matches = _running_process_matches(name, executable=identity.get("normalized_executable"))
+        else:
+            matches = _running_process_matches(name)
+
         if not matches:
-            return _result(False, error=f"Процесс не запущен: {name}", running=False)
-        closed = []
+            return _result(True, running=False, already_closed=True, details={"closed": [], "failed": []})
+
+        processes = []
         failed = []
         for item in matches:
             try:
-                proc = psutil.Process(item["pid"])
-                proc.terminate()
-                closed.append(item["pid"])
+                processes.append(psutil.Process(item["pid"]))
+                processes[-1].terminate()
             except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
                 failed.append({"pid": item["pid"], "error": str(exc)})
-        return _result(not failed, details={"closed": closed, "failed": failed})
+
+        gone, alive = psutil.wait_procs(processes, timeout=5)
+        closed = [proc.pid for proc in gone]
+        for proc in alive:
+            failed.append({"pid": proc.pid, "error": "Процесс не завершился за отведённое время."})
+
+        success = not failed and not alive
+        return _result(
+            success,
+            running=bool(alive),
+            details={"closed": closed, "failed": failed},
+            error=None if success else f"Не удалось полностью закрыть: {name}",
+        )
     except ValueError as exc:
         return _result(False, error=str(exc))
 
