@@ -1,15 +1,28 @@
 {
   "assistant_name": "Jelr1k",
-  "model": "qwen3:1.7b",
-  "thinking": true,
+  "model": "qwen3-1.7b-no-think:latest",
+  "thinking": false,
   "temperature": 0.7,
-  "context_length": 4096,
+  "context_length": 32768,
   "max_tokens": 4096,
   "ollama": {
     "base_url": "http://localhost:11434"
   },
   "tools": {
+    "search_files": true,
+    "read_file": true,
+    "create_file": true,
+    "write_file": true,
     "delete_file": true,
-    "launch_application": true
+    "rename_file": true,
+    "copy_file": true,
+    "move_file": true,
+    "create_folder": true,
+    "file_info": true,
+    "find_application": true,
+    "get_process_status": true,
+    "launch_application": true,
+    "close_application": true,
+    "open_url": true
   }
 }
