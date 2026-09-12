@@ -1,36 +1,79 @@
+from __future__ import annotations
+
 import json
-from pathlib import Path
 from copy import deepcopy
+from pathlib import Path
+
+from core.app_paths import CONFIG_FILE, bundled_config_path, ensure_application_dirs
 
 
 DEFAULTS = {
-    "assistant_name": "JARVIS",
+    "assistant_name": "Jelr1k",
     "model": "qwen3-1.7b-no-think:latest",
     "thinking": False,
     "temperature": 0.7,
     "context_length": 32768,
     "max_tokens": 4096,
     "ollama": {"base_url": "http://localhost:11434"},
-    "tools": {"delete_file": True, "launch_application": True},
+    "tools": {
+        "search_files": True,
+        "read_file": True,
+        "create_file": True,
+        "write_file": True,
+        "delete_file": True,
+        "rename_file": True,
+        "copy_file": True,
+        "move_file": True,
+        "create_folder": True,
+        "file_info": True,
+        "find_application": True,
+        "get_process_status": True,
+        "launch_application": True,
+        "close_application": True,
+        "open_url": True,
+    },
 }
 
 
 class ConfigManager:
-    def __init__(self, path="config/settings.json"):
-        self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+    def __init__(self, path: str | Path | None = None):
+        ensure_application_dirs()
+        self.path = Path(path) if path else CONFIG_FILE
+        if path is None:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            self.path = self._normalize_explicit_path(self.path)
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self.data = self._load()
 
+    @staticmethod
+    def _normalize_explicit_path(path: Path) -> Path:
+        if path.is_absolute():
+            return path
+        from core.app_paths import APP_ROOT
+        return APP_ROOT / path
+
     def _load(self):
-        if not self.path.exists():
-            self._save(DEFAULTS)
-            return deepcopy(DEFAULTS)
+        source = self.path
+        if not source.exists():
+            bundled = bundled_config_path()
+            if bundled != self.path and bundled.exists():
+                source = bundled
+
         try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
+            data = json.loads(source.read_text(encoding="utf-8")) if source.exists() else {}
         except (OSError, json.JSONDecodeError):
-            data = deepcopy(DEFAULTS)
+            data = {}
+
         merged = deepcopy(DEFAULTS)
-        self._merge(merged, data)
+        if isinstance(data, dict):
+            self._merge(merged, data)
+
+        if not self.path.exists():
+            try:
+                self._save(merged)
+            except OSError:
+                pass
         return merged
 
     @staticmethod
@@ -42,7 +85,10 @@ class ConfigManager:
                 target[key] = value
 
     def _save(self, data):
-        self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+        temp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp_path.replace(self.path)
 
     def save(self):
         self._save(self.data)
