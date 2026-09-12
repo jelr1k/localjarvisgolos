@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import os
-import re
 import shutil
 from pathlib import Path
 
 import psutil
 
 from security.validator import validate_non_empty, validate_url
-from tools.paths import is_path_allowed, resolve_tool_path
+from tools.paths import resolve_tool_path
 
 _WINDOWS_APP_DIRS = [
     Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
@@ -42,24 +41,22 @@ def _running_process_matches(name: str) -> list[dict]:
 
 
 def find_application(name: str) -> dict:
-    """Ищет приложение по ярлыкам Start Menu и PATH, без запуска shell."""
+    """Ищет установленное приложение через Start Menu и PATH."""
     try:
         raw = validate_non_empty(name, "название приложения")
     except ValueError as exc:
         return _result(False, error=str(exc))
 
     wanted = raw.lower().strip('"')
+    stem = Path(wanted).stem
     candidates: list[Path] = []
-    direct = Path(raw).expanduser()
-    if direct.suffix.lower() in {".exe", ".lnk"} and direct.exists() and direct.is_file():
-        candidates.append(direct.resolve())
 
     for root in _WINDOWS_APP_DIRS:
         if not root.exists():
             continue
         try:
             for item in root.rglob("*.lnk"):
-                if item.stem.lower() == Path(wanted).stem.lower() or item.name.lower() == wanted:
+                if item.stem.lower() == stem or item.name.lower() == wanted:
                     candidates.append(item.resolve())
         except OSError:
             continue
@@ -71,7 +68,7 @@ def find_application(name: str) -> dict:
 
     unique = sorted(set(p for p in candidates if p.is_file()), key=lambda p: str(p).lower())
     if not unique:
-        return _result(False, error=f"Приложение не найдено: {raw}", matches=[])
+        return _result(False, error=f"Установленное приложение не найдено: {raw}", matches=[])
     if len(unique) > 1:
         return _result(False, error="Найдено несколько вариантов приложения.", ambiguous=True, matches=[str(p) for p in unique])
     return _result(True, path=unique[0], matches=[str(unique[0])])
@@ -87,23 +84,16 @@ def get_process_status(name: str) -> dict:
 
 
 def launch_application(target: str) -> dict:
-    """Запускает найденное приложение или файл sandbox.
-
-    Абсолютный внешний путь допускается только после явного поиска приложения
-    этим инструментом. Универсальный shell не используется.
-    """
+    """Запускает установленное приложение или файл из sandbox, без shell."""
     try:
         target = validate_non_empty(target, "приложение или файл")
     except ValueError as exc:
         return _result(False, error=str(exc))
 
-    # Сначала ищем как приложение/ярлык.
     found = find_application(target)
     if found.get("success"):
-        path = Path(found["path"])
-        return _start_path(path)
-    
-    # Затем разрешаем только существующий файл внутри sandbox.
+        return _start_path(Path(found["path"]))
+
     file_path, matches = resolve_tool_path(target)
     if len(matches) > 1:
         return _result(False, error="Найдено несколько файлов с таким именем.", ambiguous=True, matches=[str(p) for p in matches])
