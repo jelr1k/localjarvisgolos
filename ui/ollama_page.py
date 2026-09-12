@@ -18,8 +18,13 @@ class _OllamaWorker(QRunnable):
 
     def run(self):
         try:
-            if self.action == "start":
-                result = self._safe_start()
+            if self.action == "status":
+                running = self.manager.is_running()
+                loaded = self.manager.get_loaded_models() if running else []
+                result = {"success": True, "running": running, "loaded": loaded}
+            elif self.action == "start":
+                self.manager.start()
+                result = {"success": True}
             elif self.action == "stop":
                 result = self.manager.stop_server()
             elif self.action == "load":
@@ -32,13 +37,6 @@ class _OllamaWorker(QRunnable):
             result = {"success": False, "error": str(exc)}
         self.signals.finished.emit(result)
 
-    def _safe_start(self):
-        try:
-            self.manager.start()
-            return {"success": True}
-        except Exception as exc:
-            return {"success": False, "error": str(exc)}
-
 
 class OllamaPage(QWidget):
     def __init__(self, config, ollama_manager):
@@ -47,9 +45,10 @@ class OllamaPage(QWidget):
         self.manager = ollama_manager
         self.pool = QThreadPool(self)
         self.busy = False
+        self.status_busy = False
 
-        self.server_label = QLabel()
-        self.model_label = QLabel()
+        self.server_label = QLabel("Сервер: проверка…")
+        self.model_label = QLabel("Модель: проверка…")
         self.action_label = QLabel("Готово")
 
         self.start_button = QPushButton("Запустить Ollama Server")
@@ -93,8 +92,10 @@ class OllamaPage(QWidget):
 
     def _set_busy(self, busy: bool):
         self.busy = busy
-        for button in (self.start_button, self.stop_button, self.refresh_button, self.load_button, self.unload_button):
-            button.setEnabled(not busy)
+        self.refresh_button.setEnabled(not busy and not self.status_busy)
+        self.start_button.setEnabled(not busy and not self.status_busy and self.server_label.text().endswith("остановлен"))
+        self.stop_button.setEnabled(not busy and not self.status_busy and self.manager.started_by_jarvis and self.server_label.text().endswith("запущен"))
+        self.load_button.setEnabled(not busy and not self.status_busy and self.server_label.text().endswith("запущен"))
 
     def _run(self, action, model=None):
         if self.busy:
@@ -115,17 +116,26 @@ class OllamaPage(QWidget):
         self.refresh()
 
     def refresh(self):
-        running = self.manager.is_running()
-        loaded = self.manager.get_loaded_models() if running else []
-        model = self.config.get("model", "—")
-        loaded_names = {item.get("name") or item.get("model") for item in loaded}
+        if self.status_busy or self.busy:
+            return
+        self.status_busy = True
+        self.refresh_button.setEnabled(False)
+        worker = _OllamaWorker("status", self.manager)
+        worker.signals.finished.connect(self._status_finished)
+        self.pool.start(worker)
 
-        self.server_label.setText(f"Сервер: {'запущен' if running else 'остановлен'}")
-        self.model_label.setText(
-            f"Модель {model}: {'загружена' if model in loaded_names else 'не загружена'}"
-        )
-        self.start_button.setEnabled(not self.busy and not running)
-        self.stop_button.setEnabled(not self.busy and running and self.manager.started_by_jarvis)
-        self.refresh_button.setEnabled(not self.busy)
-        self.load_button.setEnabled(not self.busy and running)
-        self.unload_button.setEnabled(not self.busy and running and model in loaded_names)
+    def _status_finished(self, result):
+        self.status_busy = False
+        running = bool(result.get("running")) if result.get("success") else False
+        loaded_names = {
+            item.get("name") or item.get("model")
+            for item in (result.get("loaded") or [])
+        }
+        model = self.config.get("model", "—")
+        if result.get("success"):
+            self.server_label.setText(f"Сервер: {'запущен' if running else 'остановлен'}")
+            self.model_label.setText(f"Модель {model}: {'загружена' if model in loaded_names else 'не загружена'}")
+        else:
+            self.server_label.setText("Сервер: ошибка подключения")
+            self.model_label.setText(f"Модель {model}: неизвестно")
+        self._set_busy(self.busy)
