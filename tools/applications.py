@@ -153,22 +153,26 @@ def get_process_status(name: str) -> dict:
 
 
 def launch_application(target: str) -> dict:
-    """Запускает установленное приложение или файл из sandbox, без shell."""
+    """Запускает любой существующий файл из workspace или установленное приложение."""
     try:
         target = validate_non_empty(target, "приложение или файл")
     except ValueError as exc:
         return _result(False, error=str(exc))
 
+    # Сначала проверяем workspace. Это гарантирует, что файл пользователя
+    # имеет приоритет над одноимённым приложением из Start Menu/PATH.
+    file_path, matches = resolve_tool_path(target)
+    if len(matches) > 1:
+        return _result(False, error="Найдено несколько файлов с таким именем.", ambiguous=True, matches=[str(p) for p in matches])
+    if file_path is not None:
+        return _start_path(file_path)
+
+    # Если в workspace ничего не найдено, ищем обычное установленное приложение.
     found = find_application(target)
     if found.get("success"):
         return _start_path(Path(found["path"]))
 
-    file_path, matches = resolve_tool_path(target)
-    if len(matches) > 1:
-        return _result(False, error="Найдено несколько файлов с таким именем.", ambiguous=True, matches=[str(p) for p in matches])
-    if file_path is None:
-        return _result(False, error=found.get("error") or f"Файл не найден: {target}")
-    return _start_path(file_path)
+    return _result(False, error=found.get("error") or f"Файл или приложение не найдено: {target}")
 
 
 def _start_path(path: Path) -> dict:
