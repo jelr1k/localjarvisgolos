@@ -1,36 +1,151 @@
+from __future__ import annotations
+
 import os
+import re
+import shutil
 from pathlib import Path
 
-from tools.paths import TOOL_WORKSPACE, is_path_allowed, resolve_tool_path
+import psutil
 
-ALLOWED_APPLICATION_DIRECTORY = TOOL_WORKSPACE
+from security.validator import validate_non_empty, validate_url
+from tools.paths import is_path_allowed, resolve_tool_path
+
+_WINDOWS_APP_DIRS = [
+    Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
+    Path(os.environ.get("PROGRAMDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
+]
 
 
-def _is_allowed_application(path: Path) -> bool:
-    return is_path_allowed(path)
+def _result(success: bool, *, path=None, error=None, **extra):
+    data = {"success": success}
+    if path is not None:
+        data["path"] = str(path)
+    if error:
+        data["error"] = error
+    data.update(extra)
+    return data
 
 
-def launch_application(path: str) -> dict:
-    """Открывает/запускает любой файл или ярлык из workspace."""
-    if not path:
-        return {"success": False, "error": "Не указан путь к файлу."}
+def _running_process_matches(name: str) -> list[dict]:
+    wanted = name.lower().strip()
+    result = []
+    for proc in psutil.process_iter(["pid", "name", "exe"]):
+        try:
+            proc_name = (proc.info.get("name") or "").lower()
+            exe = proc.info.get("exe") or ""
+            stem = Path(exe).stem.lower() if exe else Path(proc_name).stem
+            if wanted in {proc_name, stem} or wanted == Path(proc_name).stem:
+                result.append({"pid": proc.info["pid"], "name": proc.info.get("name"), "exe": exe})
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+            continue
+    return result
 
-    file_path, matches = resolve_tool_path(path)
-    if len(matches) > 1:
-        return {
-            "success": False,
-            "error": "Найдено несколько файлов с таким именем.",
-            "ambiguous": True,
-            "matches": [str(item) for item in matches],
-        }
-    if file_path is None:
-        return {"success": False, "error": f"Файл не найден в рабочей папке JARVIS: {path}"}
-    if not file_path.is_file() or not is_path_allowed(file_path):
-        return {"success": False, "error": "Открывать можно только файлы внутри рабочей папки."}
 
+def find_application(name: str) -> dict:
+    """Ищет приложение по ярлыкам Start Menu и PATH, без запуска shell."""
     try:
-        # Windows сам обработает .lnk, .exe, .bat, .cmd и обычные ассоциированные файлы.
-        os.startfile(str(file_path))
-        return {"success": True, "message": f"Запущено: {file_path}"}
+        raw = validate_non_empty(name, "название приложения")
+    except ValueError as exc:
+        return _result(False, error=str(exc))
+
+    wanted = raw.lower().strip('"')
+    candidates: list[Path] = []
+    direct = Path(raw).expanduser()
+    if direct.suffix.lower() in {".exe", ".lnk"} and direct.exists() and direct.is_file():
+        candidates.append(direct.resolve())
+
+    for root in _WINDOWS_APP_DIRS:
+        if not root.exists():
+            continue
+        try:
+            for item in root.rglob("*.lnk"):
+                if item.stem.lower() == Path(wanted).stem.lower() or item.name.lower() == wanted:
+                    candidates.append(item.resolve())
+        except OSError:
+            continue
+
+    executable_name = wanted if wanted.endswith(".exe") else f"{wanted}.exe"
+    path_match = shutil.which(executable_name)
+    if path_match:
+        candidates.append(Path(path_match).resolve())
+
+    unique = sorted(set(p for p in candidates if p.is_file()), key=lambda p: str(p).lower())
+    if not unique:
+        return _result(False, error=f"Приложение не найдено: {raw}", matches=[])
+    if len(unique) > 1:
+        return _result(False, error="Найдено несколько вариантов приложения.", ambiguous=True, matches=[str(p) for p in unique])
+    return _result(True, path=unique[0], matches=[str(unique[0])])
+
+
+def get_process_status(name: str) -> dict:
+    try:
+        name = validate_non_empty(name, "название процесса")
+        matches = _running_process_matches(name)
+        return _result(True, running=bool(matches), processes=matches)
+    except ValueError as exc:
+        return _result(False, error=str(exc))
+
+
+def launch_application(target: str) -> dict:
+    """Запускает найденное приложение или файл sandbox.
+
+    Абсолютный внешний путь допускается только после явного поиска приложения
+    этим инструментом. Универсальный shell не используется.
+    """
+    try:
+        target = validate_non_empty(target, "приложение или файл")
+    except ValueError as exc:
+        return _result(False, error=str(exc))
+
+    # Сначала ищем как приложение/ярлык.
+    found = find_application(target)
+    if found.get("success"):
+        path = Path(found["path"])
+        return _start_path(path)
+    
+    # Затем разрешаем только существующий файл внутри sandbox.
+    file_path, matches = resolve_tool_path(target)
+    if len(matches) > 1:
+        return _result(False, error="Найдено несколько файлов с таким именем.", ambiguous=True, matches=[str(p) for p in matches])
+    if file_path is None:
+        return _result(False, error=found.get("error") or f"Файл не найден: {target}")
+    return _start_path(file_path)
+
+
+def _start_path(path: Path) -> dict:
+    try:
+        if not path.is_file():
+            return _result(False, path=path, error="Указанный объект не является файлом.")
+        os.startfile(str(path))
+        return _result(True, path=path, details={"started": True})
     except OSError as exc:
-        return {"success": False, "error": f"Не удалось запустить файл: {exc}"}
+        return _result(False, path=path, error=f"Не удалось запустить: {exc}")
+
+
+def close_application(name: str) -> dict:
+    try:
+        name = validate_non_empty(name, "название процесса")
+        matches = _running_process_matches(name)
+        if not matches:
+            return _result(False, error=f"Процесс не запущен: {name}", running=False)
+        closed = []
+        failed = []
+        for item in matches:
+            try:
+                proc = psutil.Process(item["pid"])
+                proc.terminate()
+                closed.append(item["pid"])
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+                failed.append({"pid": item["pid"], "error": str(exc)})
+        return _result(not failed, details={"closed": closed, "failed": failed})
+    except ValueError as exc:
+        return _result(False, error=str(exc))
+
+
+def open_url(url: str) -> dict:
+    try:
+        url = validate_url(url)
+        os.startfile(url)
+        return _result(True, details={"url": url})
+    except (ValueError, OSError) as exc:
+        return _result(False, error=f"Не удалось открыть URL: {exc}")
