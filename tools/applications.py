@@ -19,6 +19,8 @@ _WINDOWS_APP_DIRS = [
     Path(os.environ.get("PROGRAMDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
 ]
 
+_PENDING_LAUNCH_CHOICES: list[Path] = []
+
 
 def _result(success: bool, *, path=None, error=None, **extra):
     data = {"success": success}
@@ -152,22 +154,59 @@ def get_process_status(name: str) -> dict:
         return _result(False, error=str(exc))
 
 
+def _selection_index(target: str) -> int | None:
+    """Поддерживает выбор «первый», «второй», «1», «2» и т. п."""
+    value = target.strip().lower().strip('"').rstrip(".")
+    words = {
+        "первый": 1, "первая": 1, "1": 1,
+        "второй": 2, "вторая": 2, "2": 2,
+        "третий": 3, "третья": 3, "3": 3,
+        "четвёртый": 4, "четвертый": 4, "четвёртая": 4, "четвертая": 4, "4": 4,
+        "пятый": 5, "пятая": 5, "5": 5,
+    }
+    return words.get(value)
+
+
 def launch_application(target: str) -> dict:
-    """Запускает любой существующий файл из workspace или установленное приложение."""
+    """Запускает файл из workspace или установленное приложение.
+
+    Если предыдущая команда дала несколько вариантов, поддерживает выбор по номеру.
+    """
+    global _PENDING_LAUNCH_CHOICES
+
     try:
         target = validate_non_empty(target, "приложение или файл")
     except ValueError as exc:
         return _result(False, error=str(exc))
 
-    # Сначала проверяем workspace. Это гарантирует, что файл пользователя
-    # имеет приоритет над одноимённым приложением из Start Menu/PATH.
+    index = _selection_index(target)
+    if index is not None and _PENDING_LAUNCH_CHOICES:
+        if index > len(_PENDING_LAUNCH_CHOICES):
+            return _result(
+                False,
+                error=f"В списке только {len(_PENDING_LAUNCH_CHOICES)} вариант(а). Выбери номер от 1 до {len(_PENDING_LAUNCH_CHOICES)}.",
+            )
+        selected = _PENDING_LAUNCH_CHOICES[index - 1]
+        _PENDING_LAUNCH_CHOICES = []
+        return _start_path(selected)
+
+    _PENDING_LAUNCH_CHOICES = []
+
+    # Сначала проверяем workspace, чтобы одноимённый пользовательский файл
+    # имел приоритет над приложением из Start Menu/PATH.
     file_path, matches = resolve_tool_path(target)
     if len(matches) > 1:
-        return _result(False, error="Найдено несколько файлов с таким именем.", ambiguous=True, matches=[str(p) for p in matches])
+        _PENDING_LAUNCH_CHOICES = list(matches)
+        numbered = "\n".join(f"{i}. {path}" for i, path in enumerate(matches, 1))
+        return _result(
+            False,
+            error=("Найдено несколько файлов с таким именем. Выбери номер варианта:\n" f"{numbered}"),
+            ambiguous=True,
+            matches=[str(p) for p in matches],
+        )
     if file_path is not None:
         return _start_path(file_path)
 
-    # Если в workspace ничего не найдено, ищем обычное установленное приложение.
     found = find_application(target)
     if found.get("success"):
         return _start_path(Path(found["path"]))
