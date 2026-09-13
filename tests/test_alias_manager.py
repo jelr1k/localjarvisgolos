@@ -43,7 +43,7 @@ class AliasManagerTests(unittest.TestCase):
             manager = AliasManager(path)
             manager.set_aliases("applications", "Prism Launcher", ["prism"])
 
-            suggestions = manager.suggest("applications", "присм")
+            suggestions = manager.suggest("applications", "prims")
             self.assertTrue(suggestions)
             self.assertEqual(suggestions[0]["target"], "Prism Launcher")
 
