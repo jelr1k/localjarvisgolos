@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from core.alias_manager import AliasManager
 from security.permissions import PermissionManager
 from tools.registry import TOOLS
 
@@ -12,9 +13,10 @@ logger = logging.getLogger("jarvis.tools")
 class ToolExecutor:
     """Единая точка запуска инструментов с проверкой разрешений."""
 
-    def __init__(self, config=None, enabled_tools=None):
+    def __init__(self, config=None, enabled_tools=None, alias_manager: AliasManager | None = None):
         self.permission_manager = PermissionManager(config) if config is not None else None
         self.enabled_tools = set(enabled_tools) if enabled_tools is not None else set(TOOLS)
+        self.alias_manager = alias_manager or AliasManager()
 
     def _is_enabled(self, tool_name: str) -> bool:
         if tool_name not in self.enabled_tools:
@@ -33,6 +35,18 @@ class ToolExecutor:
             return {"success": False, "error": "Инструмент отключён в настройках Jarvis."}
         if not isinstance(arguments, dict):
             return {"success": False, "error": "Параметры инструмента должны быть объектом."}
+
+        resolved_arguments, alias_result = self.alias_manager.resolve_tool_arguments(tool_name, arguments)
+        if alias_result:
+            candidates = alias_result.get("candidates", [])
+            if candidates:
+                return {
+                    "success": False,
+                    "error": "Неоднозначный алиас. Уточни объект.",
+                    "ambiguous": True,
+                    "matches": candidates,
+                }
+        arguments = resolved_arguments
 
         tool = TOOLS[tool_name]
         if tool.get("requires_confirmation", False):
