@@ -52,7 +52,7 @@ class CommandRouter:
             return query, None
         if len(suggestions) > 1 and suggestions[0]["score"] - suggestions[1]["score"] < 0.08:
             items = [item["target"] for item in suggestions[:5]]
-            return None, "Не удалось однозначно определить объект. Варианты: " + "; ".join(items)
+            return None, "Не удалось однозначно определить объект. Варианты: "; + "; ".join(items)
 
         suggestion = suggestions[0]
         if alias_confirmation_callback is None:
@@ -118,5 +118,11 @@ class CommandRouter:
             if status.get("success") and status.get("running"):
                 return f"{target} уже запущен."
             return self._reply(executor.execute("launch_application", {"target": resolved}, confirmation_callback=confirmation_callback))
+
+        if action_name == "close" and executor._is_enabled("close_application"):
+            resolved, error = self._resolve_target(target, ("applications",), alias_confirmation_callback)
+            if error:
+                return f"Не выполнено: {error}"
+            return self._reply(executor.execute("close_application", {"name": resolved}, confirmation_callback=confirmation_callback))
 
         return None
