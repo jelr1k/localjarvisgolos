@@ -22,6 +22,21 @@ class AliasManagerTests(unittest.TestCase):
             self.assertEqual(reloaded.resolve("applications", "ДИСкорД")["target"], "Discord")
             self.assertEqual(reloaded.resolve("applications", "дс")["target"], "Discord")
 
+    def test_alias_resolves_russian_declension(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+            manager.set_aliases("applications", "Geometry Dash", ["геометрия дэш"])
+
+            self.assertEqual(manager.resolve("applications", "геометрию дэш")["target"], "Geometry Dash")
+            self.assertEqual(manager.resolve("applications", "геометрии дэш")["target"], "Geometry Dash")
+
+    def test_alias_normalization_keeps_english_name_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+            manager.set_aliases("applications", "Geometry Dash", ["Geometry Dash"])
+
+            self.assertEqual(manager.resolve("applications", "GEOMETRY DASH")["target"], "Geometry Dash")
+
     def test_alias_collision_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             manager = self.make_manager(directory)
