@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from core.alias_manager import AliasManager
+from tools import applications
 from tools.executor import ToolExecutor
 from tools.registry import TOOLS
 
@@ -23,7 +24,7 @@ class CommandRouter:
         if not result.get("success"):
             matches = result.get("matches") or []
             if result.get("ambiguous") and matches:
-                return "Неоднозначный запрос. Варианты:\n" + "\n".join(f"{i}. {item}" for i, item in enumerate(matches, 1))
+                return (result.get("error") or "Неоднозначный запрос.")
             return f"Не выполнено: {result.get('error', 'неизвестная ошибка')}"
         details = result.get("details") or {}
         if result.get("matches") is not None:
@@ -66,6 +67,9 @@ class CommandRouter:
         normalized = " ".join(text.strip().split())
         lower = normalized.lower()
         executor = self._executor()
+
+        if applications.has_pending_launch_choices() and re.fullmatch(r"(?:\d+|перв(?:ый|ая)|втор(?:ой|ая)|трет(?:ий|ья)|четверт(?:ый|ая)|четвёрт(?:ый|ая)|пят(?:ый|ая))\.?", lower):
+            return self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
 
         if re.fullmatch(r"(?:статус|состояние) ollama", lower):
             return f"Ollama Server: {self.ollama_manager.server_status()}. Загружено моделей: {len(self.ollama_manager.get_loaded_models())}."
