@@ -9,14 +9,18 @@ from tools import applications
 
 
 class FakeProcess:
-    def __init__(self, pid: int, children=None):
+    def __init__(self, pid: int, children=None, parents=None):
         self.pid = pid
         self.terminated = False
         self._children = list(children or [])
+        self._parents = list(parents or [])
 
     def children(self, recursive=False):
         self.children_recursive = recursive
         return list(self._children)
+
+    def parents(self):
+        return list(self._parents)
 
     def terminate(self):
         self.terminated = True
@@ -46,6 +50,36 @@ class ApplicationToolTests(unittest.TestCase):
             )
 
         self.assertEqual([item["pid"] for item in matches], [10])
+
+    def test_process_matching_ignores_exe_extension(self):
+        class Proc:
+            def __init__(self, pid, name, exe):
+                self.info = {"pid": pid, "name": name, "exe": exe}
+
+        processes = [
+            Proc(20, "Geometry Dash", ""),
+            Proc(21, "Other Game", r"C:\Games\Other\Other.exe"),
+        ]
+
+        with patch("tools.applications.psutil.process_iter", return_value=processes):
+            matches = applications._running_process_matches(
+                "Geometry Dash",
+                executable=r"C:\Games\Geometry Dash\Geometry Dash.exe",
+            )
+
+        self.assertEqual([item["pid"] for item in matches], [20])
+
+    def test_process_matching_normalizes_name_and_punctuation(self):
+        class Proc:
+            def __init__(self, pid, name, exe):
+                self.info = {"pid": pid, "name": name, "exe": exe}
+
+        processes = [Proc(30, '"Geometry-Dash.EXE"', "")]
+
+        with patch("tools.applications.psutil.process_iter", return_value=processes):
+            matches = applications._running_process_matches("geometry dash")
+
+        self.assertEqual([item["pid"] for item in matches], [30])
 
     def test_close_application_accepts_already_closed_state(self):
         with patch("tools.applications._resolve_application", return_value={"success": True, "identity": {"normalized_executable": r"c:\apps\prism\prismlauncher.exe"}}), \
@@ -82,6 +116,30 @@ class ApplicationToolTests(unittest.TestCase):
              patch("tools.applications.psutil.Process", return_value=root), \
              patch("tools.applications.psutil.wait_procs", return_value=([child, root], [])):
             result = applications.close_application("DDNet")
+
+        self.assertTrue(result["success"])
+        self.assertEqual(termination_order, [125, 123])
+        self.assertEqual(result["details"]["closed"], [125, 123])
+
+    def test_close_application_uses_top_matched_process_as_tree_root(self):
+        root = FakeProcess(123)
+        child = FakeProcess(125, parents=[root])
+        root._children = [child]
+        termination_order = []
+        root.terminate = lambda: termination_order.append(root.pid)
+        child.terminate = lambda: termination_order.append(child.pid)
+
+        processes_by_pid = {123: root, 125: child}
+        matches = [
+            {"pid": 123, "name": "geometry dash.exe", "exe": r"C:\Games\Geometry Dash\Geometry Dash.exe"},
+            {"pid": 125, "name": "Geometry Dash", "exe": ""},
+        ]
+
+        with patch("tools.applications._resolve_application", return_value={"success": True, "identity": {"normalized_executable": r"c:\games\geometry dash\geometry dash.exe"}}), \
+             patch("tools.applications._running_process_matches", return_value=matches), \
+             patch("tools.applications.psutil.Process", side_effect=processes_by_pid.get), \
+             patch("tools.applications.psutil.wait_procs", return_value=([child, root], [])):
+            result = applications.close_application("Geometry Dash")
 
         self.assertTrue(result["success"])
         self.assertEqual(termination_order, [125, 123])
