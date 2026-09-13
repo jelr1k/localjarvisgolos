@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from pathlib import Path
+
+from PySide6.QtCore import QMimeData, Qt
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
+    QFileDialog,
     QComboBox,
     QFormLayout,
     QHBoxLayout,
@@ -17,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from core.alias_manager import AliasError, AliasManager
+from tools.paths import add_file_to_workspace
 
 
 CATEGORY_LABELS = {
@@ -34,18 +39,32 @@ class AliasPage(QWidget):
         super().__init__()
         self.alias_manager = alias_manager
         self._editing_key = None
+        self.setAcceptDrops(True)
 
-        title = QLabel("Алиасы и названия")
+        title = QLabel("Алиасы и Workspace")
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
 
         hint = QLabel(
             "Здесь можно задать несколько названий одному приложению, файлу, папке или действию. "
             "Для файлов и папок указывай путь относительно workspace. "
+            "Файл можно добавить в Workspace кнопкой или перетащить сюда из Проводника. "
+            "После добавления Jarvis автоматически определит файл и заполнит его имя, а тебе останется "
+            "при необходимости указать алиас и сохранить. "
             "Регистр не учитывается: Steam, steam и STEAM считаются одним названием. "
             "То же самое относится к русским вариантам: стим и Стим считаются одним названием. "
             "Одинаковые названия автоматически объединяются при сохранении."
         )
         hint.setWordWrap(True)
+
+        self.drop_zone = QLabel("Перетащи файл сюда\nили используй «Добавить файл»")
+        self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.drop_zone.setMinimumHeight(90)
+        self.drop_zone.setStyleSheet(
+            "border: 2px dashed palette(mid); padding: 18px; border-radius: 8px;"
+        )
+
+        self.add_file_button = QPushButton("Добавить файл")
+        self.add_file_button.clicked.connect(self._choose_file)
 
         self.items = QListWidget()
         self.items.currentItemChanged.connect(self._load_selected)
@@ -100,10 +119,73 @@ class AliasPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(title)
         layout.addWidget(hint)
+        layout.addWidget(self.drop_zone)
+        layout.addWidget(self.add_file_button)
         layout.addLayout(content)
 
         self.refresh()
         self._new()
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if self._mime_has_files(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        paths = self._mime_file_paths(event.mimeData())
+        if not paths:
+            event.ignore()
+            return
+
+        event.acceptProposedAction()
+        for path in paths:
+            self._import_file(path)
+
+    @staticmethod
+    def _mime_has_files(mime_data: QMimeData) -> bool:
+        return bool(mime_data.hasUrls() and any(url.isLocalFile() for url in mime_data.urls()))
+
+    @staticmethod
+    def _mime_file_paths(mime_data: QMimeData) -> list[Path]:
+        paths: list[Path] = []
+        for url in mime_data.urls():
+            if not url.isLocalFile():
+                continue
+            path = Path(url.toLocalFile())
+            if path.is_file():
+                paths.append(path)
+        return paths
+
+    def _choose_file(self):
+        path, _ = QFileDialog.getOpenFileName(self, "Добавить файл в Workspace")
+        if path:
+            self._import_file(Path(path))
+
+    def _import_file(self, source: Path):
+        try:
+            target = add_file_to_workspace(source)
+        except FileExistsError as exc:
+            QMessageBox.warning(self, "Workspace", str(exc))
+            return
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Workspace", str(exc))
+            return
+
+        self._editing_key = None
+        self.items.clearSelection()
+
+        index = self.category.findData("files")
+        if index >= 0:
+            self.category.blockSignals(True)
+            self.category.setCurrentIndex(index)
+            self.category.blockSignals(False)
+        self._category_changed()
+
+        self.target.setText(target.name)
+        self.aliases.clear()
+        self.target.setFocus()
+        self.target.selectAll()
 
     def refresh(self):
         current_key = self._editing_key
@@ -125,7 +207,7 @@ class AliasPage(QWidget):
         elif category == "applications":
             self.target.setPlaceholderText("Например: Discord или Prism Launcher")
         elif category == "files":
-            self.target.setPlaceholderText("Путь относительно workspace, например: notes/todo.txt")
+            self.target.setPlaceholderText("Имя или путь относительно workspace, например: notes/todo.txt")
         else:
             self.target.setPlaceholderText("Путь относительно workspace, например: projects")
 
