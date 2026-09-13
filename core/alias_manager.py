@@ -276,7 +276,7 @@ class AliasManager:
         normalized = self._normalize_alias(text)
         candidates = [text]
         if category == "applications":
-            first = re.split(r"[\\s._-]+", text, maxsplit=1)[0]
+            first = re.split(r"[\s._-]+", text, maxsplit=1)[0]
             if first and self._normalize_alias(first) != normalized:
                 candidates.append(first)
         else:
