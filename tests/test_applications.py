@@ -9,9 +9,14 @@ from tools import applications
 
 
 class FakeProcess:
-    def __init__(self, pid: int):
+    def __init__(self, pid: int, children=None):
         self.pid = pid
         self.terminated = False
+        self._children = list(children or [])
+
+    def children(self, recursive=False):
+        self.children_recursive = recursive
+        return list(self._children)
 
     def terminate(self):
         self.terminated = True
@@ -64,6 +69,32 @@ class ApplicationToolTests(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertFalse(result["running"])
         self.assertEqual(result["details"]["closed"], [123])
+
+    def test_close_application_terminates_children_before_parent(self):
+        child = FakeProcess(125)
+        root = FakeProcess(123, children=[child])
+        termination_order = []
+        root.terminate = lambda: termination_order.append(root.pid)
+        child.terminate = lambda: termination_order.append(child.pid)
+
+        with patch("tools.applications._resolve_application", return_value={"success": True, "identity": {"normalized_executable": r"c:\apps\ddnet\ddnet.exe"}}), \
+             patch("tools.applications._running_process_matches", return_value=[{"pid": 123, "name": "ddnet.exe", "exe": r"C:\Apps\DDNet\ddnet.exe"}]), \
+             patch("tools.applications.psutil.Process", return_value=root), \
+             patch("tools.applications.psutil.wait_procs", return_value=([child, root], [])):
+            result = applications.close_application("DDNet")
+
+        self.assertTrue(result["success"])
+        self.assertEqual(termination_order, [125, 123])
+        self.assertEqual(result["details"]["closed"], [125, 123])
+
+    def test_collect_process_tree_includes_all_descendants(self):
+        grandchild = FakeProcess(127)
+        child = FakeProcess(125, children=[grandchild])
+        root = FakeProcess(123, children=[child])
+
+        tree = applications._collect_process_tree(root)
+
+        self.assertEqual([(proc.pid, depth) for proc, depth in tree], [(123, 0), (125, 1), (127, 2)])
 
     def test_single_workspace_match_launches_without_installed_app_lookup(self):
         with tempfile.TemporaryDirectory() as tmp:
