@@ -10,13 +10,12 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
-    QPushButton,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from core.alias_manager import AliasError, AliasManager, CATEGORIES
+from core.alias_manager import AliasError, AliasManager
 
 
 CATEGORY_LABELS = {
@@ -24,13 +23,6 @@ CATEGORY_LABELS = {
     "files": "Файл",
     "folders": "Папка",
     "actions": "Действие",
-}
-
-ACTION_LABELS = {
-    "launch": "launch — запуск/открытие",
-    "search": "search — поиск",
-    "delete": "delete — удаление",
-    "status": "status — проверка статуса",
 }
 
 
@@ -110,6 +102,7 @@ class AliasPage(QWidget):
         self._new()
 
     def refresh(self):
+        current_key = self._editing_key
         self.items.blockSignals(True)
         self.items.clear()
         for entry in self.alias_manager.list_objects():
@@ -118,6 +111,8 @@ class AliasPage(QWidget):
             item.setData(Qt.ItemDataRole.UserRole, (entry["category"], entry["target"]))
             self.items.addItem(item)
         self.items.blockSignals(False)
+        if current_key:
+            self._select_key(current_key)
 
     def _category_changed(self):
         category = self.category.currentData()
@@ -170,22 +165,37 @@ class AliasPage(QWidget):
         if not aliases:
             aliases = self.alias_manager.default_aliases(category, target)
 
-        if self._editing_key and self._editing_key != (category, target):
-            old_category, old_target = self._editing_key
-            self.alias_manager.remove_object(old_category, old_target)
+        old_key = self._editing_key
+        if old_key == (category, target):
+            try:
+                self.alias_manager.set_aliases(category, target, aliases)
+            except AliasError as exc:
+                QMessageBox.warning(self, "Алиасы", str(exc))
+                return
+            except OSError as exc:
+                QMessageBox.critical(self, "Алиасы", f"Не удалось сохранить aliases.json: {exc}")
+                return
+        else:
+            try:
+                self.alias_manager.set_aliases(category, target, aliases)
+            except AliasError as exc:
+                QMessageBox.warning(self, "Алиасы", str(exc))
+                return
+            except OSError as exc:
+                QMessageBox.critical(self, "Алиасы", f"Не удалось сохранить aliases.json: {exc}")
+                return
 
-        if not aliases:
-            QMessageBox.warning(self, "Алиасы", "Не удалось сформировать ни одного названия для объекта.")
-            return
-
-        try:
-            self.alias_manager.set_aliases(category, target, aliases)
-        except AliasError as exc:
-            QMessageBox.warning(self, "Алиасы", str(exc))
-            return
-        except OSError as exc:
-            QMessageBox.critical(self, "Алиасы", f"Не удалось сохранить aliases.json: {exc}")
-            return
+            if old_key:
+                old_category, old_target = old_key
+                try:
+                    self.alias_manager.remove_object(old_category, old_target)
+                except OSError as exc:
+                    QMessageBox.critical(
+                        self,
+                        "Алиасы",
+                        f"Новая запись сохранена, но старую запись не удалось удалить из aliases.json: {exc}",
+                    )
+                    return
 
         self._editing_key = (category, target)
         self.refresh()
