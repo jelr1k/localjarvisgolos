@@ -106,6 +106,27 @@ def _running_process_matches(name: str, *, executable: str | Path | None = None)
     return result
 
 
+def _collect_process_tree(root: psutil.Process) -> list[tuple[psutil.Process, int]]:
+    """Collect root and all current descendants with their relative depth."""
+    collected: list[tuple[psutil.Process, int]] = []
+    seen: set[int] = set()
+
+    def visit(proc: psutil.Process, depth: int) -> None:
+        try:
+            pid = proc.pid
+            if pid in seen:
+                return
+            seen.add(pid)
+            collected.append((proc, depth))
+            for child in proc.children(recursive=False):
+                visit(child, depth + 1)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+            return
+
+    visit(root, 0)
+    return collected
+
+
 def find_application(name: str) -> dict:
     """Ищет установленное приложение через Start Menu и PATH."""
     try:
@@ -244,14 +265,24 @@ def close_application(name: str) -> dict:
         if not matches:
             return _result(True, running=False, already_closed=True, details={"closed": [], "failed": []})
 
-        processes = []
+        trees: dict[int, tuple[psutil.Process, int]] = {}
         failed = []
         for item in matches:
             try:
-                processes.append(psutil.Process(item["pid"]))
-                processes[-1].terminate()
+                root = psutil.Process(item["pid"])
+                for proc, depth in _collect_process_tree(root):
+                    existing = trees.get(proc.pid)
+                    if existing is None or depth > existing[1]:
+                        trees[proc.pid] = (proc, depth)
             except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
                 failed.append({"pid": item["pid"], "error": str(exc)})
+
+        processes = [proc for proc, _depth in sorted(trees.values(), key=lambda item: item[1], reverse=True)]
+        for proc in processes:
+            try:
+                proc.terminate()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+                failed.append({"pid": proc.pid, "error": str(exc)})
 
         gone, alive = psutil.wait_procs(processes, timeout=5)
         closed = [proc.pid for proc in gone]
