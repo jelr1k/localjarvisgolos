@@ -52,7 +52,7 @@ class CommandRouter:
             return query, None
         if len(suggestions) > 1 and suggestions[0]["score"] - suggestions[1]["score"] < 0.08:
             items = [item["target"] for item in suggestions[:5]]
-            return None, "Не удалось однозначно определить объект. Варианты: "; + "; ".join(items)
+            return None, "Не удалось однозначно определить объект. Варианты: " + "; ".join(items)
 
         suggestion = suggestions[0]
         if alias_confirmation_callback is None:
