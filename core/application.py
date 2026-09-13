@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QMainWindow
 
+from core.alias_manager import AliasManager
 from core.config_manager import ConfigManager
 from core.ollama_manager import OllamaManager
 from core.app_paths import ensure_application_dirs
@@ -18,14 +19,25 @@ class JarvisApplication(QMainWindow):
         prepare_tool_workspace()
 
         self.config = ConfigManager()
+        self.alias_manager = AliasManager()
         self.ollama_manager = OllamaManager(self.config.ollama_url)
         self.ollama_manager.start()
 
         self.provider = OllamaProvider(self.config.ollama_url)
-        self.chat_service = ChatService(self.provider, self.config, self.ollama_manager)
+        self.chat_service = ChatService(
+            self.provider,
+            self.config,
+            self.ollama_manager,
+            self.alias_manager,
+        )
         self.ollama_manager.register_model(self.config.get("model"))
 
-        self.window = MainWindow(self.chat_service, self.config, self.ollama_manager)
+        self.window = MainWindow(
+            self.chat_service,
+            self.config,
+            self.ollama_manager,
+            self.alias_manager,
+        )
         self.setCentralWidget(self.window)
         self.setWindowTitle(self.config.get("assistant_name", "JARVIS"))
         self.resize(1100, 750)
