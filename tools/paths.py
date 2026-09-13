@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from core.app_paths import APP_ROOT, WORKSPACE_DIR, ensure_application_dirs
@@ -92,3 +93,22 @@ def resolve_tool_target(value: str) -> Path:
     """Разрешает путь для записи/переименования/перемещения, даже если его ещё нет."""
     prepare_tool_workspace()
     return resolve_inside_sandbox(_clean_name(value), allow_nonexistent=True)
+
+
+def add_file_to_workspace(source: str | Path) -> Path:
+    """Копирует пользовательский файл в корень Workspace и возвращает его путь."""
+    source_path = Path(source).expanduser()
+    if not source_path.exists() or not source_path.is_file():
+        raise ValueError("Можно добавить только существующий файл.")
+
+    workspace = prepare_tool_workspace()
+    target = resolve_inside_sandbox(source_path.name, allow_nonexistent=True)
+    if target.exists():
+        raise FileExistsError(f"Файл уже существует в Workspace: {target.name}")
+
+    try:
+        shutil.copy2(source_path, target)
+    except OSError as exc:
+        raise OSError(f"Не удалось добавить файл в Workspace: {exc}") from exc
+
+    return target.resolve()
