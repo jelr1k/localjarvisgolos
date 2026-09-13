@@ -167,6 +167,11 @@ def _selection_index(target: str) -> int | None:
     return words.get(value)
 
 
+def has_pending_launch_choices() -> bool:
+    """Возвращает True, если Jarvis ждёт выбор файла для запуска."""
+    return bool(_PENDING_LAUNCH_CHOICES)
+
+
 def launch_application(target: str) -> dict:
     """Запускает файл из workspace или установленное приложение.
 
@@ -185,6 +190,8 @@ def launch_application(target: str) -> dict:
             return _result(
                 False,
                 error=f"В списке только {len(_PENDING_LAUNCH_CHOICES)} вариант(а). Выбери номер от 1 до {len(_PENDING_LAUNCH_CHOICES)}.",
+                ambiguous=True,
+                matches=[str(path) for path in _PENDING_LAUNCH_CHOICES],
             )
         selected = _PENDING_LAUNCH_CHOICES[index - 1]
         _PENDING_LAUNCH_CHOICES = []
@@ -200,7 +207,7 @@ def launch_application(target: str) -> dict:
         numbered = "\n".join(f"{i}. {path}" for i, path in enumerate(matches, 1))
         return _result(
             False,
-            error=("Найдено несколько файлов с таким именем. Выбери номер варианта:\n" f"{numbered}"),
+            error=("Найдено несколько файлов с таким именем. Какой запустить?\n" f"{numbered}\n\nВведите номер варианта."),
             ambiguous=True,
             matches=[str(p) for p in matches],
         )
