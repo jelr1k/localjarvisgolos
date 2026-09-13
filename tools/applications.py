@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
+import unicodedata
 from pathlib import Path
 
 import psutil
@@ -39,6 +41,17 @@ def _normalize_executable(path: str | Path | None) -> str | None:
         return str(Path(path).resolve()).lower()
     except (OSError, RuntimeError):
         return os.path.normcase(os.path.abspath(str(path)))
+
+
+def _normalize_process_label(value: str | Path | None) -> str:
+    """Нормализует имя процесса независимо от .exe, регистра и пунктуации."""
+    text = str(value or "").strip().strip('"').replace("\\", "/")
+    text = text.rsplit("/", 1)[-1]
+    if text.casefold().endswith(".exe"):
+        text = text[:-4]
+    text = unicodedata.normalize("NFKC", text).casefold().replace("ё", "е")
+    text = re.sub(r"[\W_]+", " ", text, flags=re.UNICODE)
+    return " ".join(text.split())
 
 
 def _resolve_shortcut_target(path: Path) -> Path | None:
@@ -81,29 +94,44 @@ def _resolve_application(name: str) -> dict:
 
 
 def _running_process_matches(name: str, *, executable: str | Path | None = None) -> list[dict]:
-    """Find processes by resolved executable, with display-name fallback."""
-    wanted = name.lower().strip()
-    normalized_executable = _normalize_executable(executable)
-    wanted_stem = Path(wanted).stem
+    """Find processes by executable identity or normalized process name."""
+    wanted_label = _normalize_process_label(name)
+    executable_path = _normalize_executable(executable)
+    executable_label = _normalize_process_label(executable) if executable else wanted_label
     result = []
 
     for proc in psutil.process_iter(["pid", "name", "exe"]):
         try:
-            proc_name = (proc.info.get("name") or "").lower()
+            proc_name = proc.info.get("name") or ""
             proc_exe = proc.info.get("exe") or ""
             proc_normalized_exe = _normalize_executable(proc_exe)
-            proc_stem = Path(proc_exe).stem.lower() if proc_exe else Path(proc_name).stem.lower()
+            proc_label = _normalize_process_label(proc_name)
+            proc_exe_label = _normalize_process_label(proc_exe)
 
-            if normalized_executable:
-                matches = proc_normalized_exe == normalized_executable or proc_stem == Path(normalized_executable).stem.lower()
-            else:
-                matches = wanted in {proc_name, proc_stem} or wanted_stem == Path(proc_name).stem.lower()
+            path_match = bool(executable_path and proc_normalized_exe == executable_path)
+            label_match = executable_label in {proc_label, proc_exe_label} or wanted_label in {proc_label, proc_exe_label}
 
-            if matches:
-                result.append({"pid": proc.info["pid"], "name": proc.info.get("name"), "exe": proc_exe})
+            if path_match or label_match:
+                result.append({"pid": proc.info["pid"], "name": proc_name, "exe": proc_exe})
         except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
             continue
     return result
+
+
+def _select_process_roots(processes: list[psutil.Process]) -> list[psutil.Process]:
+    """Keep only top-level matched processes when another matched process is their ancestor."""
+    candidate_pids = {proc.pid for proc in processes}
+    roots: list[psutil.Process] = []
+
+    for proc in processes:
+        try:
+            has_matched_ancestor = any(parent.pid in candidate_pids for parent in proc.parents())
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+            has_matched_ancestor = False
+        if not has_matched_ancestor:
+            roots.append(proc)
+
+    return roots
 
 
 def _collect_process_tree(root: psutil.Process) -> list[tuple[psutil.Process, int]]:
@@ -256,6 +284,21 @@ def close_application(name: str) -> dict:
     try:
         name = validate_non_empty(name, "название приложения")
         resolved = _resolve_application(name)
+
+        if not resolved.get("success"):
+            workspace_path, workspace_matches = resolve_tool_path(name)
+            if workspace_path is not None and len(workspace_matches) == 1:
+                target = _resolve_shortcut_target(workspace_path)
+                executable = target if target and target.suffix.lower() == ".exe" else (
+                    workspace_path if workspace_path.suffix.lower() == ".exe" else None
+                )
+                if executable is not None:
+                    resolved = _result(
+                        True,
+                        path=workspace_path,
+                        identity={"normalized_executable": _normalize_executable(executable)},
+                    )
+
         if resolved.get("success"):
             identity = resolved["identity"]
             matches = _running_process_matches(name, executable=identity.get("normalized_executable"))
@@ -265,17 +308,21 @@ def close_application(name: str) -> dict:
         if not matches:
             return _result(True, running=False, already_closed=True, details={"closed": [], "failed": []})
 
-        trees: dict[int, tuple[psutil.Process, int]] = {}
+        matched_processes = []
         failed = []
         for item in matches:
             try:
-                root = psutil.Process(item["pid"])
-                for proc, depth in _collect_process_tree(root):
-                    existing = trees.get(proc.pid)
-                    if existing is None or depth > existing[1]:
-                        trees[proc.pid] = (proc, depth)
+                matched_processes.append(psutil.Process(item["pid"]))
             except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
                 failed.append({"pid": item["pid"], "error": str(exc)})
+
+        roots = _select_process_roots(matched_processes)
+        trees: dict[int, tuple[psutil.Process, int]] = {}
+        for root in roots:
+            for proc, depth in _collect_process_tree(root):
+                existing = trees.get(proc.pid)
+                if existing is None or depth > existing[1]:
+                    trees[proc.pid] = (proc, depth)
 
         processes = [proc for proc, _depth in sorted(trees.values(), key=lambda item: item[1], reverse=True)]
         for proc in processes:
