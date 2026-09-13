@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, Signal, QThread
 from PySide6.QtWidgets import QMessageBox
 
 from chat.conversation import Conversation
+from core.alias_manager import AliasManager
 from llm.request import ChatRequest
 from services.command_router import CommandRouter
 from tools.executor import ToolExecutor
@@ -19,12 +20,13 @@ class GenerationWorker(QObject):
     failed = Signal(str)
     confirmation_requested = Signal(str, object, object)
 
-    def __init__(self, provider, request, config):
+    def __init__(self, provider, request, config, alias_manager: AliasManager):
         super().__init__()
         self.provider = provider
         self.request = request
         self.config = config
-        self.executor = ToolExecutor(config)
+        self.alias_manager = alias_manager
+        self.executor = ToolExecutor(config, alias_manager=alias_manager)
         self.max_tool_rounds = 5
 
     def _confirm_tool(self, tool_name, arguments):
@@ -96,13 +98,14 @@ class ChatService(QObject):
     direct_response = Signal(str)
     error = Signal(str)
 
-    def __init__(self, provider, config, ollama_manager=None):
+    def __init__(self, provider, config, ollama_manager=None, alias_manager: AliasManager | None = None):
         super().__init__()
         self.provider = provider
         self.config = config
         self.ollama_manager = ollama_manager
+        self.alias_manager = alias_manager or AliasManager()
         self.conversation = Conversation()
-        self.router = CommandRouter(config, ollama_manager) if ollama_manager else None
+        self.router = CommandRouter(config, ollama_manager, self.alias_manager) if ollama_manager else None
         self._thread = None
         self._worker = None
         self._current_answer = ""
@@ -112,7 +115,7 @@ class ChatService(QObject):
         return {name for name in TOOLS if bool(configured.get(name, False))}
 
     def refresh_tools(self):
-        self.router = CommandRouter(self.config, self.ollama_manager) if self.ollama_manager else self.router
+        self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager) if self.ollama_manager else self.router
 
     def send(self, text):
         if self._thread and self._thread.isRunning():
@@ -125,7 +128,11 @@ class ChatService(QObject):
 
         if self.router:
             try:
-                direct = self.router.route(text, self._confirm_direct)
+                direct = self.router.route(
+                    text,
+                    self._confirm_direct,
+                    self._confirm_alias,
+                )
             except Exception as exc:
                 direct = f"Не удалось выполнить прямую команду: {exc}"
             if direct is not None:
@@ -146,7 +153,7 @@ class ChatService(QObject):
         )
 
         self._thread = QThread()
-        self._worker = GenerationWorker(self.provider, request, self.config)
+        self._worker = GenerationWorker(self.provider, request, self.config, self.alias_manager)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.chunk.connect(self._on_chunk)
@@ -173,6 +180,23 @@ class ChatService(QObject):
 
     def _confirm_direct(self, tool_name, arguments):
         return self._show_confirmation(tool_name, arguments)
+
+    @staticmethod
+    def _confirm_alias(query, target, category):
+        label = {
+            "applications": "приложению",
+            "files": "файлу",
+            "folders": "папке",
+            "actions": "действию",
+        }.get(category, "объекту")
+        answer = QMessageBox.question(
+            None,
+            "Сохранить алиас",
+            f"Я нашёл «{target}». Сохранить «{query}» как дополнительное название этому {label}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
 
     def _on_confirmation_requested(self, tool_name, arguments, payload):
         event, result = payload
