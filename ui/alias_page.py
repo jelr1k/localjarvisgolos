@@ -158,7 +158,13 @@ class AliasPage(QWidget):
         return paths
 
     def _choose_file(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Добавить файл в Workspace")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Добавить файл в Workspace",
+            "",
+            "Все файлы (*.*)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
         if path:
             self._import_file(Path(path))
 
