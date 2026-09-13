@@ -37,6 +37,14 @@ class AliasManagerTests(unittest.TestCase):
                 ["Prism Launcher", "Prism"],
             )
 
+    def test_close_action_aliases_are_direct(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+            self.assertEqual(manager.resolve_action("Закрой Mine"), ("close", "Mine"))
+            self.assertEqual(manager.resolve_action("Останови Prism"), ("close", "Prism"))
+            self.assertEqual(manager.resolve_action("Выключить Discord"), ("close", "Discord"))
+            self.assertEqual(manager.resolve_action("открыть Steam"), ("launch", "Steam"))
+
     def test_fuzzy_suggestion_does_not_modify_storage(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "aliases.json"
