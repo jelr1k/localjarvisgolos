@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from core.alias_manager import AliasManager
 from tools.executor import ToolExecutor
 from tools.registry import TOOLS
 
@@ -9,16 +10,20 @@ from tools.registry import TOOLS
 class CommandRouter:
     """Определяет однозначные русскоязычные команды, которым не нужен LLM."""
 
-    def __init__(self, config, ollama_manager):
+    def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None):
         self.config = config
         self.ollama_manager = ollama_manager
+        self.alias_manager = alias_manager or AliasManager()
 
     def _executor(self) -> ToolExecutor:
-        return ToolExecutor(self.config, set(TOOLS))
+        return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
 
     @staticmethod
     def _reply(result: dict) -> str:
         if not result.get("success"):
+            matches = result.get("matches") or []
+            if result.get("ambiguous") and matches:
+                return "Неоднозначный запрос. Варианты:\n" + "\n".join(f"{i}. {item}" for i, item in enumerate(matches, 1))
             return f"Не выполнено: {result.get('error', 'неизвестная ошибка')}"
         details = result.get("details") or {}
         if result.get("matches") is not None:
@@ -34,7 +39,30 @@ class CommandRouter:
             return "Готово."
         return "Готово."
 
-    def route(self, text: str, confirmation_callback=None) -> str | None:
+    def _resolve_target(self, query, categories, alias_confirmation_callback=None):
+        exact = self.alias_manager.resolve_any(query, categories)
+        if exact.get("status") == "exact":
+            return exact["target"], None
+        if exact.get("status") == "ambiguous":
+            return None, "Неоднозначный алиас: " + ", ".join(exact.get("candidates", []))
+
+        suggestions = self.alias_manager.suggest_any(query, categories, limit=5)
+        if not suggestions:
+            return query, None
+        if len(suggestions) > 1 and suggestions[0]["score"] - suggestions[1]["score"] < 0.08:
+            items = [item["target"] for item in suggestions[:5]]
+            return None, "Не удалось однозначно определить объект. Варианты: " + "; ".join(items)
+
+        suggestion = suggestions[0]
+        if alias_confirmation_callback is None:
+            return query, None
+        accepted = alias_confirmation_callback(query, suggestion["target"], suggestion["category"])
+        if not accepted:
+            return query, None
+        self.alias_manager.add_alias(suggestion["category"], suggestion["target"], query)
+        return suggestion["target"], None
+
+    def route(self, text: str, confirmation_callback=None, alias_confirmation_callback=None) -> str | None:
         normalized = " ".join(text.strip().split())
         lower = normalized.lower()
         executor = self._executor()
@@ -53,28 +81,38 @@ class CommandRouter:
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
 
-        match = re.fullmatch(r"(?:найди|поищи|покажи) (?:файл |файлы )?(.+)", normalized, flags=re.I)
-        if match and executor._is_enabled("search_files"):
-            result = executor.execute("search_files", {"name": match.group(1)}, confirmation_callback=confirmation_callback)
-            return self._reply(result)
+        action = self.alias_manager.resolve_action(normalized)
+        if not action:
+            return None
+        action_name, target = action
 
-        match = re.fullmatch(r"(?:удали|удалить|стереть|сотри) (?:файл |файлы )?(.+)", normalized, flags=re.I)
-        if match and executor._is_enabled("delete_file"):
-            result = executor.execute("delete_file", {"path": match.group(1)}, confirmation_callback=confirmation_callback)
-            return self._reply(result)
+        if action_name == "search" and executor._is_enabled("search_files"):
+            target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
+            resolved, error = self._resolve_target(target, ("files", "folders"), alias_confirmation_callback)
+            if error:
+                return f"Не выполнено: {error}"
+            return self._reply(executor.execute("search_files", {"name": resolved}, confirmation_callback=confirmation_callback))
 
-        match = re.fullmatch(r"(?:проверь|проверить),? (.+)", normalized, flags=re.I)
-        if match and executor._is_enabled("get_process_status"):
-            result = executor.execute("get_process_status", {"name": match.group(1)}, confirmation_callback=confirmation_callback)
-            return self._reply(result)
+        if action_name == "delete" and executor._is_enabled("delete_file"):
+            target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
+            resolved, error = self._resolve_target(target, ("files",), alias_confirmation_callback)
+            if error:
+                return f"Не выполнено: {error}"
+            return self._reply(executor.execute("delete_file", {"path": resolved}, confirmation_callback=confirmation_callback))
 
-        match = re.fullmatch(r"(?:открой|открыть|запусти|запустить) (.+)", normalized, flags=re.I)
-        if match and executor._is_enabled("launch_application"):
-            target = match.group(1)
-            status = executor.execute("get_process_status", {"name": target}, confirmation_callback=confirmation_callback) if executor._is_enabled("get_process_status") else {"running": False}
+        if action_name == "status" and executor._is_enabled("get_process_status"):
+            resolved, error = self._resolve_target(target, ("applications",), alias_confirmation_callback)
+            if error:
+                return f"Не выполнено: {error}"
+            return self._reply(executor.execute("get_process_status", {"name": resolved}, confirmation_callback=confirmation_callback))
+
+        if action_name == "launch" and executor._is_enabled("launch_application"):
+            resolved, error = self._resolve_target(target, ("applications", "files", "folders"), alias_confirmation_callback)
+            if error:
+                return f"Не выполнено: {error}"
+            status = executor.execute("get_process_status", {"name": resolved}, confirmation_callback=confirmation_callback) if executor._is_enabled("get_process_status") else {"running": False}
             if status.get("success") and status.get("running"):
                 return f"{target} уже запущен."
-            result = executor.execute("launch_application", {"target": target}, confirmation_callback=confirmation_callback)
-            return self._reply(result)
+            return self._reply(executor.execute("launch_application", {"target": resolved}, confirmation_callback=confirmation_callback))
 
         return None
