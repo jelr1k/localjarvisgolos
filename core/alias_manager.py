@@ -9,9 +9,13 @@ from pathlib import Path
 
 from core.app_paths import ALIASES_FILE, ensure_application_dirs
 
+try:
+    import pymorphy3
+except ImportError:  # pragma: no cover - dependency is declared in requirements
+    pymorphy3 = None
+
 
 CATEGORIES = ("applications", "files", "folders", "actions")
-
 DEFAULT_ACTION_ALIASES = {
     "launch": ["открой", "открыть", "запусти", "запустить", "включи", "включить"],
     "close": ["закрой", "закрыть", "останови", "остановить", "выключи", "выключить"],
@@ -19,6 +23,9 @@ DEFAULT_ACTION_ALIASES = {
     "delete": ["удали", "удалить", "стереть", "сотри"],
     "status": ["проверь", "проверить"],
 }
+
+_MORPH = None
+_CYRILLIC_WORD_RE = re.compile(r"^[а-яё-]+$", re.IGNORECASE)
 
 
 class AliasError(ValueError):
@@ -40,11 +47,24 @@ class AliasManager:
         self.data = self._load()
 
     @staticmethod
-    def _normalize_alias(value: str) -> str:
+    def _morphologize_word(word: str) -> str:
+        global _MORPH
+        if not _CYRILLIC_WORD_RE.fullmatch(word) or pymorphy3 is None:
+            return word
+        if _MORPH is None:
+            _MORPH = pymorphy3.MorphAnalyzer()
+        try:
+            return _MORPH.parse(word.lower())[0].normal_form
+        except (IndexError, AttributeError, ValueError):
+            return word
+
+    @classmethod
+    def _normalize_alias(cls, value: str) -> str:
         text = unicodedata.normalize("NFKC", str(value)).strip().casefold()
         text = text.replace("ё", "е")
         text = re.sub(r"[\W_]+", " ", text, flags=re.UNICODE)
-        return " ".join(text.split())
+        tokens = [cls._morphologize_word(token) for token in text.split()]
+        return " ".join(tokens)
 
     @staticmethod
     def _normalize_target(value: str) -> str:
