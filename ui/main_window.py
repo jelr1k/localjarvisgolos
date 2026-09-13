@@ -3,8 +3,10 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QMessageBox, QTabWidget, QVBoxLayout, QWidget
 
+from core.alias_manager import AliasManager
 from services.model_service import ModelService
 from services.statistics_service import StatisticsService
+from ui.alias_page import AliasPage
 from ui.chat_page import ChatPage
 from ui.ollama_page import OllamaPage
 from ui.settings_page import SettingsPage
@@ -15,11 +17,12 @@ from ui.tools_page import ToolsPage
 class MainWindow(QWidget):
     settings_applied = Signal()
 
-    def __init__(self, chat_service, config, ollama_manager):
+    def __init__(self, chat_service, config, ollama_manager, alias_manager: AliasManager | None = None):
         super().__init__()
         self.chat_service = chat_service
         self.config = config
         self.ollama_manager = ollama_manager
+        self.alias_manager = alias_manager or AliasManager()
         self.model_service = ModelService(chat_service.provider)
         self.stats_service = StatisticsService()
 
@@ -27,12 +30,14 @@ class MainWindow(QWidget):
         self.chat_page = ChatPage(chat_service, config)
         self.stats_page = StatisticsPage(self.stats_service, self.ollama_manager)
         self.settings_page = SettingsPage(config, self.model_service)
+        self.alias_page = AliasPage(self.alias_manager)
         self.tools_page = ToolsPage(config)
         self.ollama_page = OllamaPage(config, ollama_manager)
 
         self.tabs.addTab(self.chat_page, "Чат")
         self.tabs.addTab(self.stats_page, "Генерация")
         self.tabs.addTab(self.settings_page, "Настройки")
+        self.tabs.addTab(self.alias_page, "Алиасы")
         self.tabs.addTab(self.tools_page, "Инструменты")
         self.tabs.addTab(self.ollama_page, "Ollama")
 
