@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import platform
@@ -32,38 +33,33 @@ def setup_logging() -> logging.Logger:
     logger.addHandler(_handler(LOG_DIR / "jarvis.log", logging.DEBUG))
     logger.addHandler(_handler(LOG_DIR / "errors.log", logging.ERROR))
 
-    events = _handler(LOG_DIR / "events.log", logging.INFO)
-    events.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(events)
-
-    # Все сторонние и стандартные логгеры без собственных handlers попадают
-    # в основной журнал и журнал ошибок.
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     root.addHandler(_handler(LOG_DIR / "jarvis.log", logging.DEBUG))
     root.addHandler(_handler(LOG_DIR / "errors.log", logging.ERROR))
     logging.captureWarnings(True)
 
+    events_logger = logging.getLogger("jarvis.events")
+    events_logger.setLevel(logging.INFO)
+    events_logger.propagate = False
+    if not events_logger.handlers:
+        events_handler = RotatingFileHandler(LOG_DIR / "events.log", maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, encoding="utf-8")
+        events_handler.setFormatter(logging.Formatter("%(message)s"))
+        events_logger.addHandler(events_handler)
+
     logger.info(
         "logging_initialized pid=%s platform=%s python=%s executable=%s cwd=%s argv=%r machine=%s",
-        os.getpid(),
-        sys.platform,
-        sys.version.replace("\n", " "),
-        sys.executable,
-        os.getcwd(),
-        sys.argv,
-        platform.platform(),
+        os.getpid(), sys.platform, sys.version.replace("\n", " "), sys.executable, os.getcwd(), sys.argv, platform.platform(),
     )
+    log_event("logging_initialized", pid=os.getpid(), platform=sys.platform, python=sys.version.replace("\n", " "), executable=sys.executable, cwd=os.getcwd(), argv=sys.argv, machine=platform.platform())
     return logger
 
 
 def log_event(event: str, **data) -> None:
-    """Записывает структурированное диагностическое событие."""
-    import json
-
+    """Записывает одно структурированное JSON-событие в events.log."""
     payload = {"event": event, **data}
     try:
         message = json.dumps(payload, ensure_ascii=False, default=str, separators=(",", ":"))
     except Exception:
-        message = repr(payload)
-    logging.getLogger("jarvis").info(message)
+        message = json.dumps({"event": event, "serialization_error": True, "data": repr(data)}, ensure_ascii=False)
+    logging.getLogger("jarvis.events").info(message)
