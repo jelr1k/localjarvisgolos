@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
+import time
 import unicodedata
 from pathlib import Path
 
@@ -15,6 +17,9 @@ try:
     import win32com.client
 except ImportError:  # pragma: no cover - Windows dependency
     win32com = None
+
+
+logger = logging.getLogger("jarvis.process")
 
 _WINDOWS_APP_DIRS = [
     Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
@@ -44,7 +49,6 @@ def _normalize_executable(path: str | Path | None) -> str | None:
 
 
 def _normalize_process_label(value: str | Path | None) -> str:
-    """Нормализует имя процесса независимо от .exe, регистра и пунктуации."""
     text = str(value or "").strip().strip('"').replace("\\", "/")
     text = text.rsplit("/", 1)[-1]
     if text.casefold().endswith(".exe"):
@@ -55,71 +59,90 @@ def _normalize_process_label(value: str | Path | None) -> str:
 
 
 def _resolve_shortcut_target(path: Path) -> Path | None:
-    """Resolve a Windows .lnk into its target executable."""
+    logger.debug("shortcut_resolve_start path=%s suffix=%s win32com=%s", path, path.suffix, win32com is not None)
     if path.suffix.lower() != ".lnk":
         return path
     if win32com is None:
+        logger.error("shortcut_resolve_failed path=%s reason=win32com_unavailable", path)
         return None
     try:
         shell = win32com.client.Dispatch("WScript.Shell")
         shortcut = shell.CreateShortcut(str(path))
         target = (shortcut.TargetPath or "").strip()
+        logger.info("shortcut_resolved path=%s target=%s working_dir=%s arguments=%r", path, target, getattr(shortcut, "WorkingDirectory", ""), getattr(shortcut, "Arguments", ""))
         if not target:
             return None
         return Path(target).resolve()
-    except Exception:  # COM can raise pywintypes.com_error as well as OSError.
+    except Exception:
+        logger.exception("shortcut_resolve_exception path=%s", path)
         return None
 
 
 def _resolve_application(name: str) -> dict:
-    """Resolve display name/path into a stable application identity."""
+    logger.info("application_resolve_start name=%r", name)
     found = find_application(name)
+    logger.debug("application_resolve_find_result name=%r result=%r", name, found)
     if not found.get("success"):
         return found
 
     shortcut = Path(found["path"])
     target = _resolve_shortcut_target(shortcut)
     executable = target if target and target.suffix.lower() == ".exe" else (shortcut if shortcut.suffix.lower() == ".exe" else None)
-
-    return _result(
-        True,
-        path=shortcut,
-        identity={
-            "display_name": name,
-            "shortcut": str(shortcut),
-            "target_executable": str(target) if target else None,
-            "normalized_executable": _normalize_executable(executable),
-            "executable_label": _normalize_process_label(executable),
-        },
-    )
+    identity = {
+        "display_name": name,
+        "shortcut": str(shortcut),
+        "target_executable": str(target) if target else None,
+        "normalized_executable": _normalize_executable(executable),
+        "executable_label": _normalize_process_label(executable),
+    }
+    logger.info("application_identity name=%r identity=%r", name, identity)
+    return _result(True, path=shortcut, identity=identity)
 
 
 def _process_cmdline_matches(cmdline: list[str] | None, executable: str | Path | None) -> bool:
-    """Проверяет командную строку процесса на связь с целевым executable."""
     if not cmdline or not executable:
         return False
-
     target = _normalize_executable(executable)
     target_label = _normalize_process_label(executable)
     for argument in cmdline:
         argument_text = str(argument or "").strip().strip('"')
         if not argument_text:
             continue
-        if _normalize_executable(argument_text) == target:
-            return True
-        if _normalize_process_label(argument_text) == target_label:
+        if _normalize_executable(argument_text) == target or _normalize_process_label(argument_text) == target_label:
             return True
     return False
 
 
+def _process_snapshot(proc: psutil.Process) -> dict:
+    try:
+        info = proc.as_dict(attrs=["pid", "ppid", "name", "exe", "cmdline", "status", "username", "create_time"])
+        return info
+    except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+        return {"pid": proc.pid, "error": str(exc)}
+
+
+def _log_process_snapshot(reason: str) -> None:
+    """Пишет полный доступный снимок процессов для диагностики."""
+    snapshot = []
+    try:
+        for proc in psutil.process_iter(["pid", "ppid", "name", "exe", "cmdline", "status", "username", "create_time"]):
+            try:
+                snapshot.append(proc.info)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+                continue
+        logger.debug("process_snapshot reason=%s count=%d processes=%r", reason, len(snapshot), snapshot)
+    except Exception:
+        logger.exception("process_snapshot_failed reason=%s", reason)
+
+
 def _running_process_matches(name: str, *, executable: str | Path | None = None) -> list[dict]:
-    """Find processes by stable executable identity, then by safe name fallbacks."""
+    logger.info("process_search_start requested_name=%r executable=%r", name, executable)
     wanted_label = _normalize_process_label(name)
     executable_path = _normalize_executable(executable)
     executable_label = _normalize_process_label(executable) if executable else None
     result = []
 
-    for proc in psutil.process_iter(["pid", "name", "exe", "cmdline"]):
+    for proc in psutil.process_iter(["pid", "ppid", "name", "exe", "cmdline", "status", "username", "create_time"]):
         try:
             proc_name = proc.info.get("name") or ""
             proc_exe = proc.info.get("exe") or ""
@@ -127,59 +150,40 @@ def _running_process_matches(name: str, *, executable: str | Path | None = None)
             proc_normalized_exe = _normalize_executable(proc_exe)
             proc_label = _normalize_process_label(proc_name)
             proc_exe_label = _normalize_process_label(proc_exe)
-
-            # If a shortcut target is known, it is the primary identity. This
-            # works even when the Workspace name is unrelated to the process name.
             path_match = bool(executable_path and proc_normalized_exe == executable_path)
             executable_name_match = bool(executable_label and executable_label in {proc_label, proc_exe_label})
             cmdline_match = _process_cmdline_matches(proc_cmdline, executable) if executable else False
-
-            # Only use the user's requested name when no executable identity is
-            # available. This prevents a shortcut label from becoming the main
-            # process identifier and accidentally matching an unrelated process.
             name_match = not executable and wanted_label in {proc_label, proc_exe_label}
 
             if path_match or executable_name_match or cmdline_match or name_match:
-                result.append(
-                    {
-                        "pid": proc.info["pid"],
-                        "name": proc_name,
-                        "exe": proc_exe,
-                        "cmdline": proc_cmdline,
-                        "match": (
-                            "executable_path"
-                            if path_match
-                            else "executable_name"
-                            if executable_name_match
-                            else "command_line"
-                            if cmdline_match
-                            else "process_name"
-                        ),
-                    }
-                )
-        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
-            continue
+                item = dict(proc.info)
+                item["match"] = "executable_path" if path_match else "executable_name" if executable_name_match else "command_line" if cmdline_match else "process_name"
+                result.append(item)
+                logger.info("process_match %r", item)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+            logger.debug("process_scan_skip error=%r", exc)
+
+    logger.info("process_search_finish requested_name=%r matches=%d result=%r", name, len(result), result)
     return result
 
 
 def _select_process_roots(processes: list[psutil.Process]) -> list[psutil.Process]:
-    """Keep only top-level matched processes when another matched process is their ancestor."""
     candidate_pids = {proc.pid for proc in processes}
     roots: list[psutil.Process] = []
-
     for proc in processes:
         try:
-            has_matched_ancestor = any(parent.pid in candidate_pids for parent in proc.parents())
+            parents = proc.parents()
+            has_matched_ancestor = any(parent.pid in candidate_pids for parent in parents)
+            logger.debug("process_root_check pid=%s matched_ancestor=%s parents=%s", proc.pid, has_matched_ancestor, [p.pid for p in parents])
         except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
             has_matched_ancestor = False
         if not has_matched_ancestor:
             roots.append(proc)
-
+    logger.info("process_roots roots=%s", [_process_snapshot(proc) for proc in roots])
     return roots
 
 
 def _collect_process_tree(root: psutil.Process) -> list[tuple[psutil.Process, int]]:
-    """Collect root and all current descendants with their relative depth."""
     collected: list[tuple[psutil.Process, int]] = []
     seen: set[int] = set()
 
@@ -190,42 +194,50 @@ def _collect_process_tree(root: psutil.Process) -> list[tuple[psutil.Process, in
                 return
             seen.add(pid)
             collected.append((proc, depth))
+            logger.debug("process_tree_node pid=%s depth=%s info=%r", pid, depth, _process_snapshot(proc))
             for child in proc.children(recursive=False):
                 visit(child, depth + 1)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
-            return
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+            logger.debug("process_tree_skip error=%r", exc)
 
     visit(root, 0)
+    logger.info("process_tree_collected root=%s nodes=%r", root.pid, [_process_snapshot(proc) for proc, _ in collected])
     return collected
 
 
 def find_application(name: str) -> dict:
-    """Ищет установленное приложение через Start Menu и PATH."""
     try:
         raw = validate_non_empty(name, "название приложения")
     except ValueError as exc:
+        logger.exception("find_application_validation_failed name=%r", name)
         return _result(False, error=str(exc))
 
     wanted = raw.lower().strip('"')
     stem = Path(wanted).stem
     candidates: list[Path] = []
+    logger.info("find_application_start raw=%r wanted=%r stem=%r", raw, wanted, stem)
 
     for root in _WINDOWS_APP_DIRS:
         if not root.exists():
+            logger.debug("find_application_root_missing root=%s", root)
             continue
         try:
             for item in root.rglob("*.lnk"):
                 if item.stem.lower() == stem or item.name.lower() == wanted:
                     candidates.append(item.resolve())
-        except OSError:
+                    logger.debug("find_application_candidate source=start_menu path=%s", item)
+        except OSError as exc:
+            logger.exception("find_application_root_error root=%s", root)
             continue
 
     executable_name = wanted if wanted.endswith(".exe") else f"{wanted}.exe"
     path_match = shutil.which(executable_name)
     if path_match:
         candidates.append(Path(path_match).resolve())
+        logger.debug("find_application_candidate source=PATH path=%s", path_match)
 
     unique = sorted(set(p for p in candidates if p.is_file()), key=lambda p: str(p).lower())
+    logger.info("find_application_candidates raw=%r candidates=%r unique=%r", raw, candidates, unique)
     if not unique:
         return _result(False, error=f"Установленное приложение не найдено: {raw}", matches=[])
     if len(unique) > 1:
@@ -234,6 +246,7 @@ def find_application(name: str) -> dict:
 
 
 def get_process_status(name: str) -> dict:
+    logger.info("process_status_start name=%r", name)
     try:
         name = validate_non_empty(name, "название приложения")
         resolved = _resolve_application(name)
@@ -242,36 +255,27 @@ def get_process_status(name: str) -> dict:
             matches = _running_process_matches(name, executable=identity.get("normalized_executable"))
         else:
             matches = _running_process_matches(name)
-        return _result(True, running=bool(matches), processes=matches)
+        result = _result(True, running=bool(matches), processes=matches)
+        logger.info("process_status_finish name=%r result=%r", name, result)
+        return result
     except ValueError as exc:
+        logger.exception("process_status_validation_failed name=%r", name)
         return _result(False, error=str(exc))
 
 
 def _selection_index(target: str) -> int | None:
-    """Поддерживает выбор «первый», «второй», «1», «2» и т. п."""
     value = target.strip().lower().strip('"').rstrip(".")
-    words = {
-        "первый": 1, "первая": 1, "1": 1,
-        "второй": 2, "вторая": 2, "2": 2,
-        "третий": 3, "третья": 3, "3": 3,
-        "четвёртый": 4, "четвертый": 4, "четвёртая": 4, "четвертая": 4, "4": 4,
-        "пятый": 5, "пятая": 5, "5": 5,
-    }
+    words = {"первый": 1, "первая": 1, "1": 1, "второй": 2, "вторая": 2, "2": 2, "третий": 3, "третья": 3, "3": 3, "четвёртый": 4, "четвертый": 4, "четвёртая": 4, "четвертая": 4, "4": 4, "пятый": 5, "пятая": 5, "5": 5}
     return words.get(value)
 
 
 def has_pending_launch_choices() -> bool:
-    """Возвращает True, если Jarvis ждёт выбор файла для запуска."""
     return bool(_PENDING_LAUNCH_CHOICES)
 
 
 def launch_application(target: str) -> dict:
-    """Запускает файл из workspace или установленное приложение.
-
-    Если предыдущая команда дала несколько вариантов, поддерживает выбор по номеру.
-    """
     global _PENDING_LAUNCH_CHOICES
-
+    logger.info("launch_start target=%r", target)
     try:
         target = validate_non_empty(target, "приложение или файл")
     except ValueError as exc:
@@ -279,31 +283,20 @@ def launch_application(target: str) -> dict:
 
     index = _selection_index(target)
     if index is not None and _PENDING_LAUNCH_CHOICES:
+        logger.info("launch_pending_choice index=%s choices=%r", index, _PENDING_LAUNCH_CHOICES)
         if index > len(_PENDING_LAUNCH_CHOICES):
-            return _result(
-                False,
-                error=f"В списке только {len(_PENDING_LAUNCH_CHOICES)} вариант(а). Выбери номер от 1 до {len(_PENDING_LAUNCH_CHOICES)}.",
-                ambiguous=True,
-                matches=[str(path) for path in _PENDING_LAUNCH_CHOICES],
-            )
+            return _result(False, error=f"В списке только {len(_PENDING_LAUNCH_CHOICES)} вариант(а). Выбери номер от 1 до {len(_PENDING_LAUNCH_CHOICES)}.", ambiguous=True, matches=[str(path) for path in _PENDING_LAUNCH_CHOICES])
         selected = _PENDING_LAUNCH_CHOICES[index - 1]
         _PENDING_LAUNCH_CHOICES = []
         return _start_path(selected)
 
     _PENDING_LAUNCH_CHOICES = []
-
-    # Сначала проверяем workspace, чтобы одноимённый пользовательский файл
-    # имел приоритет над приложением из Start Menu/PATH.
     file_path, matches = resolve_tool_path(target)
+    logger.info("launch_workspace_resolution target=%r file_path=%r matches=%r", target, file_path, matches)
     if len(matches) > 1:
         _PENDING_LAUNCH_CHOICES = list(matches)
         numbered = "\n".join(f"{i}. {path}" for i, path in enumerate(matches, 1))
-        return _result(
-            False,
-            error=("Найдено несколько файлов с таким именем. Какой запустить?\n" f"{numbered}\n\nВведите номер варианта."),
-            ambiguous=True,
-            matches=[str(p) for p in matches],
-        )
+        return _result(False, error="Найдено несколько файлов с таким именем. Какой запустить?\n" f"{numbered}\n\nВведите номер варианта.", ambiguous=True, matches=[str(p) for p in matches])
     if file_path is not None:
         return _start_path(file_path)
 
@@ -315,50 +308,45 @@ def launch_application(target: str) -> dict:
 
 
 def _start_path(path: Path) -> dict:
+    logger.info("launch_path_start path=%s", path)
     try:
         if not path.is_file():
             return _result(False, path=path, error="Указанный объект не является файлом.")
         os.startfile(str(path))
+        logger.info("launch_path_success path=%s", path)
         return _result(True, path=path, details={"started": True})
     except OSError as exc:
+        logger.exception("launch_path_failed path=%s", path)
         return _result(False, path=path, error=f"Не удалось запустить: {exc}")
 
 
 def _resolve_close_identity(name: str) -> dict:
-    """Разрешает имя приложения в identity, включая объекты из Workspace."""
+    logger.info("close_identity_start name=%r", name)
     resolved = _resolve_application(name)
     if resolved.get("success"):
+        logger.info("close_identity_source=installed result=%r", resolved)
         return resolved
 
-    # find_application ищет Start Menu/PATH, поэтому отдельно проверяем
-    # Workspace. Это позволяет закрывать приложение даже если Jarvis его
-    # запускал не сам и ярлык существует только внутри Workspace.
     workspace_path, workspace_matches = resolve_tool_path(name)
+    logger.info("close_identity_workspace path=%r matches=%r", workspace_path, workspace_matches)
     if workspace_path is not None and len(workspace_matches) == 1:
         target = _resolve_shortcut_target(workspace_path)
-        executable = target if target and target.suffix.lower() == ".exe" else (
-            workspace_path if workspace_path.suffix.lower() == ".exe" else None
-        )
+        executable = target if target and target.suffix.lower() == ".exe" else (workspace_path if workspace_path.suffix.lower() == ".exe" else None)
         if executable is not None:
-            return _result(
-                True,
-                path=workspace_path,
-                identity={
-                    "display_name": name,
-                    "shortcut": str(workspace_path),
-                    "target_executable": str(executable),
-                    "normalized_executable": _normalize_executable(executable),
-                    "executable_label": _normalize_process_label(executable),
-                },
-            )
-
+            result = _result(True, path=workspace_path, identity={"display_name": name, "shortcut": str(workspace_path), "target_executable": str(executable), "normalized_executable": _normalize_executable(executable), "executable_label": _normalize_process_label(executable)})
+            logger.info("close_identity_source=workspace result=%r", result)
+            return result
     return resolved
 
 
 def close_application(name: str) -> dict:
+    started = time.perf_counter()
+    logger.info("close_start name=%r", name)
+    _log_process_snapshot("before_close")
     try:
         name = validate_non_empty(name, "название приложения")
         resolved = _resolve_close_identity(name)
+        logger.info("close_resolved name=%r result=%r", name, resolved)
 
         if resolved.get("success"):
             identity = resolved["identity"]
@@ -367,16 +355,22 @@ def close_application(name: str) -> dict:
         else:
             matches = _running_process_matches(name)
 
+        logger.info("close_matches name=%r matches=%r", name, matches)
         if not matches:
-            return _result(True, running=False, already_closed=True, details={"closed": [], "failed": []})
+            result = _result(True, running=False, already_closed=True, details={"closed": [], "failed": []})
+            logger.info("close_finish name=%r elapsed=%.4fs result=%r", name, time.perf_counter() - started, result)
+            return result
 
         matched_processes = []
         failed = []
         for item in matches:
             try:
-                matched_processes.append(psutil.Process(item["pid"]))
+                proc = psutil.Process(item["pid"])
+                matched_processes.append(proc)
+                logger.info("close_candidate pid=%s info=%r match=%s", proc.pid, _process_snapshot(proc), item.get("match"))
             except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
                 failed.append({"pid": item["pid"], "error": str(exc)})
+                logger.exception("close_candidate_failed pid=%s", item.get("pid"))
 
         roots = _select_process_roots(matched_processes)
         trees: dict[int, tuple[psutil.Process, int]] = {}
@@ -386,36 +380,42 @@ def close_application(name: str) -> dict:
                 if existing is None or depth > existing[1]:
                     trees[proc.pid] = (proc, depth)
 
-        # Сначала закрываем потомков, затем корневой процесс. Это повторяет
-        # поведение process-tree инструментов вроде taskkill /T, но оставляет
-        # psutil полный контроль над PID и ожиданием завершения.
         processes = [proc for proc, _depth in sorted(trees.values(), key=lambda item: item[1], reverse=True)]
+        logger.info("close_process_order processes=%r", [_process_snapshot(proc) for proc in processes])
         for proc in processes:
             try:
+                logger.info("close_terminate pid=%s info_before=%r", proc.pid, _process_snapshot(proc))
                 proc.terminate()
             except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
                 failed.append({"pid": proc.pid, "error": str(exc)})
+                logger.exception("close_terminate_failed pid=%s", proc.pid)
 
         gone, alive = psutil.wait_procs(processes, timeout=5)
         closed = [proc.pid for proc in gone]
         for proc in alive:
             failed.append({"pid": proc.pid, "error": "Процесс не завершился за отведённое время."})
+            logger.warning("close_process_alive_after_wait pid=%s info=%r", proc.pid, _process_snapshot(proc))
 
+        _log_process_snapshot("after_close")
         success = not failed and not alive
-        return _result(
-            success,
-            running=bool(alive),
-            details={"closed": closed, "failed": failed},
-            error=None if success else f"Не удалось полностью закрыть: {name}",
-        )
+        result = _result(success, running=bool(alive), details={"closed": closed, "failed": failed}, error=None if success else f"Не удалось полностью закрыть: {name}")
+        logger.info("close_finish name=%r elapsed=%.4fs result=%r", name, time.perf_counter() - started, result)
+        return result
     except ValueError as exc:
+        logger.exception("close_validation_failed name=%r", name)
         return _result(False, error=str(exc))
+    except Exception:
+        logger.exception("close_unexpected_failure name=%r", name)
+        raise
 
 
 def open_url(url: str) -> dict:
+    logger.info("open_url_start url=%r", url)
     try:
         url = validate_url(url)
         os.startfile(url)
+        logger.info("open_url_success url=%r", url)
         return _result(True, details={"url": url})
     except (ValueError, OSError) as exc:
+        logger.exception("open_url_failed url=%r", url)
         return _result(False, error=f"Не удалось открыть URL: {exc}")
