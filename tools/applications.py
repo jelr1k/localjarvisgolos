@@ -67,7 +67,7 @@ def _resolve_shortcut_target(path: Path) -> Path | None:
         if not target:
             return None
         return Path(target).resolve()
-    except (OSError, RuntimeError, AttributeError):
+    except Exception:  # COM can raise pywintypes.com_error as well as OSError.
         return None
 
 
@@ -89,30 +89,74 @@ def _resolve_application(name: str) -> dict:
             "shortcut": str(shortcut),
             "target_executable": str(target) if target else None,
             "normalized_executable": _normalize_executable(executable),
+            "executable_label": _normalize_process_label(executable),
         },
     )
 
 
+def _process_cmdline_matches(cmdline: list[str] | None, executable: str | Path | None) -> bool:
+    """Проверяет командную строку процесса на связь с целевым executable."""
+    if not cmdline or not executable:
+        return False
+
+    target = _normalize_executable(executable)
+    target_label = _normalize_process_label(executable)
+    for argument in cmdline:
+        argument_text = str(argument or "").strip().strip('"')
+        if not argument_text:
+            continue
+        if _normalize_executable(argument_text) == target:
+            return True
+        if _normalize_process_label(argument_text) == target_label:
+            return True
+    return False
+
+
 def _running_process_matches(name: str, *, executable: str | Path | None = None) -> list[dict]:
-    """Find processes by executable identity or normalized process name."""
+    """Find processes by stable executable identity, then by safe name fallbacks."""
     wanted_label = _normalize_process_label(name)
     executable_path = _normalize_executable(executable)
-    executable_label = _normalize_process_label(executable) if executable else wanted_label
+    executable_label = _normalize_process_label(executable) if executable else None
     result = []
 
-    for proc in psutil.process_iter(["pid", "name", "exe"]):
+    for proc in psutil.process_iter(["pid", "name", "exe", "cmdline"]):
         try:
             proc_name = proc.info.get("name") or ""
             proc_exe = proc.info.get("exe") or ""
+            proc_cmdline = proc.info.get("cmdline") or []
             proc_normalized_exe = _normalize_executable(proc_exe)
             proc_label = _normalize_process_label(proc_name)
             proc_exe_label = _normalize_process_label(proc_exe)
 
+            # If a shortcut target is known, it is the primary identity. This
+            # works even when the Workspace name is unrelated to the process name.
             path_match = bool(executable_path and proc_normalized_exe == executable_path)
-            label_match = executable_label in {proc_label, proc_exe_label} or wanted_label in {proc_label, proc_exe_label}
+            executable_name_match = bool(executable_label and executable_label in {proc_label, proc_exe_label})
+            cmdline_match = _process_cmdline_matches(proc_cmdline, executable) if executable else False
 
-            if path_match or label_match:
-                result.append({"pid": proc.info["pid"], "name": proc_name, "exe": proc_exe})
+            # Only use the user's requested name when no executable identity is
+            # available. This prevents a shortcut label from becoming the main
+            # process identifier and accidentally matching an unrelated process.
+            name_match = not executable and wanted_label in {proc_label, proc_exe_label}
+
+            if path_match or executable_name_match or cmdline_match or name_match:
+                result.append(
+                    {
+                        "pid": proc.info["pid"],
+                        "name": proc_name,
+                        "exe": proc_exe,
+                        "cmdline": proc_cmdline,
+                        "match": (
+                            "executable_path"
+                            if path_match
+                            else "executable_name"
+                            if executable_name_match
+                            else "command_line"
+                            if cmdline_match
+                            else "process_name"
+                        ),
+                    }
+                )
         except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
             continue
     return result
@@ -280,28 +324,46 @@ def _start_path(path: Path) -> dict:
         return _result(False, path=path, error=f"Не удалось запустить: {exc}")
 
 
+def _resolve_close_identity(name: str) -> dict:
+    """Разрешает имя приложения в identity, включая объекты из Workspace."""
+    resolved = _resolve_application(name)
+    if resolved.get("success"):
+        return resolved
+
+    # find_application ищет Start Menu/PATH, поэтому отдельно проверяем
+    # Workspace. Это позволяет закрывать приложение даже если Jarvis его
+    # запускал не сам и ярлык существует только внутри Workspace.
+    workspace_path, workspace_matches = resolve_tool_path(name)
+    if workspace_path is not None and len(workspace_matches) == 1:
+        target = _resolve_shortcut_target(workspace_path)
+        executable = target if target and target.suffix.lower() == ".exe" else (
+            workspace_path if workspace_path.suffix.lower() == ".exe" else None
+        )
+        if executable is not None:
+            return _result(
+                True,
+                path=workspace_path,
+                identity={
+                    "display_name": name,
+                    "shortcut": str(workspace_path),
+                    "target_executable": str(executable),
+                    "normalized_executable": _normalize_executable(executable),
+                    "executable_label": _normalize_process_label(executable),
+                },
+            )
+
+    return resolved
+
+
 def close_application(name: str) -> dict:
     try:
         name = validate_non_empty(name, "название приложения")
-        resolved = _resolve_application(name)
-
-        if not resolved.get("success"):
-            workspace_path, workspace_matches = resolve_tool_path(name)
-            if workspace_path is not None and len(workspace_matches) == 1:
-                target = _resolve_shortcut_target(workspace_path)
-                executable = target if target and target.suffix.lower() == ".exe" else (
-                    workspace_path if workspace_path.suffix.lower() == ".exe" else None
-                )
-                if executable is not None:
-                    resolved = _result(
-                        True,
-                        path=workspace_path,
-                        identity={"normalized_executable": _normalize_executable(executable)},
-                    )
+        resolved = _resolve_close_identity(name)
 
         if resolved.get("success"):
             identity = resolved["identity"]
-            matches = _running_process_matches(name, executable=identity.get("normalized_executable"))
+            executable = identity.get("target_executable") or identity.get("normalized_executable")
+            matches = _running_process_matches(name, executable=executable)
         else:
             matches = _running_process_matches(name)
 
@@ -324,6 +386,9 @@ def close_application(name: str) -> dict:
                 if existing is None or depth > existing[1]:
                     trees[proc.pid] = (proc, depth)
 
+        # Сначала закрываем потомков, затем корневой процесс. Это повторяет
+        # поведение process-tree инструментов вроде taskkill /T, но оставляет
+        # psutil полный контроль над PID и ожиданием завершения.
         processes = [proc for proc, _depth in sorted(trees.values(), key=lambda item: item[1], reverse=True)]
         for proc in processes:
             try:
