@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from threading import Event
 
 from PySide6.QtCore import QObject, Signal, QThread
@@ -12,6 +14,9 @@ from llm.request import ChatRequest
 from services.command_router import CommandRouter
 from tools.executor import ToolExecutor
 from tools.registry import TOOLS, ollama_tools
+
+
+logger = logging.getLogger("jarvis.chat")
 
 
 class GenerationWorker(QObject):
@@ -30,10 +35,12 @@ class GenerationWorker(QObject):
         self.max_tool_rounds = 5
 
     def _confirm_tool(self, tool_name, arguments):
+        logger.info("confirmation_requested source=llm tool=%s arguments=%r", tool_name, arguments)
         event = Event()
         result = [False]
         self.confirmation_requested.emit(tool_name, arguments, (event, result))
         event.wait()
+        logger.info("confirmation_result source=llm tool=%s accepted=%s", tool_name, result[0])
         return result[0]
 
     @staticmethod
@@ -44,14 +51,18 @@ class GenerationWorker(QObject):
             try:
                 return json.loads(arguments)
             except json.JSONDecodeError:
+                logger.warning("invalid_tool_arguments_json value=%r", arguments)
                 return {}
         return {}
 
     def run(self):
+        started = time.perf_counter()
+        logger.info("generation_start model=%s message_count=%d thinking=%s temperature=%s context=%s max_tokens=%s tools=%s", self.request.model, len(self.request.messages), self.request.thinking, self.request.temperature, self.request.context_length, self.request.max_tokens, [tool.get("function", {}).get("name") for tool in self.request.tools or []])
         try:
             messages = list(self.request.messages)
             stats = None
-            for _ in range(self.max_tool_rounds):
+            for round_number in range(1, self.max_tool_rounds + 1):
+                logger.debug("generation_round start=%d messages=%r", round_number, messages)
                 self.request.messages = messages
                 tool_calls = []
                 assistant_message = None
@@ -60,13 +71,16 @@ class GenerationWorker(QObject):
                         if item.tool_calls:
                             tool_calls.extend(item.tool_calls)
                             assistant_message = item.raw.get("message") or assistant_message
+                            logger.info("llm_tool_calls round=%d calls=%r", round_number, item.tool_calls)
                         self.chunk.emit(item)
                         continue
                     stats = item.stats
+                    logger.info("generation_done_chunk stats=%r raw=%r", item.stats, item.raw)
                     if item.raw.get("message"):
                         assistant_message = item.raw["message"]
 
                 if not tool_calls:
+                    logger.info("generation_finish success=True elapsed=%.4fs stats=%r", time.perf_counter() - started, stats)
                     self.finished.emit(stats)
                     return
 
@@ -80,8 +94,10 @@ class GenerationWorker(QObject):
                     tool_name = function.get("name")
                     arguments = self._normalize_arguments(function.get("arguments", {}))
                     if not tool_name:
+                        logger.warning("llm_tool_call_without_name call=%r", tool_call)
                         continue
                     result = self.executor.execute(tool_name, arguments, self._confirm_tool)
+                    logger.info("llm_tool_result name=%s result=%r", tool_name, result)
                     messages.append({
                         "role": "tool",
                         "content": json.dumps(result, ensure_ascii=False),
@@ -89,6 +105,7 @@ class GenerationWorker(QObject):
 
             raise RuntimeError("Слишком много последовательных вызовов инструментов.")
         except Exception as exc:
+            logger.exception("generation_failed elapsed=%.4fs error=%s", time.perf_counter() - started, exc)
             self.failed.emit(str(exc))
 
 
@@ -109,31 +126,36 @@ class ChatService(QObject):
         self._thread = None
         self._worker = None
         self._current_answer = ""
+        logger.info("chat_service_created model=%s", self.config.get("model"))
 
     def _enabled_tools(self):
         configured = self.config.get("tools", {})
-        return {name for name in TOOLS if bool(configured.get(name, False))}
+        enabled = {name for name in TOOLS if bool(configured.get(name, False))}
+        logger.debug("enabled_tools=%s", sorted(enabled))
+        return enabled
 
     def refresh_tools(self):
+        logger.info("refresh_tools")
         self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager) if self.ollama_manager else self.router
 
     def send(self, text):
         if self._thread and self._thread.isRunning():
+            logger.warning("send_ignored generation_already_running text=%r", text)
             return
         text = text.strip()
         if not text:
+            logger.debug("send_ignored empty_text")
             return
 
+        logger.info("user_message text=%r", text)
         self.conversation.add("user", text)
 
         if self.router:
             try:
-                direct = self.router.route(
-                    text,
-                    self._confirm_direct,
-                    self._confirm_alias,
-                )
+                direct = self.router.route(text, self._confirm_direct, self._confirm_alias)
+                logger.info("router_result direct=%s response=%r", direct is not None, direct)
             except Exception as exc:
+                logger.exception("router_failed text=%r", text)
                 direct = f"Не удалось выполнить прямую команду: {exc}"
             if direct is not None:
                 self.conversation.add("assistant", direct)
@@ -151,6 +173,7 @@ class ChatService(QObject):
             max_tokens=int(self.config.get("max_tokens")),
             tools=ollama_tools(enabled_tools),
         )
+        logger.info("llm_request_prepared model=%s messages=%r tools=%s", request.model, request.messages, sorted(enabled_tools))
 
         self._thread = QThread()
         self._worker = GenerationWorker(self.provider, request, self.config, self.alias_manager)
@@ -164,6 +187,7 @@ class ChatService(QObject):
         self._worker.failed.connect(self._thread.quit)
         self._thread.finished.connect(self._cleanup)
         self._thread.start()
+        logger.debug("generation_thread_started")
 
     def _on_chunk(self, chunk):
         if chunk.text:
@@ -171,32 +195,27 @@ class ChatService(QObject):
         self.chunk_received.emit(chunk)
 
     def _on_finished(self, stats):
+        logger.info("generation_finished stats=%r answer=%r", stats, self._current_answer)
         if self._current_answer.strip():
             self.conversation.add("assistant", self._current_answer)
         self.generation_finished.emit(stats)
 
     def _on_failed(self, error):
+        logger.error("generation_error error=%r", error)
         self.error.emit(error)
 
     def _confirm_direct(self, tool_name, arguments):
+        logger.info("confirmation_requested source=router tool=%s arguments=%r", tool_name, arguments)
         return self._show_confirmation(tool_name, arguments)
 
     @staticmethod
     def _confirm_alias(query, target, category):
-        label = {
-            "applications": "приложению",
-            "files": "файлу",
-            "folders": "папке",
-            "actions": "действию",
-        }.get(category, "объекту")
-        answer = QMessageBox.question(
-            None,
-            "Сохранить алиас",
-            f"Я нашёл «{target}». Сохранить «{query}» как дополнительное название этому {label}?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return answer == QMessageBox.StandardButton.Yes
+        logger.info("alias_confirmation_requested query=%r target=%r category=%s", query, target, category)
+        label = {"applications": "приложению", "files": "файлу", "folders": "папке", "actions": "действию"}.get(category, "объекту")
+        answer = QMessageBox.question(None, "Сохранить алиас", f"Я нашёл «{target}». Сохранить «{query}» как дополнительное название этому {label}?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        accepted = answer == QMessageBox.StandardButton.Yes
+        logger.info("alias_confirmation_result accepted=%s", accepted)
+        return accepted
 
     def _on_confirmation_requested(self, tool_name, arguments, payload):
         event, result = payload
@@ -205,26 +224,16 @@ class ChatService(QObject):
 
     @staticmethod
     def _show_confirmation(tool_name, arguments):
-        labels = {
-            "delete_file": "Подтверждение удаления",
-            "write_file": "Подтверждение перезаписи",
-            "rename_file": "Подтверждение переименования",
-            "copy_file": "Подтверждение копирования",
-            "move_file": "Подтверждение перемещения",
-            "close_application": "Подтверждение закрытия приложения",
-        }
+        labels = {"delete_file": "Подтверждение удаления", "write_file": "Подтверждение перезаписи", "rename_file": "Подтверждение переименования", "copy_file": "Подтверждение копирования", "move_file": "Подтверждение перемещения", "close_application": "Подтверждение закрытия приложения"}
         title = labels.get(tool_name, "Подтверждение действия")
         description = json.dumps(arguments, ensure_ascii=False, indent=2)
-        answer = QMessageBox.question(
-            None,
-            title,
-            description,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        return answer == QMessageBox.StandardButton.Yes
+        answer = QMessageBox.question(None, title, description, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        accepted = answer == QMessageBox.StandardButton.Yes
+        logger.info("confirmation_dialog tool=%s accepted=%s arguments=%r", tool_name, accepted, arguments)
+        return accepted
 
     def _cleanup(self):
+        logger.debug("generation_thread_cleanup")
         if self._worker:
             self._worker.deleteLater()
         if self._thread:
@@ -233,5 +242,6 @@ class ChatService(QObject):
         self._thread = None
 
     def add_assistant_message(self, text):
+        logger.info("assistant_message_added text=%r", text)
         if text and text.strip():
             self.conversation.add("assistant", text)
