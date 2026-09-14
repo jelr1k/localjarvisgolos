@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import json
 import logging
+import os
+import platform
 import sys
 from logging.handlers import RotatingFileHandler
 
@@ -14,12 +15,7 @@ _BACKUP_COUNT = 10
 
 
 def _handler(path, level):
-    handler = RotatingFileHandler(
-        path,
-        maxBytes=_MAX_BYTES,
-        backupCount=_BACKUP_COUNT,
-        encoding="utf-8",
-    )
+    handler = RotatingFileHandler(path, maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, encoding="utf-8")
     handler.setLevel(level)
     handler.setFormatter(logging.Formatter(_FORMAT))
     return handler
@@ -33,7 +29,6 @@ def setup_logging() -> logging.Logger:
 
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
-
     logger.addHandler(_handler(LOG_DIR / "jarvis.log", logging.DEBUG))
     logger.addHandler(_handler(LOG_DIR / "errors.log", logging.ERROR))
 
@@ -41,19 +36,31 @@ def setup_logging() -> logging.Logger:
     events.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(events)
 
-    # Existing third-party and standard-library loggers are also captured.
+    # Все сторонние и стандартные логгеры без собственных handlers попадают
+    # в основной журнал и журнал ошибок.
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
     root.addHandler(_handler(LOG_DIR / "jarvis.log", logging.DEBUG))
     root.addHandler(_handler(LOG_DIR / "errors.log", logging.ERROR))
     logging.captureWarnings(True)
 
-    logger.info("logging_initialized | pid=%s | python=%s | executable=%s", sys.platform, sys.version.replace("\n", " "), sys.executable)
+    logger.info(
+        "logging_initialized pid=%s platform=%s python=%s executable=%s cwd=%s argv=%r machine=%s",
+        os.getpid(),
+        sys.platform,
+        sys.version.replace("\n", " "),
+        sys.executable,
+        os.getcwd(),
+        sys.argv,
+        platform.platform(),
+    )
     return logger
 
 
 def log_event(event: str, **data) -> None:
     """Записывает структурированное диагностическое событие."""
+    import json
+
     payload = {"event": event, **data}
     try:
         message = json.dumps(payload, ensure_ascii=False, default=str, separators=(",", ":"))
