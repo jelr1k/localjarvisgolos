@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import logging
 import re
+import time
 
 from core.alias_manager import AliasManager
 from tools import applications
 from tools.executor import ToolExecutor
 from tools.registry import TOOLS
+
+
+logger = logging.getLogger("jarvis.router")
 
 
 class CommandRouter:
@@ -15,16 +20,18 @@ class CommandRouter:
         self.config = config
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
+        logger.debug("router_created")
 
     def _executor(self) -> ToolExecutor:
         return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
 
     @staticmethod
     def _reply(result: dict) -> str:
+        logger.debug("router_reply result=%r", result)
         if not result.get("success"):
             matches = result.get("matches") or []
             if result.get("ambiguous") and matches:
-                return (result.get("error") or "Неоднозначный запрос.")
+                return result.get("error") or "Неоднозначный запрос."
             return f"Не выполнено: {result.get('error', 'неизвестная ошибка')}"
         details = result.get("details") or {}
         if result.get("matches") is not None:
@@ -41,13 +48,16 @@ class CommandRouter:
         return "Готово."
 
     def _resolve_target(self, query, categories, alias_confirmation_callback=None):
+        logger.debug("resolve_target query=%r categories=%r", query, categories)
         exact = self.alias_manager.resolve_any(query, categories)
+        logger.debug("resolve_target exact=%r", exact)
         if exact.get("status") == "exact":
             return exact["target"], None
         if exact.get("status") == "ambiguous":
             return None, "Неоднозначный алиас: " + ", ".join(exact.get("candidates", []))
 
         suggestions = self.alias_manager.suggest_any(query, categories, limit=5)
+        logger.debug("resolve_target suggestions=%r", suggestions)
         if not suggestions:
             return query, None
         if len(suggestions) > 1 and suggestions[0]["score"] - suggestions[1]["score"] < 0.08:
@@ -58,37 +68,51 @@ class CommandRouter:
         if alias_confirmation_callback is None:
             return query, None
         accepted = alias_confirmation_callback(query, suggestion["target"], suggestion["category"])
+        logger.info("alias_confirmation query=%r target=%r category=%s accepted=%s", query, suggestion["target"], suggestion["category"], accepted)
         if not accepted:
             return query, None
         self.alias_manager.add_alias(suggestion["category"], suggestion["target"], query)
         return suggestion["target"], None
 
     def route(self, text: str, confirmation_callback=None, alias_confirmation_callback=None) -> str | None:
+        started = time.perf_counter()
         normalized = " ".join(text.strip().split())
         lower = normalized.lower()
+        logger.info("route_start text=%r normalized=%r", text, normalized)
         executor = self._executor()
 
         if applications.has_pending_launch_choices() and re.fullmatch(r"(?:\d+|перв(?:ый|ая)|втор(?:ой|ая)|трет(?:ий|ья)|четверт(?:ый|ая)|четвёрт(?:ый|ая)|пят(?:ый|ая))\.?", lower):
-            return self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
+            logger.info("route_branch pending_launch_choice input=%r", normalized)
+            result = self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
+            logger.info("route_finish branch=pending_launch_choice elapsed=%.4fs response=%r", time.perf_counter() - started, result)
+            return result
 
         if re.fullmatch(r"(?:статус|состояние) ollama", lower):
-            return f"Ollama Server: {self.ollama_manager.server_status()}. Загружено моделей: {len(self.ollama_manager.get_loaded_models())}."
+            response = f"Ollama Server: {self.ollama_manager.server_status()}. Загружено моделей: {len(self.ollama_manager.get_loaded_models())}."
+            logger.info("route_finish branch=ollama_status elapsed=%.4fs response=%r", time.perf_counter() - started, response)
+            return response
 
         if lower in {"запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"}:
+            logger.info("route_branch ollama_start")
             try:
                 self.ollama_manager.start()
                 return "Ollama Server запущен."
             except Exception as exc:
+                logger.exception("route_ollama_start_failed")
                 return f"Не удалось запустить Ollama: {exc}"
 
         if lower in {"останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"}:
+            logger.info("route_branch ollama_stop")
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
 
         action = self.alias_manager.resolve_action(normalized)
+        logger.debug("route_action_resolution result=%r", action)
         if not action:
+            logger.info("route_finish branch=llm elapsed=%.4fs", time.perf_counter() - started)
             return None
         action_name, target = action
+        logger.info("route_action action=%s target=%r", action_name, target)
 
         if action_name == "search" and executor._is_enabled("search_files"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
@@ -115,6 +139,7 @@ class CommandRouter:
             if error:
                 return f"Не выполнено: {error}"
             status = executor.execute("get_process_status", {"name": resolved}, confirmation_callback=confirmation_callback) if executor._is_enabled("get_process_status") else {"running": False}
+            logger.info("route_launch_status target=%r resolved=%r status=%r", target, resolved, status)
             if status.get("success") and status.get("running"):
                 return f"{target} уже запущен."
             return self._reply(executor.execute("launch_application", {"target": resolved}, confirmation_callback=confirmation_callback))
@@ -123,6 +148,8 @@ class CommandRouter:
             resolved, error = self._resolve_target(target, ("applications",), alias_confirmation_callback)
             if error:
                 return f"Не выполнено: {error}"
+            logger.info("route_close target=%r resolved=%r", target, resolved)
             return self._reply(executor.execute("close_application", {"name": resolved}, confirmation_callback=confirmation_callback))
 
+        logger.info("route_finish branch=unhandled_action action=%s elapsed=%.4fs", action_name, time.perf_counter() - started)
         return None
