@@ -69,13 +69,31 @@ def _resolve_shortcut_target(path: Path) -> Path | None:
         shell = win32com.client.Dispatch("WScript.Shell")
         shortcut = shell.CreateShortcut(str(path))
         target = (shortcut.TargetPath or "").strip()
-        logger.info("shortcut_resolved path=%s target=%s working_dir=%s arguments=%r", path, target, getattr(shortcut, "WorkingDirectory", ""), getattr(shortcut, "Arguments", ""))
+        logger.info(
+            "shortcut_resolved path=%s target=%s working_dir=%s arguments=%r",
+            path,
+            target,
+            getattr(shortcut, "WorkingDirectory", ""),
+            getattr(shortcut, "Arguments", ""),
+        )
         if not target:
             return None
         return Path(target).resolve()
     except Exception:
         logger.exception("shortcut_resolve_exception path=%s", path)
         return None
+
+
+def _application_identity(name: str, path: Path) -> dict:
+    target = _resolve_shortcut_target(path)
+    executable = target if target and target.suffix.lower() == ".exe" else (path if path.suffix.lower() == ".exe" else None)
+    return {
+        "display_name": name,
+        "shortcut": str(path),
+        "target_executable": str(target) if target else None,
+        "normalized_executable": _normalize_executable(executable),
+        "executable_label": _normalize_process_label(executable),
+    }
 
 
 def _resolve_application(name: str) -> dict:
@@ -86,15 +104,7 @@ def _resolve_application(name: str) -> dict:
         return found
 
     shortcut = Path(found["path"])
-    target = _resolve_shortcut_target(shortcut)
-    executable = target if target and target.suffix.lower() == ".exe" else (shortcut if shortcut.suffix.lower() == ".exe" else None)
-    identity = {
-        "display_name": name,
-        "shortcut": str(shortcut),
-        "target_executable": str(target) if target else None,
-        "normalized_executable": _normalize_executable(executable),
-        "executable_label": _normalize_process_label(executable),
-    }
+    identity = _application_identity(name, shortcut)
     logger.info("application_identity name=%r identity=%r", name, identity)
     return _result(True, path=shortcut, identity=identity)
 
@@ -226,9 +236,8 @@ def find_application(name: str) -> dict:
                 if item.stem.lower() == stem or item.name.lower() == wanted:
                     candidates.append(item.resolve())
                     logger.debug("find_application_candidate source=start_menu path=%s", item)
-        except OSError as exc:
+        except OSError:
             logger.exception("find_application_root_error root=%s", root)
-            continue
 
     executable_name = wanted if wanted.endswith(".exe") else f"{wanted}.exe"
     path_match = shutil.which(executable_name)
@@ -240,8 +249,32 @@ def find_application(name: str) -> dict:
     logger.info("find_application_candidates raw=%r candidates=%r unique=%r", raw, candidates, unique)
     if not unique:
         return _result(False, error=f"Установленное приложение не найдено: {raw}", matches=[])
+
+    # Несколько ярлыков одного приложения (например, системный и пользовательский
+    # ярлык Steam) не должны считаться разными приложениями. Сначала разрешаем
+    # .lnk в реальные exe и группируем кандидатов по исполняемому файлу.
+    executable_groups: dict[str, list[Path]] = {}
+    unresolved: list[Path] = []
+    for candidate in unique:
+        target = _resolve_shortcut_target(candidate)
+        executable = target if target and target.suffix.lower() == ".exe" else (candidate if candidate.suffix.lower() == ".exe" else None)
+        normalized = _normalize_executable(executable)
+        if normalized:
+            executable_groups.setdefault(normalized, []).append(candidate)
+        else:
+            unresolved.append(candidate)
+
+    if len(executable_groups) == 1:
+        group_paths = next(iter(executable_groups.values()))
+        selected = group_paths[0]
+        logger.info("find_application_deduplicated raw=%r executable=%r paths=%r", raw, next(iter(executable_groups)), group_paths)
+        return _result(True, path=selected, matches=[str(p) for p in group_paths])
+
+    # Если определить цель ярлыков не удалось, оставляем старое поведение:
+    # неоднозначность безопаснее, чем закрыть не то приложение.
     if len(unique) > 1:
         return _result(False, error="Найдено несколько вариантов приложения.", ambiguous=True, matches=[str(p) for p in unique])
+
     return _result(True, path=unique[0], matches=[str(unique[0])])
 
 
