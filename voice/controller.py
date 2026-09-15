@@ -38,6 +38,13 @@ class VoiceController(QObject):
 
     def __init__(self, config: dict):
         super().__init__()
+        self._thread: QThread | None = None
+        self._worker: _TranscriptionWorker | None = None
+        self.recorder: MicrophoneRecorder | None = None
+        self.recognizer: SpeechRecognizer | None = None
+        self.apply_config(config)
+
+    def apply_config(self, config: dict):
         voice_config = config.get("voice", {})
         self.sample_rate = int(voice_config.get("sample_rate", 16000))
         self.channels = int(voice_config.get("channels", 1))
@@ -47,6 +54,10 @@ class VoiceController(QObject):
         self.compute_type = voice_config.get("compute_type", "int8")
         self.language = voice_config.get("language", "ru")
         self.min_duration = float(voice_config.get("min_duration", 0.25))
+
+        if self.recorder is not None and self.recorder.is_recording:
+            self.recorder.stop()
+            self.listening_changed.emit(False)
 
         self.recorder = MicrophoneRecorder(
             sample_rate=self.sample_rate,
@@ -59,15 +70,14 @@ class VoiceController(QObject):
             compute_type=self.compute_type,
             language=self.language,
         )
-        self._thread: QThread | None = None
-        self._worker: _TranscriptionWorker | None = None
+        logger.info("voice_config_applied input_device=%r", self.device)
 
     @property
     def is_recording(self) -> bool:
-        return self.recorder.is_recording
+        return self.recorder is not None and self.recorder.is_recording
 
     def start(self):
-        if self.recorder.is_recording or self.transcribing():
+        if self.recorder is None or self.recorder.is_recording or self.transcribing():
             return
         try:
             self.recorder.start()
@@ -76,7 +86,7 @@ class VoiceController(QObject):
             self.error.emit(self._friendly_microphone_error(exc))
 
     def stop(self):
-        if not self.recorder.is_recording:
+        if self.recorder is None or not self.recorder.is_recording:
             return
         try:
             audio = self.recorder.stop()
@@ -96,6 +106,9 @@ class VoiceController(QObject):
         return self._thread is not None and self._thread.isRunning()
 
     def _transcribe(self, audio):
+        if self.recognizer is None:
+            self.error.emit("Распознаватель речи не инициализирован.")
+            return
         self.transcribing_changed.emit(True)
         self._thread = QThread()
         self._worker = _TranscriptionWorker(self.recognizer, audio)
@@ -130,11 +143,11 @@ class VoiceController(QObject):
     @staticmethod
     def _friendly_microphone_error(exc: Exception) -> str:
         return (
-            "Не удалось подключиться к микрофону. Проверь, что микрофон подключён "
+            "Не удалось подключиться к выбранному микрофону. Проверь, что он подключён "
             f"и JARVIS имеет доступ к нему. Детали: {exc}"
         )
 
     def close(self):
-        if self.recorder.is_recording:
+        if self.recorder is not None and self.recorder.is_recording:
             self.recorder.stop()
             self.listening_changed.emit(False)
