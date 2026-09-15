@@ -13,13 +13,11 @@ _HOST_API_PRIORITY = {
     "MME": 3,
 }
 
-# Prefer Whisper's native 16 kHz when the device supports it. Otherwise use a
-# common Windows microphone rate and resample before transcription.
 _SAMPLE_RATE_CANDIDATES = (16000, 48000, 44100, 32000, 24000, 22050, 8000)
 
 
 def _normalize_name(name: str) -> str:
-    """Normalize a PortAudio device name for duplicate detection."""
+    """Normalize a PortAudio device name for duplicate detection and matching."""
     value = " ".join(str(name).strip().split()).casefold()
     return re.sub(r"[^\w\s]+", "", value, flags=re.UNICODE)
 
@@ -34,7 +32,10 @@ def _host_api_name(device: dict[str, Any], hostapis: list[dict[str, Any]]) -> st
     return ""
 
 
-def list_input_devices(devices: list[dict[str, Any]], hostapis: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+def list_input_devices(
+    devices: list[dict[str, Any]],
+    hostapis: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     """Return unique input devices, collapsing PortAudio host-API duplicates."""
     hostapis = hostapis or []
     grouped: dict[str, list[dict[str, Any]]] = {}
@@ -47,9 +48,7 @@ def list_input_devices(devices: list[dict[str, Any]], hostapis: list[dict[str, A
             continue
 
         name = str(device.get("name", f"Микрофон {index}"))
-        key = _normalize_name(name)
-        if not key:
-            key = f"device-{index}"
+        key = _normalize_name(name) or f"device-{index}"
 
         item = dict(device)
         item["index"] = index
@@ -70,14 +69,28 @@ def list_input_devices(devices: list[dict[str, Any]], hostapis: list[dict[str, A
     return result
 
 
-def find_supported_sample_rate(device=None, channels: int = 1, preferred: int = 16000) -> int:
-    """Return a sample rate accepted by the selected input device.
+def find_input_device_by_name(name: str | None) -> dict[str, Any] | None:
+    """Resolve a previously selected microphone to its current PortAudio index."""
+    if not name:
+        return None
 
-    ``sounddevice``/PortAudio can expose a microphone that works perfectly but
-    rejects the application's preferred 16 kHz format. We probe the device
-    before opening a stream and prefer 16 kHz when possible.
-    """
-    candidates = [int(preferred)] + [rate for rate in _SAMPLE_RATE_CANDIDATES if rate != int(preferred)]
+    try:
+        devices = list(sd.query_devices())
+        hostapis = list(sd.query_hostapis())
+        normalized = _normalize_name(name)
+        for device in list_input_devices(devices, hostapis):
+            if _normalize_name(str(device.get("name", ""))) == normalized:
+                return device
+    except Exception:
+        return None
+    return None
+
+
+def find_supported_sample_rate(device=None, channels: int = 1, preferred: int = 16000) -> int:
+    """Return a sample rate accepted by the selected input device."""
+    candidates = [int(preferred)] + [
+        rate for rate in _SAMPLE_RATE_CANDIDATES if rate != int(preferred)
+    ]
     last_error: Exception | None = None
 
     for rate in candidates:
