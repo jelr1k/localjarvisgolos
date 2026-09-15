@@ -27,16 +27,19 @@ class CommandRouter:
         return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
 
     @staticmethod
-    def _reply(result: dict) -> str:
-        logger.debug("router_reply result=%r", result)
+    def _reply(result: dict, include_path: bool = True) -> str:
+        logger.debug("router_reply result=%r include_path=%s", result, include_path)
         if not result.get("success"):
             matches = result.get("matches") or []
             if result.get("ambiguous") and matches:
                 return result.get("error") or "Неоднозначный запрос."
             return f"Не выполнено: {result.get('error', 'неизвестная ошибка')}"
         if result.get("content") is not None:
-            path = result.get("path")
-            prefix = f"Содержимое {path}:\n" if path else "Содержимое файла:\n"
+            if include_path:
+                path = result.get("path")
+                prefix = f"Содержимое {path}:\n" if path else "Содержимое файла:\n"
+            else:
+                prefix = "Содержимое файла:\n"
             return prefix + str(result["content"])
         details = result.get("details") or {}
         if result.get("matches") is not None:
@@ -136,7 +139,10 @@ class CommandRouter:
             # not resolve through the alias resolver here because a searched
             # file may live in the read-only application root.
             result = executor.execute("read_file", {"path": target}, confirmation_callback=confirmation_callback)
-            return self._reply(result)
+            # При обычной команде чтения путь — внутренний технический
+            # результат и пользователю не нужен. Отдельные команды поиска
+            # по-прежнему показывают найденные полные пути.
+            return self._reply(result, include_path=False)
 
         if action_name == "delete" and executor._is_enabled("delete_file"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
