@@ -132,7 +132,7 @@ def rename_file(path: str, new_name: str) -> dict:
 def copy_file(path: str, destination: str) -> dict:
     source, matches, error = _existing_file(path)
     if error:
-        extra = {"ambiguous": True, "matches": [str(p) for p in matches] if matches else {}
+        extra = {"ambiguous": True, "matches": [str(p) for p in matches]} if len(matches) > 1 else {}
         return _result(False, error=error, **extra)
     try:
         target = resolve_tool_target(validate_non_empty(destination, "назначение"))
@@ -146,7 +146,7 @@ def copy_file(path: str, destination: str) -> dict:
 def move_file(path: str, destination: str) -> dict:
     source, matches, error = _existing_file(path)
     if error:
-        extra = {"ambiguous": True, "matches": [str(p) for p in matches] if matches else {}
+        extra = {"ambiguous": True, "matches": [str(p) for p in matches]} if len(matches) > 1 else {}
         return _result(False, error=error, **extra)
     try:
         target = resolve_tool_target(validate_non_empty(destination, "назначение"))
