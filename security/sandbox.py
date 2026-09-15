@@ -14,11 +14,13 @@ def sandbox_root() -> Path:
     return WORKSPACE_DIR.resolve()
 
 
-def resolve_inside_sandbox(value: str | Path, *, allow_nonexistent: bool = False) -> Path:
+def resolve_inside_sandbox(value: str | Path, *, allow_nonexistent: bool = True) -> Path:
     """Нормализует путь и гарантирует, что он находится внутри sandbox.
 
-    Path.resolve() следует за symlink/junction/reparse point, поэтому проверка
-    выполняется уже над фактическим целевым путём.
+    По умолчанию разрешает ещё не существующий конечный путь, сохраняя
+    проверку фактического расположения существующих родительских каталогов.
+    Для операций, которым нужен существующий объект, передаётся
+    ``allow_nonexistent=False``.
     """
     if value is None or not str(value).strip():
         raise SandboxError("Путь не указан.")
