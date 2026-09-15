@@ -5,7 +5,7 @@ from pathlib import Path
 
 from security.sandbox import SandboxError, resolve_inside_sandbox
 from security.validator import validate_non_empty
-from tools.paths import find_by_name, prepare_tool_workspace, resolve_tool_path, resolve_tool_target
+from tools.paths import find_by_name, prepare_tool_workspace, resolve_read_path, resolve_tool_path, resolve_tool_target
 
 MAX_READ_BYTES = 2 * 1024 * 1024
 
@@ -45,11 +45,17 @@ def search_files(name: str = "", extension: str = "") -> dict:
 
 
 def read_file(path: str) -> dict:
-    file_path, matches, error = _existing_file(path)
-    if error:
-        return _result(False, error=error, **({"ambiguous": True, "matches": [str(p) for p in matches]} if len(matches) > 1 else {}))
+    try:
+        raw = validate_non_empty(path, "путь к файлу")
+    except ValueError as exc:
+        return _result(False, error=str(exc))
+
+    file_path, matches = resolve_read_path(raw)
+    if len(matches) > 1:
+        return _result(False, error="Найдено несколько файлов с таким именем.", ambiguous=True, matches=[str(p) for p in matches])
     if file_path is None:
-        return _result(False, error="Файл не найден.")
+        return _result(False, error=f"Файл не найден среди разрешённых для чтения путей: {raw}")
+
     try:
         size = file_path.stat().st_size
         if size > MAX_READ_BYTES:
@@ -140,7 +146,7 @@ def copy_file(path: str, destination: str) -> dict:
 def move_file(path: str, destination: str) -> dict:
     source, matches, error = _existing_file(path)
     if error:
-        extra = {"ambiguous": True, "matches": [str(p) for p in matches]} if len(matches) > 1 else {}
+        extra = {"ambiguous": True, "matches": [str(p) for p in matches] if matches else {}}
         return _result(False, error=error, **extra)
     try:
         target = resolve_tool_target(validate_non_empty(destination, "назначение"))
