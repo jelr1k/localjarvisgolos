@@ -38,7 +38,7 @@ def _existing_file(value: str) -> tuple[Path | None, list[Path], str | None]:
 def search_files(name: str = "", extension: str = "") -> dict:
     try:
         prepare_tool_workspace()
-        matches = find_by_name(name, extension or None)
+        matches = find_by_name(name, extension or None, fuzzy=True)
         return _result(True, details={"query": name, "count": len(matches)}, matches=[str(p) for p in matches])
     except Exception as exc:
         return _result(False, error=f"Ошибка поиска: {exc}")
@@ -132,7 +132,7 @@ def rename_file(path: str, new_name: str) -> dict:
 def copy_file(path: str, destination: str) -> dict:
     source, matches, error = _existing_file(path)
     if error:
-        extra = {"ambiguous": True, "matches": [str(p) for p in matches]} if len(matches) > 1 else {}
+        extra = {"ambiguous": True, "matches": [str(p) for p in matches] if matches else {}
         return _result(False, error=error, **extra)
     try:
         target = resolve_tool_target(validate_non_empty(destination, "назначение"))
@@ -146,7 +146,7 @@ def copy_file(path: str, destination: str) -> dict:
 def move_file(path: str, destination: str) -> dict:
     source, matches, error = _existing_file(path)
     if error:
-        extra = {"ambiguous": True, "matches": [str(p) for p in matches] if matches else {}}
+        extra = {"ambiguous": True, "matches": [str(p) for p in matches] if matches else {}
         return _result(False, error=error, **extra)
     try:
         target = resolve_tool_target(validate_non_empty(destination, "назначение"))
