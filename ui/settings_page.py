@@ -24,17 +24,14 @@ class SettingsPage(QWidget):
         self.config = config
         self.model_service = model_service
 
-        # Имя ассистента
         self.assistant_name = QLineEdit(
             config.get("assistant_name", "JARVIS")
         )
 
-        # Модель
         self.model = QComboBox()
         self.model.setEditable(True)
         self.model.addItem(config.get("model"))
 
-        # Раздумывания
         self.thinking = QCheckBox(
             "Включить режим раздумывания"
         )
@@ -42,7 +39,6 @@ class SettingsPage(QWidget):
             bool(config.get("thinking"))
         )
 
-        # Температура
         self.temperature = QDoubleSpinBox()
         self.temperature.setRange(0.0, 2.0)
         self.temperature.setSingleStep(0.05)
@@ -50,7 +46,6 @@ class SettingsPage(QWidget):
             float(config.get("temperature"))
         )
 
-        # Контекст
         self.context = QSpinBox()
         self.context.setRange(512, 131072)
         self.context.setSingleStep(512)
@@ -58,7 +53,6 @@ class SettingsPage(QWidget):
             int(config.get("context_length"))
         )
 
-        # Максимум ответа
         self.max_tokens = QSpinBox()
         self.max_tokens.setRange(1, 131072)
         self.max_tokens.setSingleStep(256)
@@ -66,14 +60,12 @@ class SettingsPage(QWidget):
             int(config.get("max_tokens"))
         )
 
-        # Ollama
         self.url = QLineEdit(
             config.ollama_url
         )
 
-        # =========================
-        # Форма
-        # =========================
+        self.microphone = QComboBox()
+        self._load_microphones()
 
         form = QFormLayout()
 
@@ -108,6 +100,11 @@ class SettingsPage(QWidget):
         )
 
         form.addRow(
+            "Микрофон:",
+            self.microphone
+        )
+
+        form.addRow(
             "Ollama:",
             self.url
         )
@@ -115,51 +112,64 @@ class SettingsPage(QWidget):
         box = QGroupBox("Параметры")
         box.setLayout(form)
 
-        # =========================
-        # Кнопки
-        # =========================
-
         refresh = QPushButton(
             "Обновить список моделей"
         )
+        refresh.clicked.connect(self.refresh_models)
 
-        refresh.clicked.connect(
-            self.refresh_models
+        refresh_microphones = QPushButton(
+            "Обновить список микрофонов"
         )
+        refresh_microphones.clicked.connect(self._load_microphones)
 
         save = QPushButton(
             "Сохранить настройки"
         )
-
-        save.clicked.connect(
-            self.save
-        )
-
-        # =========================
-        # Layout
-        # =========================
+        save.clicked.connect(self.save)
 
         layout = QVBoxLayout(self)
-
         layout.addWidget(box)
         layout.addWidget(refresh)
+        layout.addWidget(refresh_microphones)
         layout.addWidget(save)
         layout.addStretch()
+
+    def _load_microphones(self):
+        try:
+            import sounddevice as sd
+
+            current = self.config.get("voice", {}).get("input_device")
+            self.microphone.blockSignals(True)
+            self.microphone.clear()
+            self.microphone.addItem("Системный микрофон по умолчанию", None)
+
+            for index, device in enumerate(sd.query_devices()):
+                if int(device.get("max_input_channels", 0)) <= 0:
+                    continue
+                name = str(device.get("name", f"Микрофон {index}"))
+                hostapi = str(device.get("hostapi", ""))
+                label = f"{name}  [#{index}]"
+                if hostapi:
+                    label += f" — {hostapi}"
+                self.microphone.addItem(label, index)
+
+            position = self.microphone.findData(current)
+            self.microphone.setCurrentIndex(position if position >= 0 else 0)
+        except Exception as exc:
+            self.microphone.clear()
+            self.microphone.addItem("Не удалось получить список микрофонов")
+            self.microphone.setToolTip(str(exc))
+        finally:
+            self.microphone.blockSignals(False)
 
     def refresh_models(self):
         try:
             models = self.model_service.get_models()
-
             current = self.model.currentText()
-
             self.model.clear()
             self.model.addItems(models)
-
             if current:
-                self.model.setCurrentText(
-                    current
-                )
-
+                self.model.setCurrentText(current)
         except Exception as exc:
             QMessageBox.warning(
                 self,
@@ -168,19 +178,10 @@ class SettingsPage(QWidget):
             )
 
     def save(self):
-
-        # =========================
-        # Сохраняем имя ассистента
-        # =========================
-
         self.config.data["assistant_name"] = (
             self.assistant_name.text().strip()
             or "JARVIS"
         )
-
-        # =========================
-        # Остальные настройки
-        # =========================
 
         self.config.data["model"] = (
             self.model.currentText().strip()
@@ -202,14 +203,14 @@ class SettingsPage(QWidget):
             self.max_tokens.value()
         )
 
+        self.config.data["voice"]["input_device"] = self.microphone.currentData()
+
         self.config.data["ollama"]["base_url"] = (
             self.url.text().strip().rstrip("/")
         )
 
-        # Сохраняем settings.json
         self.config.save()
 
-        # Сообщаем ChatPage новое имя и модель
         self.settings_changed.emit(
             self.config.get("model"),
             self.config.get(
