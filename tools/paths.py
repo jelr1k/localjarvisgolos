@@ -8,9 +8,19 @@ from core.app_paths import APP_ROOT, WORKSPACE_DIR, ensure_application_dirs
 from security.sandbox import SandboxError, is_inside_sandbox, resolve_inside_sandbox
 
 TOOL_WORKSPACE = WORKSPACE_DIR
-# Read-only search/read roots. Mutating tools remain restricted to WORKSPACE_DIR.
+# Read-only search roots. Mutating tools remain restricted to WORKSPACE_DIR.
 SEARCH_ROOTS = (TOOL_WORKSPACE, APP_ROOT)
 SKIPPED_SEARCH_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", "logs"}
+
+
+def _search_roots() -> tuple[Path, ...]:
+    """Возвращает актуальные read-only корни.
+
+    TOOL_WORKSPACE намеренно читается динамически: это позволяет безопасно
+    подменять workspace в тестах и не оставляет устаревшую ссылку после
+    конфигурационных изменений.
+    """
+    return (TOOL_WORKSPACE, APP_ROOT)
 
 
 def prepare_tool_workspace() -> Path:
@@ -19,7 +29,7 @@ def prepare_tool_workspace() -> Path:
     legacy_workspace = APP_ROOT / "test"
     if not TOOL_WORKSPACE.exists() and legacy_workspace.exists():
         try:
-            legacy_workspace.rename(TOOL_WORKSPACE)
+            TOOL_WORKSPACE.rename(TOOL_WORKSPACE)
         except OSError:
             pass
     TOOL_WORKSPACE.mkdir(parents=True, exist_ok=True)
@@ -38,7 +48,7 @@ def is_readable_search_path(path: Path) -> bool:
         return False
     if not resolved.is_file():
         return False
-    for root in SEARCH_ROOTS:
+    for root in _search_roots():
         try:
             resolved.relative_to(root.resolve())
             return True
@@ -84,7 +94,7 @@ def find_by_name(name: str, extension: str | None = None) -> list[Path]:
 
     matches: list[Path] = []
     seen: set[Path] = set()
-    for root in SEARCH_ROOTS:
+    for root in _search_roots():
         for path in _iter_search_files(root) or ():
             try:
                 resolved = path.resolve(strict=True)
@@ -177,5 +187,4 @@ def add_file_to_workspace(source: str | Path) -> Path:
         shutil.copy2(source_path, target)
     except OSError as exc:
         raise OSError(f"Не удалось добавить файл в Workspace: {exc}") from exc
-
-    return target.resolve()
+    return target
