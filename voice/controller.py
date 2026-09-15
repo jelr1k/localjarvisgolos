@@ -4,6 +4,7 @@ import logging
 
 from PySide6.QtCore import QObject, QThread, Signal
 
+from voice.command_normalizer import normalize_voice_command
 from voice.devices import find_input_device_by_name, find_supported_sample_rate
 from voice.microphone import MicrophoneRecorder
 from voice.speech_recognizer import SpeechRecognizer
@@ -161,10 +162,22 @@ class VoiceController(QObject):
 
     def _on_transcript(self, text: str):
         self.transcribing_changed.emit(False)
-        if text.strip():
-            self.transcript_ready.emit(text.strip())
-        else:
+        raw_text = text.strip()
+        if not raw_text:
             logger.info("voice_transcription_empty")
+            return
+
+        normalized_text = normalize_voice_command(raw_text)
+        logger.info(
+            "voice_command_normalized raw=%r normalized=%r changed=%s",
+            raw_text,
+            normalized_text,
+            raw_text != normalized_text,
+        )
+        if normalized_text:
+            self.transcript_ready.emit(normalized_text)
+        else:
+            logger.info("voice_command_normalized_empty raw=%r", raw_text)
 
     def _on_error(self, error: str):
         self.transcribing_changed.emit(False)
