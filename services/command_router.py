@@ -16,7 +16,7 @@ class CommandRouter:
     """Определяет однозначные русскоязычные команды, которым не нужен LLM."""
 
     _GENERIC_APPLICATION_TARGETS = {"приложение", "приложения", "программу", "программа"}
-    _CONTEXTUAL_SEARCH_ALIASES = {"где находится", "где лежит", "расположение", "местоположение"}
+    _CONTEXTUAL_SEARCH_ALIASES = {"где находится", "где лежит", "расположение", "местоположение", "покажи"}
     _FILE_SEARCH_CONTEXT_RE = re.compile(
         r"(?:\bфайл(?:а|ы|ом|ов)?\b|\bпапк\w*\b|\bкаталог\w*\b|\bдиректор\w*\b|\bдокумент\w*\b|[\\/]"
         r"|\b[\wА-Яа-яЁё-]+\.[A-Za-z0-9]{1,8}\b)",
@@ -62,7 +62,6 @@ class CommandRouter:
                     matches.append(action)
                     break
 
-        # Пользовательские алиасы действий тоже учитываем.
         for action, entry in self.alias_manager.data.get("actions", {}).items():
             for alias in entry.get("aliases", []):
                 if self._contains_action_alias(normalized, action, alias):
