@@ -92,15 +92,20 @@ class SettingsPage(QWidget):
     def _load_microphones(self):
         try:
             import sounddevice as sd
-            from voice.devices import list_input_devices
+            from voice.devices import list_input_devices, _normalize_name
 
-            current = self.config.get("voice", {}).get("input_device")
+            voice_config = self.config.get("voice", {})
+            current_index = voice_config.get("input_device")
+            current_name = voice_config.get("input_device_name")
+
             self.microphone.blockSignals(True)
             self.microphone.clear()
             self.microphone.addItem("Системный микрофон по умолчанию", None)
 
             devices = list_input_devices(list(sd.query_devices()), list(sd.query_hostapis()))
             current_found = False
+            normalized_current_name = _normalize_name(current_name or "")
+
             for device in devices:
                 index = int(device["index"])
                 name = str(device.get("name", f"Микрофон {index}"))
@@ -113,7 +118,10 @@ class SettingsPage(QWidget):
                         f"Устройство ввода через {hostapi} (индекс {index})",
                         3,
                     )
-                if current is not None and index == current:
+
+                same_name = normalized_current_name and _normalize_name(name) == normalized_current_name
+                same_index = current_index is not None and index == current_index
+                if same_name or (not current_name and same_index):
                     current_found = True
                     self.microphone.setCurrentIndex(item_index)
 
@@ -208,7 +216,13 @@ class SettingsPage(QWidget):
         self.config.data["max_tokens"] = self.max_tokens.value()
 
         voice_config = self.config.data.setdefault("voice", {})
-        voice_config["input_device"] = self.microphone.currentData()
+        selected_device = self.microphone.currentData()
+        voice_config["input_device"] = selected_device
+        voice_config["input_device_name"] = (
+            self.microphone.currentText().strip()
+            if selected_device is not None
+            else None
+        )
 
         self.config.data["ollama"]["base_url"] = self.url.text().strip().rstrip("/")
         self.config.save()
