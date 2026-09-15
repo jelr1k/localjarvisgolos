@@ -15,6 +15,8 @@ def test_normalize_common_code_extensions():
     assert normalize_voice_command("прочитай main точка пайтон") == "прочитай main.py"
     assert normalize_voice_command("прочитай README точка эмдэ") == "прочитай README.md"
     assert normalize_voice_command("открой config точка джей сон") == "открой config.json"
+    assert normalize_voice_command("найди ран нижняя черта тест точка бат") == "найди ран_тест.bat"
+    assert normalize_voice_command("найди ран нижняя почерк тест бэт") == "найди ран_тест бэт"
 
 
 def test_normalize_spoken_punctuation():
