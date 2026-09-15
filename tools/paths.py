@@ -14,12 +14,7 @@ SKIPPED_SEARCH_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", "
 
 
 def _search_roots() -> tuple[Path, ...]:
-    """Возвращает актуальные read-only корни.
-
-    TOOL_WORKSPACE намеренно читается динамически: это позволяет безопасно
-    подменять workspace в тестах и не оставляет устаревшую ссылку после
-    конфигурационных изменений.
-    """
+    """Возвращает актуальные read-only корни."""
     return (TOOL_WORKSPACE, APP_ROOT)
 
 
@@ -29,7 +24,7 @@ def prepare_tool_workspace() -> Path:
     legacy_workspace = APP_ROOT / "test"
     if not TOOL_WORKSPACE.exists() and legacy_workspace.exists():
         try:
-            TOOL_WORKSPACE.rename(TOOL_WORKSPACE)
+            legacy_workspace.rename(TOOL_WORKSPACE)
         except OSError:
             pass
     TOOL_WORKSPACE.mkdir(parents=True, exist_ok=True)
@@ -178,7 +173,6 @@ def add_file_to_workspace(source: str | Path) -> Path:
     if not source_path.exists() or not source_path.is_file():
         raise ValueError("Можно добавить только существующий файл.")
 
-    workspace = prepare_tool_workspace()
     target = resolve_inside_sandbox(source_path.name, allow_nonexistent=True)
     if target.exists():
         raise FileExistsError(f"Файл уже существует в Workspace: {target.name}")
