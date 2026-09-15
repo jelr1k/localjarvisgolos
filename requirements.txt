@@ -3,3 +3,4 @@ requests>=2.32,<3
 psutil
 pywin32; platform_system == "Windows"
 pymorphy3>=2.0,<3
+pytest>=8,<9
