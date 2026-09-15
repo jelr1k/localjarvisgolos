@@ -8,8 +8,7 @@ from core.app_paths import APP_ROOT, WORKSPACE_DIR, ensure_application_dirs
 from security.sandbox import SandboxError, is_inside_sandbox, resolve_inside_sandbox
 
 TOOL_WORKSPACE = WORKSPACE_DIR
-# File search is read-only, so it may inspect the Jarvis application root in
-# addition to the writable workspace. Destructive tools still use the sandbox.
+# Read-only search/read roots. Mutating tools remain restricted to WORKSPACE_DIR.
 SEARCH_ROOTS = (TOOL_WORKSPACE, APP_ROOT)
 SKIPPED_SEARCH_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", "logs"}
 
@@ -29,6 +28,23 @@ def prepare_tool_workspace() -> Path:
 
 def is_path_allowed(path: Path) -> bool:
     return is_inside_sandbox(path, allow_nonexistent=True)
+
+
+def is_readable_search_path(path: Path) -> bool:
+    """Разрешает только существующие файлы внутри read-only search roots."""
+    try:
+        resolved = path.resolve(strict=True)
+    except OSError:
+        return False
+    if not resolved.is_file():
+        return False
+    for root in SEARCH_ROOTS:
+        try:
+            resolved.relative_to(root.resolve())
+            return True
+        except ValueError:
+            continue
+    return False
 
 
 def _clean_name(name: str) -> str:
@@ -57,11 +73,7 @@ def _iter_search_files(root: Path):
 
 
 def find_by_name(name: str, extension: str | None = None) -> list[Path]:
-    """Ищет файлы в Workspace и корне Jarvis.
-
-    Поиск является read-only операцией. Запись, удаление и другие изменяющие
-    операции по-прежнему ограничены sandbox (Workspace).
-    """
+    """Ищет файлы в Workspace и корне Jarvis в режиме только чтения."""
     prepare_tool_workspace()
     name = _clean_name(name)
     extension = (extension or "").strip()
@@ -80,8 +92,6 @@ def find_by_name(name: str, extension: str | None = None) -> list[Path]:
                 continue
             if not resolved.is_file() or resolved in seen:
                 continue
-            # Files outside Workspace are searchable but are not granted to
-            # mutating tools through the sandbox.
             if root.resolve() == TOOL_WORKSPACE.resolve() and not is_path_allowed(resolved):
                 continue
             if extension and resolved.suffix.lower() != extension.lower():
@@ -93,7 +103,7 @@ def find_by_name(name: str, extension: str | None = None) -> list[Path]:
 
 
 def resolve_tool_path(value: str) -> tuple[Path | None, list[Path]]:
-    """Разрешает существующий файл по имени, относительному или абсолютному пути."""
+    """Разрешает существующий файл для изменяющих file-tools только внутри workspace."""
     raw = _clean_name(value)
     if not raw:
         return None, []
@@ -112,8 +122,35 @@ def resolve_tool_path(value: str) -> tuple[Path | None, list[Path]]:
         return None, []
 
     matches = find_by_name(raw)
-    # Only sandbox files can be returned to read/delete/rename/copy/move tools.
     matches = [match for match in matches if is_path_allowed(match)]
+    if len(matches) == 1:
+        return matches[0], matches
+    return None, matches
+
+
+def resolve_read_path(value: str) -> tuple[Path | None, list[Path]]:
+    """Разрешает существующий файл для read_file в read-only search roots."""
+    raw = _clean_name(value)
+    if not raw:
+        return None, []
+
+    prepare_tool_workspace()
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            return None, []
+        return (resolved, [resolved]) if is_readable_search_path(resolved) else (None, [])
+
+    try:
+        workspace_candidate = resolve_inside_sandbox(candidate, allow_nonexistent=False)
+        if workspace_candidate.is_file():
+            return workspace_candidate, [workspace_candidate]
+    except SandboxError:
+        pass
+
+    matches = find_by_name(raw)
     if len(matches) == 1:
         return matches[0], matches
     return None, matches
