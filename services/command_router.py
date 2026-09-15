@@ -16,6 +16,12 @@ class CommandRouter:
     """Определяет однозначные русскоязычные команды, которым не нужен LLM."""
 
     _GENERIC_APPLICATION_TARGETS = {"приложение", "приложения", "программу", "программа"}
+    _CONTEXTUAL_SEARCH_ALIASES = {"где находится", "где лежит", "расположение", "местоположение"}
+    _FILE_SEARCH_CONTEXT_RE = re.compile(
+        r"(?:\bфайл(?:а|ы|ом|ов)?\b|\bпапк\w*\b|\bкаталог\w*\b|\bдиректор\w*\b|\bдокумент\w*\b|[\\/]"
+        r"|\b[\wА-Яа-яЁё-]+\.[A-Za-z0-9]{1,8}\b)",
+        flags=re.IGNORECASE,
+    )
 
     def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None):
         self.config = config
@@ -26,6 +32,23 @@ class CommandRouter:
     def _executor(self) -> ToolExecutor:
         return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
 
+    @classmethod
+    def _is_contextual_file_search(cls, alias: str, target: str) -> bool:
+        if alias not in cls._CONTEXTUAL_SEARCH_ALIASES:
+            return True
+        return bool(cls._FILE_SEARCH_CONTEXT_RE.search(target))
+
+    @classmethod
+    def _contains_action_alias(cls, text: str, action: str, alias: str) -> bool:
+        pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if not match:
+            return False
+        if action != "search" or alias not in cls._CONTEXTUAL_SEARCH_ALIASES:
+            return True
+        target = text[match.end():].lstrip(" ,:;—-\t")
+        return cls._is_contextual_file_search(alias, target)
+
     def _has_multiple_actions(self, text: str) -> bool:
         """Составные команды должны попасть в LLM, чтобы он выстроил цепочку tools."""
         normalized = " ".join(text.strip().split())
@@ -35,16 +58,14 @@ class CommandRouter:
         matches = []
         for action, defaults in DEFAULT_ACTION_ALIASES.items():
             for alias in defaults:
-                pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
-                if re.search(pattern, normalized, flags=re.IGNORECASE):
+                if self._contains_action_alias(normalized, action, alias):
                     matches.append(action)
                     break
 
         # Пользовательские алиасы действий тоже учитываем.
         for action, entry in self.alias_manager.data.get("actions", {}).items():
             for alias in entry.get("aliases", []):
-                pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
-                if re.search(pattern, normalized, flags=re.IGNORECASE):
+                if self._contains_action_alias(normalized, action, alias):
                     matches.append(action)
                     break
 
@@ -53,6 +74,20 @@ class CommandRouter:
             logger.info("compound_command detected actions=%s text=%r", sorted(unique_actions), text)
             return True
         return False
+
+    def _resolve_action(self, text: str):
+        action = self.alias_manager.resolve_action(text)
+        if not action:
+            return None
+        action_name, target = action
+        if action_name == "search":
+            for alias in self._CONTEXTUAL_SEARCH_ALIASES:
+                if re.match(rf"^{re.escape(alias)}(?:,)?\s+", text, flags=re.IGNORECASE):
+                    if not self._is_contextual_file_search(alias, target):
+                        logger.info("contextual_search_rejected target=%r text=%r", target, text)
+                        return None
+                    break
+        return action
 
     @staticmethod
     def _reply(result: dict, include_path: bool = True) -> str:
@@ -69,7 +104,6 @@ class CommandRouter:
             else:
                 prefix = "Содержимое файла:\n"
             return prefix + str(result["content"])
-        details = result.get("details") or {}
         if result.get("matches") is not None:
             matches = result.get("matches") or []
             if not matches:
@@ -146,14 +180,11 @@ class CommandRouter:
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
 
-        # Составные команды (например, «найди файл X, прочитай его и перескажи»)
-        # не должны перехватываться первым совпавшим действием. Их должен
-        # обработать LLM через последовательные tool_calls.
         if self._has_multiple_actions(normalized):
             logger.info("route_finish branch=compound_llm elapsed=%.4fs", time.perf_counter() - started)
             return None
 
-        action = self.alias_manager.resolve_action(normalized)
+        action = self._resolve_action(normalized)
         logger.debug("route_action_resolution result=%r", action)
         if not action:
             logger.info("route_finish branch=llm elapsed=%.4fs", time.perf_counter() - started)
@@ -170,9 +201,6 @@ class CommandRouter:
 
         if action_name == "read" and executor._is_enabled("read_file"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
-            # read_file performs its own safe read-only path resolution. We do
-            # not resolve through the alias resolver here because a searched
-            # file may live in the read-only application root.
             result = executor.execute("read_file", {"path": target}, confirmation_callback=confirmation_callback)
             return self._reply(result, include_path=False)
 
