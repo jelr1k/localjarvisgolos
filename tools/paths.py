@@ -8,18 +8,15 @@ from core.app_paths import APP_ROOT, WORKSPACE_DIR, ensure_application_dirs
 from security.sandbox import SandboxError, is_inside_sandbox, resolve_inside_sandbox
 
 TOOL_WORKSPACE = WORKSPACE_DIR
-# Read-only search roots. Mutating tools remain restricted to WORKSPACE_DIR.
 SEARCH_ROOTS = (TOOL_WORKSPACE, APP_ROOT)
 SKIPPED_SEARCH_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", "logs"}
 
 
 def _search_roots() -> tuple[Path, ...]:
-    """Возвращает актуальные read-only корни."""
     return (TOOL_WORKSPACE, APP_ROOT)
 
 
 def prepare_tool_workspace() -> Path:
-    """Создаёт workspace относительно фактического корня Jarvis."""
     ensure_application_dirs()
     legacy_workspace = APP_ROOT / "test"
     if not TOOL_WORKSPACE.exists() and legacy_workspace.exists():
@@ -36,7 +33,6 @@ def is_path_allowed(path: Path) -> bool:
 
 
 def is_readable_search_path(path: Path) -> bool:
-    """Разрешает только существующие файлы внутри read-only search roots."""
     try:
         resolved = path.resolve(strict=True)
     except OSError:
@@ -66,7 +62,6 @@ def _matches_name(path: Path, name: str) -> bool:
 
 
 def _iter_search_files(root: Path):
-    """Идёт по разрешённым read-only корням без обхода служебных каталогов."""
     root = root.resolve()
     if not root.exists():
         return
@@ -78,7 +73,6 @@ def _iter_search_files(root: Path):
 
 
 def find_by_name(name: str, extension: str | None = None) -> list[Path]:
-    """Ищет файлы в Workspace и корне Jarvis в режиме только чтения."""
     prepare_tool_workspace()
     name = _clean_name(name)
     extension = (extension or "").strip()
@@ -108,23 +102,25 @@ def find_by_name(name: str, extension: str | None = None) -> list[Path]:
 
 
 def resolve_tool_path(value: str) -> tuple[Path | None, list[Path]]:
-    """Разрешает существующий файл для изменяющих file-tools только внутри workspace."""
     raw = _clean_name(value)
     if not raw:
         return None, []
 
     prepare_tool_workspace()
     candidate = Path(raw).expanduser()
-    try:
-        if candidate.is_absolute():
+    if candidate.is_absolute():
+        try:
             resolved = resolve_inside_sandbox(candidate, allow_nonexistent=False)
             return (resolved, [resolved]) if resolved.is_file() else (None, [])
+        except SandboxError:
+            return None, []
 
+    try:
         relative = resolve_inside_sandbox(candidate, allow_nonexistent=False)
         if relative.is_file():
             return relative, [relative]
     except SandboxError:
-        return None, []
+        pass
 
     matches = find_by_name(raw)
     matches = [match for match in matches if is_path_allowed(match)]
@@ -134,7 +130,6 @@ def resolve_tool_path(value: str) -> tuple[Path | None, list[Path]]:
 
 
 def resolve_read_path(value: str) -> tuple[Path | None, list[Path]]:
-    """Разрешает существующий файл для read_file в read-only search roots."""
     raw = _clean_name(value)
     if not raw:
         return None, []
@@ -162,13 +157,11 @@ def resolve_read_path(value: str) -> tuple[Path | None, list[Path]]:
 
 
 def resolve_tool_target(value: str) -> Path:
-    """Разрешает путь для записи/переименования/перемещения, даже если его ещё нет."""
     prepare_tool_workspace()
     return resolve_inside_sandbox(_clean_name(value), allow_nonexistent=True)
 
 
 def add_file_to_workspace(source: str | Path) -> Path:
-    """Копирует пользовательский файл в корень Workspace и возвращает его путь."""
     source_path = Path(source).expanduser()
     if not source_path.exists() or not source_path.is_file():
         raise ValueError("Можно добавить только существующий файл.")
