@@ -8,6 +8,8 @@ from faster_whisper import WhisperModel
 
 logger = logging.getLogger("jarvis.voice.whisper")
 
+_TARGET_SAMPLE_RATE = 16000
+
 
 class SpeechRecognizer:
     """Local faster-whisper speech-to-text recognizer."""
@@ -41,12 +43,33 @@ class SpeechRecognizer:
             logger.info("whisper_model_loaded model=%s", self.model_name)
         return self._model
 
-    def transcribe(self, audio: np.ndarray, sample_rate: int = 16000) -> str:
+    @staticmethod
+    def _resample(audio: np.ndarray, source_rate: int, target_rate: int = _TARGET_SAMPLE_RATE) -> np.ndarray:
+        source_rate = int(source_rate)
+        target_rate = int(target_rate)
+        if source_rate <= 0 or source_rate == target_rate or audio.size < 2:
+            return audio
+
+        target_length = max(1, round(len(audio) * target_rate / source_rate))
+        source_positions = np.arange(len(audio), dtype=np.float64)
+        target_positions = np.linspace(0, len(audio) - 1, target_length, dtype=np.float64)
+        return np.asarray(np.interp(target_positions, source_positions, audio), dtype=np.float32)
+
+    def transcribe(self, audio: np.ndarray, sample_rate: int = _TARGET_SAMPLE_RATE) -> str:
         if audio.size == 0:
             return ""
 
-        model = self._get_model()
         audio = np.asarray(audio, dtype=np.float32)
+        if int(sample_rate) != _TARGET_SAMPLE_RATE:
+            logger.info(
+                "whisper_audio_resampling source_rate=%s target_rate=%s samples=%d",
+                sample_rate,
+                _TARGET_SAMPLE_RATE,
+                len(audio),
+            )
+            audio = self._resample(audio, sample_rate, _TARGET_SAMPLE_RATE)
+
+        model = self._get_model()
         segments, _info = model.transcribe(
             audio,
             language=self.language or None,
