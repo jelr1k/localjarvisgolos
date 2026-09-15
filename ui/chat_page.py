@@ -17,6 +17,7 @@ class ChatPage(QWidget):
         self.answer_started = False
         self.assistant_name = config.get("assistant_name", "JARVIS")
         self.model_label = QLabel()
+        self.voice_status = QLabel("Голос: готов")
         self.chat = QTextEdit()
         self.chat.setReadOnly(True)
         self.input = QTextEdit()
@@ -24,12 +25,18 @@ class ChatPage(QWidget):
         self.input.setFixedHeight(90)
         self.send_button = QPushButton("Отправить")
         self.send_button.clicked.connect(self.send)
+        self.voice_button = QPushButton("🎙 Зажать и говорить")
+        self.voice_button.setToolTip("Зажми кнопку, скажи команду и отпусти")
+        self.voice_button.pressed.connect(self._voice_pressed)
+        self.voice_button.released.connect(self._voice_released)
 
         bottom = QHBoxLayout()
         bottom.addWidget(self.input)
         bottom.addWidget(self.send_button)
+        bottom.addWidget(self.voice_button)
         layout = QVBoxLayout(self)
         layout.addWidget(self.model_label)
+        layout.addWidget(self.voice_status)
         layout.addWidget(self.chat)
         layout.addLayout(bottom)
         self.input.installEventFilter(self)
@@ -37,6 +44,14 @@ class ChatPage(QWidget):
         self.stream_timer = QTimer(self)
         self.stream_timer.timeout.connect(self.flush_stream)
         self.stream_timer.start(33)
+        self.voice_controller = None
+
+    def set_voice_controller(self, controller):
+        self.voice_controller = controller
+        controller.listening_changed.connect(self.on_voice_listening_changed)
+        controller.transcribing_changed.connect(self.on_voice_transcribing_changed)
+        controller.transcript_ready.connect(self.on_voice_transcript)
+        controller.error.connect(self.on_voice_error)
 
     def update_model_label(self, model):
         self.model_label.setText(f"Модель: {model}")
@@ -57,17 +72,59 @@ class ChatPage(QWidget):
                 return True
         return super().eventFilter(obj, event)
 
+    def _voice_pressed(self):
+        if self.voice_controller is not None:
+            self.voice_controller.start()
+
+    def _voice_released(self):
+        if self.voice_controller is not None:
+            self.voice_controller.stop()
+
     def send(self):
-        text = self.input.toPlainText().strip()
+        self._send_text(self.input.toPlainText().strip())
+        self.input.clear()
+
+    def send_voice_text(self, text):
+        self._send_text(text, clear_input=False)
+
+    def _send_text(self, text, clear_input=True):
+        text = text.strip()
         if not text:
             return
         self.chat.append(f"<b>Ты:</b> {text}")
-        self.input.clear()
+        if clear_input:
+            self.input.clear()
         self.answer = self.thinking = ""
         self.pending_answer = self.pending_thinking = ""
         self.thinking_started = self.answer_started = False
         self.send_button.setEnabled(False)
         self.send_requested.emit(text)
+
+    def on_voice_listening_changed(self, listening):
+        if listening:
+            self.voice_status.setText("Голос: 🔴 слушаю…")
+            self.voice_button.setText("🎙 Отпустить — распознать")
+        else:
+            self.voice_status.setText("Голос: обрабатываю…")
+            self.voice_button.setText("🎙 Зажать и говорить")
+
+    def on_voice_transcribing_changed(self, transcribing):
+        if transcribing:
+            self.voice_status.setText("Голос: ⏳ распознаю…")
+            self.voice_button.setEnabled(False)
+        else:
+            self.voice_button.setEnabled(True)
+            if self.voice_status.text().startswith("Голос: ⏳"):
+                self.voice_status.setText("Голос: готов")
+
+    def on_voice_transcript(self, text):
+        self.voice_status.setText(f"Голос: «{text}»")
+        self.send_voice_text(text)
+
+    def on_voice_error(self, error):
+        self.voice_status.setText("Голос: ошибка")
+        self.voice_button.setEnabled(True)
+        self.chat.append(f"<b>{self.assistant_name}:</b> {error}")
 
     def on_direct_response(self, text):
         self.chat.append(f"<b>{self.assistant_name}:</b> {text}")
@@ -118,4 +175,6 @@ class ChatPage(QWidget):
     def finish_generation(self):
         self.flush_stream()
         self.send_button.setEnabled(True)
+        if self.voice_controller is None or not self.voice_controller.transcribing():
+            self.voice_status.setText("Голос: готов")
         self.input.setFocus()
