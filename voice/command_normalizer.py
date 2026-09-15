@@ -4,17 +4,12 @@ import re
 import unicodedata
 
 
-# Conservative mappings for words Whisper commonly produces when a user speaks
-# punctuation or a file extension in Russian. Keep this list intentionally
-# small: the normalizer must not silently rewrite ordinary user text.
 _SPOKEN_PUNCTUATION = (
     (r"\bнижн(?:ее|яя)\s+подч[её]ркивание\b", "_"),
     (r"\bнижн(?:ее|яя)\s+подчеркивание\b", "_"),
     (r"\bподч[её]ркивание\b", "_"),
     (r"\bподчеркивание\b", "_"),
     (r"\bточк(?:а|у|ой)\b", "."),
-    # The longer backslash phrase must be handled before the generic "слэш"
-    # rule, otherwise it would be converted to "/" first.
     (r"\bобратн(?:ый|ая)\s+слэш\b", lambda _: "\\"),
     (r"\bсл[её]ш\b", "/"),
     (r"\bслэш\b", "/"),
@@ -62,14 +57,12 @@ _EXTENSION_ALIASES = {
 
 _EXTENSION_NAMES = sorted(_EXTENSION_ALIASES, key=len, reverse=True)
 _SPOKEN_EXTENSION_RE = re.compile(
-    r"\bточк(?:а|у|ой)\s+(?P<extension>"
+    r"(?P<separator>\s*)\bточк(?:а|у|ой)\s+(?P<extension>"
     + "|".join(re.escape(name) for name in _EXTENSION_NAMES)
     + r")\b",
     flags=re.IGNORECASE,
 )
 
-# Allow spaces after a dot so Whisper output like "report. текстей" can still
-# become "report.txt", without removing spaces after a normal sentence period.
 _EXTENSION_RE = re.compile(
     r"(?P<dot>\.)(?:\s*)(?P<extension>[a-zа-яё]+(?:\s+[a-zа-яё]+)?)\b",
     flags=re.IGNORECASE,
@@ -106,9 +99,6 @@ def normalize_voice_command(text: str) -> str:
     text = _replace_spoken_punctuation(text)
     text = _EXTENSION_RE.sub(_replace_extension, text)
 
-    # Do not globally remove spaces after a period: that would turn
-    # "Привет. Как дела?" into "Привет.Как дела?". File separators are safe
-    # to compact because they are unambiguous path syntax.
     text = re.sub(r"\s*([_/-])\s*", r"\1", text)
     text = re.sub(r"\s+([,;:!?])", r"\1", text)
     text = re.sub(r"([,;:!?])(?=\S)", r"\1 ", text)
