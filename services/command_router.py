@@ -9,19 +9,13 @@ from tools import applications
 from tools.executor import ToolExecutor
 from tools.registry import TOOLS
 
-
 logger = logging.getLogger("jarvis.router")
 
 
 class CommandRouter:
     """Определяет однозначные русскоязычные команды, которым не нужен LLM."""
 
-    _GENERIC_APPLICATION_TARGETS = {
-        "приложение",
-        "приложения",
-        "программу",
-        "программа",
-    }
+    _GENERIC_APPLICATION_TARGETS = {"приложение", "приложения", "программу", "программа"}
 
     def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None):
         self.config = config
@@ -40,6 +34,10 @@ class CommandRouter:
             if result.get("ambiguous") and matches:
                 return result.get("error") or "Неоднозначный запрос."
             return f"Не выполнено: {result.get('error', 'неизвестная ошибка')}"
+        if result.get("content") is not None:
+            path = result.get("path")
+            prefix = f"Содержимое {path}:\n" if path else "Содержимое файла:\n"
+            return prefix + str(result["content"])
         details = result.get("details") or {}
         if result.get("matches") is not None:
             matches = result.get("matches") or []
@@ -50,13 +48,10 @@ class CommandRouter:
             return "Приложение запущено." if result["running"] else "Приложение не запущено."
         if result.get("path"):
             return f"Готово: {result['path']}"
-        if details:
-            return "Готово."
         return "Готово."
 
     @staticmethod
     def _close_reply(target: str, result: dict) -> str:
-        """Формирует понятный ответ именно для команды закрытия приложения."""
         if not result.get("success"):
             matches = result.get("matches") or []
             if result.get("ambiguous") and matches:
@@ -74,7 +69,6 @@ class CommandRouter:
             return exact["target"], None
         if exact.get("status") == "ambiguous":
             return None, "Неоднозначный алиас: " + ", ".join(exact.get("candidates", []))
-
         suggestions = self.alias_manager.suggest_any(query, categories, limit=5)
         logger.debug("resolve_target suggestions=%r", suggestions)
         if not suggestions:
@@ -82,7 +76,6 @@ class CommandRouter:
         if len(suggestions) > 1 and suggestions[0]["score"] - suggestions[1]["score"] < 0.08:
             items = [item["target"] for item in suggestions[:5]]
             return None, "Не удалось однозначно определить объект. Варианты: " + "; ".join(items)
-
         suggestion = suggestions[0]
         if alias_confirmation_callback is None:
             return query, None
@@ -101,7 +94,6 @@ class CommandRouter:
         executor = self._executor()
 
         if applications.has_pending_launch_choices() and re.fullmatch(r"(?:\d+|перв(?:ый|ая)|втор(?:ой|ая)|трет(?:ий|ья)|четверт(?:ый|ая)|четвёрт(?:ый|ая)|пят(?:ый|ая))\.?", lower):
-            logger.info("route_branch pending_launch_choice input=%r", normalized)
             result = self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
             logger.info("route_finish branch=pending_launch_choice elapsed=%.4fs response=%r", time.perf_counter() - started, result)
             return result
@@ -112,7 +104,6 @@ class CommandRouter:
             return response
 
         if lower in {"запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"}:
-            logger.info("route_branch ollama_start")
             try:
                 self.ollama_manager.start()
                 return "Ollama Server запущен."
@@ -121,7 +112,6 @@ class CommandRouter:
                 return f"Не удалось запустить Ollama: {exc}"
 
         if lower in {"останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"}:
-            logger.info("route_branch ollama_stop")
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
 
@@ -139,6 +129,14 @@ class CommandRouter:
             if error:
                 return f"Не выполнено: {error}"
             return self._reply(executor.execute("search_files", {"name": resolved}, confirmation_callback=confirmation_callback))
+
+        if action_name == "read" and executor._is_enabled("read_file"):
+            target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
+            # read_file performs its own safe read-only path resolution. We do
+            # not resolve through the alias resolver here because a searched
+            # file may live in the read-only application root.
+            result = executor.execute("read_file", {"path": target}, confirmation_callback=confirmation_callback)
+            return self._reply(result)
 
         if action_name == "delete" and executor._is_enabled("delete_file"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
@@ -158,19 +156,16 @@ class CommandRouter:
             if error:
                 return f"Не выполнено: {error}"
             status = executor.execute("get_process_status", {"name": resolved}, confirmation_callback=confirmation_callback) if executor._is_enabled("get_process_status") else {"running": False}
-            logger.info("route_launch_status target=%r resolved=%r status=%r", target, resolved, status)
             if status.get("success") and status.get("running"):
                 return f"{target} уже запущен."
             return self._reply(executor.execute("launch_application", {"target": resolved}, confirmation_callback=confirmation_callback))
 
         if action_name == "close" and executor._is_enabled("close_application"):
             if target.strip().casefold() in self._GENERIC_APPLICATION_TARGETS:
-                logger.info("route_close_missing_target target=%r", target)
                 return "Какое приложение закрыть?"
             resolved, error = self._resolve_target(target, ("applications",), alias_confirmation_callback)
             if error:
                 return f"Не выполнено: {error}"
-            logger.info("route_close target=%r resolved=%r", target, resolved)
             result = executor.execute("close_application", {"name": resolved}, confirmation_callback=confirmation_callback)
             return self._close_reply(resolved, result)
 
