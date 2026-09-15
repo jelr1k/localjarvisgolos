@@ -14,12 +14,12 @@ try:
 except ImportError:  # pragma: no cover - dependency is declared in requirements
     pymorphy3 = None
 
-
 CATEGORIES = ("applications", "files", "folders", "actions")
 DEFAULT_ACTION_ALIASES = {
     "launch": ["открой", "открыть", "запусти", "запустить", "включи", "включить"],
     "close": ["закрой", "закрыть", "останови", "остановить", "выключи", "выключить"],
     "search": ["найди", "поищи", "покажи"],
+    "read": ["прочитай", "прочесть", "прочитать", "зачитай", "зачитать"],
     "delete": ["удали", "удалить", "стереть", "сотри"],
     "status": ["проверь", "проверить"],
 }
@@ -137,11 +137,7 @@ class AliasManager:
             if current not in CATEGORIES:
                 continue
             for target, entry in self.data[current].items():
-                result.append({
-                    "category": current,
-                    "target": target,
-                    "aliases": list(entry.get("aliases", [])),
-                })
+                result.append({"category": current, "target": target, "aliases": list(entry.get("aliases", []))})
         return result
 
     def get_aliases(self, category: str, target: str) -> list[str]:
@@ -233,10 +229,7 @@ class AliasManager:
         choices = []
         for target, entry in self.data[category].items():
             labels = [target, *entry.get("aliases", [])]
-            best = max(
-                (difflib.SequenceMatcher(None, normalized, self._normalize_alias(label)).ratio() for label in labels),
-                default=0.0,
-            )
+            best = max((difflib.SequenceMatcher(None, normalized, self._normalize_alias(label)).ratio() for label in labels), default=0.0)
             choices.append({"target": target, "category": category, "score": best})
         choices.sort(key=lambda item: item["score"], reverse=True)
         return [item for item in choices[:limit] if item["score"] >= 0.72]
@@ -252,10 +245,7 @@ class AliasManager:
         if len(exact) == 1:
             return exact[0]
         if len(exact) > 1:
-            return {
-                "status": "ambiguous",
-                "candidates": [f"{item['category']}: {item['target']}" for item in exact],
-            }
+            return {"status": "ambiguous", "candidates": [f"{item['category']}: {item['target']}" for item in exact]}
         return {"status": "none"}
 
     def suggest_any(self, query: str, categories: tuple[str, ...], limit: int = 5) -> list[dict]:
