@@ -137,24 +137,39 @@ class SettingsPage(QWidget):
     def _load_microphones(self):
         try:
             import sounddevice as sd
+            from voice.devices import list_input_devices
 
             current = self.config.get("voice", {}).get("input_device")
             self.microphone.blockSignals(True)
             self.microphone.clear()
             self.microphone.addItem("Системный микрофон по умолчанию", None)
 
-            for index, device in enumerate(sd.query_devices()):
-                if int(device.get("max_input_channels", 0)) <= 0:
-                    continue
-                name = str(device.get("name", f"Микрофон {index}"))
-                hostapi = str(device.get("hostapi", ""))
-                label = f"{name}  [#{index}]"
-                if hostapi:
-                    label += f" — {hostapi}"
-                self.microphone.addItem(label, index)
+            devices = list_input_devices(
+                list(sd.query_devices()),
+                list(sd.query_hostapis()),
+            )
 
-            position = self.microphone.findData(current)
-            self.microphone.setCurrentIndex(position if position >= 0 else 0)
+            current_found = False
+            for device in devices:
+                index = int(device["index"])
+                name = str(device.get("name", f"Микрофон {index}"))
+                hostapi = str(device.get("hostapi_name", ""))
+
+                self.microphone.addItem(name, index)
+                item_index = self.microphone.count() - 1
+                if hostapi:
+                    self.microphone.setItemData(
+                        item_index,
+                        f"Устройство ввода через {hostapi} (индекс {index})",
+                        3,
+                    )
+
+                if current is not None and index == current:
+                    current_found = True
+                    self.microphone.setCurrentIndex(item_index)
+
+            if not current_found:
+                self.microphone.setCurrentIndex(0)
         except Exception as exc:
             self.microphone.clear()
             self.microphone.addItem("Не удалось получить список микрофонов")
