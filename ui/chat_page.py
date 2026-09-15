@@ -25,10 +25,10 @@ class ChatPage(QWidget):
         self.input.setFixedHeight(90)
         self.send_button = QPushButton("Отправить")
         self.send_button.clicked.connect(self.send)
-        self.voice_button = QPushButton("🎙 Зажать и говорить")
-        self.voice_button.setToolTip("Зажми кнопку, скажи команду и отпусти")
-        self.voice_button.pressed.connect(self._voice_pressed)
-        self.voice_button.released.connect(self._voice_released)
+        self.voice_button = QPushButton("🎙 Начать говорить")
+        self.voice_button.setToolTip("Нажми один раз, говори, затем нажми ещё раз для остановки")
+        self.voice_button.setCheckable(True)
+        self.voice_button.clicked.connect(self._voice_clicked)
 
         bottom = QHBoxLayout()
         bottom.addWidget(self.input)
@@ -72,13 +72,14 @@ class ChatPage(QWidget):
                 return True
         return super().eventFilter(obj, event)
 
-    def _voice_pressed(self):
-        if self.voice_controller is not None:
-            self.voice_controller.start()
-
-    def _voice_released(self):
-        if self.voice_controller is not None:
+    def _voice_clicked(self):
+        if self.voice_controller is None or self.voice_controller.transcribing():
+            self.voice_button.setChecked(False)
+            return
+        if self.voice_controller.is_recording:
             self.voice_controller.stop()
+        else:
+            self.voice_controller.start()
 
     def send(self):
         self._send_text(self.input.toPlainText().strip())
@@ -101,19 +102,22 @@ class ChatPage(QWidget):
         self.send_requested.emit(text)
 
     def on_voice_listening_changed(self, listening):
+        self.voice_button.setChecked(listening)
         if listening:
             self.voice_status.setText("Голос: 🔴 слушаю…")
-            self.voice_button.setText("🎙 Отпустить — распознать")
+            self.voice_button.setText("🎙 Остановить запись")
         else:
             self.voice_status.setText("Голос: обрабатываю…")
-            self.voice_button.setText("🎙 Зажать и говорить")
+            self.voice_button.setText("🎙 Начать говорить")
 
     def on_voice_transcribing_changed(self, transcribing):
         if transcribing:
             self.voice_status.setText("Голос: ⏳ распознаю…")
+            self.voice_button.setChecked(False)
             self.voice_button.setEnabled(False)
         else:
             self.voice_button.setEnabled(True)
+            self.voice_button.setChecked(False)
             if self.voice_status.text().startswith("Голос: ⏳"):
                 self.voice_status.setText("Голос: готов")
 
@@ -123,6 +127,7 @@ class ChatPage(QWidget):
 
     def on_voice_error(self, error):
         self.voice_status.setText("Голос: ошибка")
+        self.voice_button.setChecked(False)
         self.voice_button.setEnabled(True)
         self.chat.append(f"<b>{self.assistant_name}:</b> {error}")
 
