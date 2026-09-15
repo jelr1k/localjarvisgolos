@@ -4,7 +4,7 @@ import logging
 import re
 import time
 
-from core.alias_manager import AliasManager
+from core.alias_manager import AliasManager, DEFAULT_ACTION_ALIASES
 from tools import applications
 from tools.executor import ToolExecutor
 from tools.registry import TOOLS
@@ -33,7 +33,7 @@ class CommandRouter:
             return False
 
         matches = []
-        for action, defaults in self.alias_manager.DEFAULT_ACTION_ALIASES.items():
+        for action, defaults in DEFAULT_ACTION_ALIASES.items():
             for alias in defaults:
                 pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
                 if re.search(pattern, normalized, flags=re.IGNORECASE):
