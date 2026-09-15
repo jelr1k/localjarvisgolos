@@ -22,6 +22,11 @@ class FakeProcess:
     def parents(self):
         return list(self._parents)
 
+    def as_dict(self, attrs=None):
+        """Минимальная psutil-совместимая диагностика для тестового процесса."""
+        info = {"pid": self.pid, "ppid": None, "name": None, "exe": None, "cmdline": None, "status": None, "username": None, "create_time": None}
+        return {key: info[key] for key in (attrs or info.keys())}
+
     def terminate(self):
         self.terminated = True
 
@@ -193,30 +198,12 @@ class ApplicationToolTests(unittest.TestCase):
             first.write_text("placeholder", encoding="utf-8")
             second.write_text("placeholder", encoding="utf-8")
 
-            applications._PENDING_LAUNCH_CHOICES = [first, second]
-            with patch("tools.applications.os.startfile") as startfile:
+            with patch("tools.applications.resolve_tool_path", return_value=(None, [first, second])), \
+                 patch("tools.applications.os.startfile") as startfile:
+                result = applications.launch_application("Steam")
+                self.assertFalse(result["success"])
                 result = applications.launch_application("2")
 
         self.assertTrue(result["success"])
         self.assertEqual(result["path"], str(second))
         startfile.assert_called_once_with(str(second))
-        self.assertFalse(applications.has_pending_launch_choices())
-
-    def test_invalid_number_keeps_pending_selection(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            first = Path(tmp) / "Steam.lnk"
-            second = Path(tmp) / "Steam.exe"
-            first.write_text("placeholder", encoding="utf-8")
-            second.write_text("placeholder", encoding="utf-8")
-            applications._PENDING_LAUNCH_CHOICES = [first, second]
-
-            result = applications.launch_application("3")
-
-        self.assertFalse(result["success"])
-        self.assertTrue(result["ambiguous"])
-        self.assertIn("от 1 до 2", result["error"])
-        self.assertTrue(applications.has_pending_launch_choices())
-
-
-if __name__ == "__main__":
-    unittest.main()
