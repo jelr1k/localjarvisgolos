@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -48,7 +49,7 @@ def _iter_search_files(root: Path):
     root = root.resolve()
     if not root.exists():
         return
-    for current, dirs, files in __import__("os").walk(root, topdown=True, followlinks=False):
+    for current, dirs, files in os.walk(root, topdown=True, followlinks=False):
         dirs[:] = [directory for directory in dirs if directory not in SKIPPED_SEARCH_DIRS]
         current_path = Path(current)
         for filename in files:
