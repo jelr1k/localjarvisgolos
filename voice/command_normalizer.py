@@ -5,7 +5,7 @@ import unicodedata
 
 
 # Conservative mappings for words Whisper commonly produces when a user speaks
-# punctuation or a file extension aloud in Russian. Keep this list intentionally
+# punctuation or a file extension in Russian. Keep this list intentionally
 # small: the normalizer must not silently rewrite ordinary user text.
 _SPOKEN_PUNCTUATION = (
     (r"\bнижн(?:ее|яя)\s+подч[её]ркивание\b", "_"),
@@ -22,9 +22,6 @@ _SPOKEN_PUNCTUATION = (
     (r"\bтире\b", "-"),
 )
 
-# Variants that frequently appear as a single word or phonetic rendering of a
-# spoken extension. The replacement is only made when it follows a dot, so
-# ordinary words such as "текст" are not changed globally.
 _EXTENSION_ALIASES = {
     "тхт": "txt",
     "текстей": "txt",
@@ -43,7 +40,29 @@ _EXTENSION_ALIASES = {
     "иксель эс": "xlsx",
     "икс эс": "xlsx",
     "иксэльэс": "xlsx",
+    "док": "doc",
+    "документ": "doc",
+    "докэкс": "docx",
+    "ворд": "docx",
+    "пдф": "pdf",
+    "пэ дэ эф": "pdf",
+    "пнг": "png",
+    "джипег": "jpg",
+    "джейпег": "jpg",
+    "жпег": "jpg",
+    "экзэ": "exe",
 }
+
+# Handle the spoken phrase as one unit. This is important for phrases such as
+# "точка тексти": replacing "точка" first and then looking for an extension
+# would otherwise leave ". тексти" and miss the extension alias.
+_EXTENSION_NAMES = sorted(_EXTENSION_ALIASES, key=len, reverse=True)
+_SPOKEN_EXTENSION_RE = re.compile(
+    r"\bточк(?:а|у|ой)\s+(?P<extension>"
+    + "|".join(re.escape(name) for name in _EXTENSION_NAMES)
+    + r")\b",
+    flags=re.IGNORECASE,
+)
 
 _EXTENSION_RE = re.compile(
     r"(?P<dot>\.)(?P<extension>[a-zа-яё]+(?:\s+[a-zа-яё]+)?)\b",
@@ -51,7 +70,14 @@ _EXTENSION_RE = re.compile(
 )
 
 
+def _replace_spoken_extension(match: re.Match[str]) -> str:
+    extension = " ".join(match.group("extension").casefold().split())
+    return "." + _EXTENSION_ALIASES[extension]
+
+
 def _replace_spoken_punctuation(text: str) -> str:
+    # Spoken extension phrases must be handled before generic punctuation.
+    text = _SPOKEN_EXTENSION_RE.sub(_replace_spoken_extension, text)
     for pattern, replacement in _SPOKEN_PUNCTUATION:
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     return text
@@ -79,10 +105,12 @@ def normalize_voice_command(text: str) -> str:
 
     text = " ".join(text.split())
     text = _replace_spoken_punctuation(text)
+
+    # Collapse spaces around punctuation before resolving an already-spoken
+    # dotted extension such as ". текстей".
+    text = re.sub(r"\s*([._/-])\s*", r"\1", text)
     text = _EXTENSION_RE.sub(_replace_extension, text)
 
-    # Whisper may leave spaces around punctuation after the spoken replacement.
-    text = re.sub(r"\s*([._/-])\s*", r"\1", text)
     text = re.sub(r"\s+([,;:!?])", r"\1", text)
     text = re.sub(r"([,;:!?])(?=\S)", r"\1 ", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
