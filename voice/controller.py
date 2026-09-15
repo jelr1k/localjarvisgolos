@@ -4,7 +4,7 @@ import logging
 
 from PySide6.QtCore import QObject, QThread, Signal
 
-from voice.devices import find_supported_sample_rate
+from voice.devices import find_input_device_by_name, find_supported_sample_rate
 from voice.microphone import MicrophoneRecorder
 from voice.speech_recognizer import SpeechRecognizer
 
@@ -50,7 +50,29 @@ class VoiceController(QObject):
         voice_config = config.get("voice", {})
         self.sample_rate = int(voice_config.get("sample_rate", 16000))
         self.channels = int(voice_config.get("channels", 1))
-        self.device = voice_config.get("input_device")
+        configured_device = voice_config.get("input_device")
+        configured_device_name = voice_config.get("input_device_name")
+
+        # PortAudio indexes can change after reboot, driver changes, or when
+        # Windows exposes devices in a different order. Prefer the saved stable
+        # device name and only fall back to the old numeric index for legacy configs.
+        self.device = configured_device
+        if configured_device_name:
+            resolved = find_input_device_by_name(configured_device_name)
+            if resolved is not None:
+                self.device = int(resolved["index"])
+                logger.info(
+                    "voice_device_restored name=%r index=%s",
+                    configured_device_name,
+                    self.device,
+                )
+            else:
+                logger.warning(
+                    "voice_device_not_found name=%r fallback_index=%r",
+                    configured_device_name,
+                    configured_device,
+                )
+
         self.model_name = voice_config.get("model", "base")
         self.device_type = voice_config.get("device", "cpu")
         self.compute_type = voice_config.get("compute_type", "int8")
