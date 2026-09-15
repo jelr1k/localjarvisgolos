@@ -13,13 +13,20 @@ _SPOKEN_PUNCTUATION = (
     (r"\bподч[её]ркивание\b", "_"),
     (r"\bподчеркивание\b", "_"),
     (r"\bточк(?:а|у|ой)\b", "."),
+    # The longer backslash phrase must be handled before the generic "слэш"
+    # rule, otherwise it would be converted to "/" first.
+    (r"\bобратн(?:ый|ая)\s+слэш\b", lambda _: "\\"),
     (r"\bсл[её]ш\b", "/"),
     (r"\bслэш\b", "/"),
-    # Use a function replacement: a single backslash is not a valid regex
-    # replacement string on Python 3.14 (it is interpreted as a bad escape).
-    (r"\bобратн(?:ый|ая)\s+слэш\b", lambda _: "\\"),
     (r"\bдефис\b", "-"),
     (r"\bтире\b", "-"),
+    (r"\bвопросительн(?:ый|ая)\s+знак\b", "?"),
+    (r"\bзнак\s+вопроса\b", "?"),
+    (r"\bвосклицательн(?:ый|ая)\s+знак\b", "!"),
+    (r"\bзнак\s+восклицания\b", "!"),
+    (r"\bдвоеточие\b", ":"),
+    (r"\bточка\s+с\s+запятой\b", ";"),
+    (r"\bзапятая\b", ","),
 )
 
 _EXTENSION_ALIASES = {
@@ -53,9 +60,6 @@ _EXTENSION_ALIASES = {
     "экзэ": "exe",
 }
 
-# Handle the spoken phrase as one unit. This is important for phrases such as
-# "точка тексти": replacing "точка" first and then looking for an extension
-# would otherwise leave ". тексти" and miss the extension alias.
 _EXTENSION_NAMES = sorted(_EXTENSION_ALIASES, key=len, reverse=True)
 _SPOKEN_EXTENSION_RE = re.compile(
     r"\bточк(?:а|у|ой)\s+(?P<extension>"
@@ -64,8 +68,10 @@ _SPOKEN_EXTENSION_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+# Allow spaces after a dot so Whisper output like "report. текстей" can still
+# become "report.txt", without removing spaces after a normal sentence period.
 _EXTENSION_RE = re.compile(
-    r"(?P<dot>\.)(?P<extension>[a-zа-яё]+(?:\s+[a-zа-яё]+)?)\b",
+    r"(?P<dot>\.)(?:\s*)(?P<extension>[a-zа-яё]+(?:\s+[a-zа-яё]+)?)\b",
     flags=re.IGNORECASE,
 )
 
@@ -76,7 +82,6 @@ def _replace_spoken_extension(match: re.Match[str]) -> str:
 
 
 def _replace_spoken_punctuation(text: str) -> str:
-    # Spoken extension phrases must be handled before generic punctuation.
     text = _SPOKEN_EXTENSION_RE.sub(_replace_spoken_extension, text)
     for pattern, replacement in _SPOKEN_PUNCTUATION:
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
@@ -92,25 +97,19 @@ def _replace_extension(match: re.Match[str]) -> str:
 
 
 def normalize_voice_command(text: str) -> str:
-    """Normalize safe, speech-specific punctuation and file extensions.
-
-    The function deliberately does not perform broad fuzzy correction of words.
-    It only fixes forms that are unambiguous in a voice command, leaving the
-    existing router, alias resolver and file resolver responsible for matching
-    actual objects.
-    """
+    """Normalize safe, speech-specific punctuation and file extensions."""
     text = unicodedata.normalize("NFKC", str(text)).strip()
     if not text:
         return ""
 
     text = " ".join(text.split())
     text = _replace_spoken_punctuation(text)
-
-    # Collapse spaces around punctuation before resolving an already-spoken
-    # dotted extension such as ". текстей".
-    text = re.sub(r"\s*([._/-])\s*", r"\1", text)
     text = _EXTENSION_RE.sub(_replace_extension, text)
 
+    # Do not globally remove spaces after a period: that would turn
+    # "Привет. Как дела?" into "Привет.Как дела?". File separators are safe
+    # to compact because they are unambiguous path syntax.
+    text = re.sub(r"\s*([_/-])\s*", r"\1", text)
     text = re.sub(r"\s+([,;:!?])", r"\1", text)
     text = re.sub(r"([,;:!?])(?=\S)", r"\1 ", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
