@@ -19,6 +19,7 @@ DEFAULTS = {
         "sample_rate": 16000,
         "channels": 1,
         "input_device": None,
+        "input_device_name": None,
         "model": "base",
         "device": "cpu",
         "compute_type": "int8",
