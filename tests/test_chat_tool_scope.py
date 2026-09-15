@@ -28,6 +28,24 @@ def test_normal_chat_has_no_tools(tmp_path):
     assert service._tools_for_message("Расскажи анекдот") == set()
 
 
+def test_question_with_where_phrase_has_no_tools(tmp_path):
+    service = make_service(tmp_path)
+    assert service._tools_for_message("Где находится Москва?") == set()
+    assert service._tools_for_message("Где находится, что делать, текстей?") == set()
+
+
+def test_where_file_is_means_search_tool(tmp_path):
+    service = make_service(tmp_path)
+    assert service._tools_for_message("Где находится файл tool_test.txt?") == {"search_files"}
+    assert service._tools_for_message("Где лежит папка Downloads") == {"search_files"}
+
+
+def test_show_file_is_search_but_show_general_text_is_chat(tmp_path):
+    service = make_service(tmp_path)
+    assert service._tools_for_message("Покажи файл tool_test.txt") == {"search_files"}
+    assert service._tools_for_message("Покажи мне пример") == set()
+
+
 def test_search_command_gets_only_search_tool(tmp_path):
     service = make_service(tmp_path)
     assert service._tools_for_message("Найди файл tool_test.txt") == {"search_files"}
