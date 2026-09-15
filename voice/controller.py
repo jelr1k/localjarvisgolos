@@ -25,7 +25,9 @@ class _TranscriptionWorker(QObject):
 
     def run(self):
         try:
-            self.finished.emit(self.recognizer.transcribe(self.audio, self.sample_rate))
+            text = self.recognizer.transcribe(self.audio, self.sample_rate)
+            logger.info("voice_transcription_worker_finished chars=%d", len(text))
+            self.finished.emit(text)
         except Exception as exc:
             logger.exception("voice_transcription_failed")
             self.failed.emit(str(exc))
@@ -155,16 +157,22 @@ class VoiceController(QObject):
         self._thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._on_transcript)
         self._worker.failed.connect(self._on_error)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.failed.connect(self._thread.quit)
+        # Do not connect the worker's result directly to QThread.quit().
+        # The result signal is queued back to VoiceController's GUI thread;
+        # quitting the worker thread independently can race with delivery of
+        # that queued signal and make the recognized text disappear before the
+        # UI receives transcript_ready.
         self._thread.finished.connect(self._on_thread_finished)
         self._thread.start()
+        logger.debug("voice_transcription_thread_started")
 
     def _on_transcript(self, text: str):
-        self.transcribing_changed.emit(False)
+        logger.info("voice_transcription_result_received chars=%d", len(text))
         raw_text = text.strip()
         if not raw_text:
             logger.info("voice_transcription_empty")
+            self.transcribing_changed.emit(False)
+            self._quit_transcription_thread()
             return
 
         normalized_text = normalize_voice_command(raw_text)
@@ -175,15 +183,25 @@ class VoiceController(QObject):
             raw_text != normalized_text,
         )
         if normalized_text:
+            logger.info("voice_transcript_ready text=%r", normalized_text)
             self.transcript_ready.emit(normalized_text)
         else:
             logger.info("voice_command_normalized_empty raw=%r", raw_text)
 
+        self.transcribing_changed.emit(False)
+        self._quit_transcription_thread()
+
     def _on_error(self, error: str):
         self.transcribing_changed.emit(False)
         self.error.emit(f"Не удалось распознать речь: {error}")
+        self._quit_transcription_thread()
+
+    def _quit_transcription_thread(self):
+        if self._thread is not None and self._thread.isRunning():
+            self._thread.quit()
 
     def _on_thread_finished(self):
+        logger.debug("voice_transcription_thread_finished")
         if self._worker is not None:
             self._worker.deleteLater()
         if self._thread is not None:
