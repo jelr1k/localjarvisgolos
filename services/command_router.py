@@ -26,6 +26,34 @@ class CommandRouter:
     def _executor(self) -> ToolExecutor:
         return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
 
+    def _has_multiple_actions(self, text: str) -> bool:
+        """Составные команды должны попасть в LLM, чтобы он выстроил цепочку tools."""
+        normalized = " ".join(text.strip().split())
+        if not normalized:
+            return False
+
+        matches = []
+        for action, defaults in self.alias_manager.DEFAULT_ACTION_ALIASES.items():
+            for alias in defaults:
+                pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
+                if re.search(pattern, normalized, flags=re.IGNORECASE):
+                    matches.append(action)
+                    break
+
+        # Пользовательские алиасы действий тоже учитываем.
+        for action, entry in self.alias_manager.data.get("actions", {}).items():
+            for alias in entry.get("aliases", []):
+                pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
+                if re.search(pattern, normalized, flags=re.IGNORECASE):
+                    matches.append(action)
+                    break
+
+        unique_actions = set(matches)
+        if len(unique_actions) > 1:
+            logger.info("compound_command detected actions=%s text=%r", sorted(unique_actions), text)
+            return True
+        return False
+
     @staticmethod
     def _reply(result: dict, include_path: bool = True) -> str:
         logger.debug("router_reply result=%r include_path=%s", result, include_path)
@@ -118,6 +146,13 @@ class CommandRouter:
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
 
+        # Составные команды (например, «найди файл X, прочитай его и перескажи»)
+        # не должны перехватываться первым совпавшим действием. Их должен
+        # обработать LLM через последовательные tool_calls.
+        if self._has_multiple_actions(normalized):
+            logger.info("route_finish branch=compound_llm elapsed=%.4fs", time.perf_counter() - started)
+            return None
+
         action = self.alias_manager.resolve_action(normalized)
         logger.debug("route_action_resolution result=%r", action)
         if not action:
@@ -139,9 +174,6 @@ class CommandRouter:
             # not resolve through the alias resolver here because a searched
             # file may live in the read-only application root.
             result = executor.execute("read_file", {"path": target}, confirmation_callback=confirmation_callback)
-            # При обычной команде чтения путь — внутренний технический
-            # результат и пользователю не нужен. Отдельные команды поиска
-            # по-прежнему показывают найденные полные пути.
             return self._reply(result, include_path=False)
 
         if action_name == "delete" and executor._is_enabled("delete_file"):
