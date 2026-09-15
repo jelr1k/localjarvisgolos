@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import difflib
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -10,6 +12,17 @@ from security.sandbox import SandboxError, is_inside_sandbox, resolve_inside_san
 TOOL_WORKSPACE = WORKSPACE_DIR
 SEARCH_ROOTS = (TOOL_WORKSPACE, APP_ROOT)
 SKIPPED_SEARCH_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", "logs"}
+
+_CYRILLIC_TO_LATIN = str.maketrans({
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
+    "ж": "zh", "з": "z", "и": "i", "й": "j", "к": "k", "л": "l", "м": "m",
+    "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "h", "ц": "c", "ч": "ch", "ш": "sh", "щ": "shch", "ъ": "",
+    "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+})
+_FILENAME_SEPARATOR_RE = re.compile(r"[\s_.-]+")
+_VOWELS_RE = re.compile(r"[aeiouy]+")
+_FUZZY_FILENAME_THRESHOLD = 0.78
 
 
 def _search_roots() -> tuple[Path, ...]:
@@ -61,6 +74,38 @@ def _matches_name(path: Path, name: str) -> bool:
     return path.stem.lower() == Path(wanted).stem.lower()
 
 
+def _filename_key(value: str) -> str:
+    transliterated = value.casefold().translate(_CYRILLIC_TO_LATIN)
+    return _VOWELS_RE.sub("a", transliterated)
+
+
+def _filename_tokens(value: str) -> list[str]:
+    return [token for token in _FILENAME_SEPARATOR_RE.split(_filename_key(value)) if token]
+
+
+def _fuzzy_filename_score(path: Path, name: str) -> float:
+    wanted = _filename_tokens(name)
+    candidate = _filename_tokens(path.name)
+    if not wanted or not candidate:
+        return 0.0
+
+    token_scores = []
+    for wanted_token in wanted:
+        token_scores.append(
+            max(
+                difflib.SequenceMatcher(None, wanted_token, candidate_token).ratio()
+                for candidate_token in candidate
+            )
+        )
+
+    score = sum(token_scores) / len(token_scores)
+    if len(wanted) == len(candidate):
+        score += 0.03
+    if _filename_key(path.stem) == _filename_key(Path(name).stem):
+        score = max(score, 0.98)
+    return min(score, 1.0)
+
+
 def _iter_search_files(root: Path):
     root = root.resolve()
     if not root.exists():
@@ -72,7 +117,7 @@ def _iter_search_files(root: Path):
             yield current_path / filename
 
 
-def find_by_name(name: str, extension: str | None = None) -> list[Path]:
+def find_by_name(name: str, extension: str | None = None, *, fuzzy: bool = False) -> list[Path]:
     prepare_tool_workspace()
     name = _clean_name(name)
     extension = (extension or "").strip()
@@ -98,7 +143,33 @@ def find_by_name(name: str, extension: str | None = None) -> list[Path]:
             if _matches_name(resolved, name):
                 seen.add(resolved)
                 matches.append(resolved)
-    return sorted(matches, key=lambda item: str(item).lower())
+
+    if matches or not fuzzy:
+        return sorted(matches, key=lambda item: str(item).lower())
+
+    fuzzy_matches: list[tuple[float, Path]] = []
+    for root in _search_roots():
+        for path in _iter_search_files(root) or ():
+            try:
+                resolved = path.resolve(strict=True)
+            except OSError:
+                continue
+            if not resolved.is_file() or resolved in seen:
+                continue
+            if root.resolve() == TOOL_WORKSPACE.resolve() and not is_path_allowed(resolved):
+                continue
+            if extension and resolved.suffix.lower() != extension.lower():
+                continue
+            score = _fuzzy_filename_score(resolved, name)
+            if score >= _FUZZY_FILENAME_THRESHOLD:
+                fuzzy_matches.append((score, resolved))
+
+    if not fuzzy_matches:
+        return []
+
+    fuzzy_matches.sort(key=lambda item: (-item[0], str(item[1]).lower()))
+    best_score = fuzzy_matches[0][0]
+    return [path for score, path in fuzzy_matches if score >= best_score - 0.03]
 
 
 def resolve_tool_path(value: str) -> tuple[Path | None, list[Path]]:
