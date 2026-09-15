@@ -7,7 +7,7 @@ def test_normalize_spoken_txt_extension():
 
 
 def test_normalize_spoken_punctuation_and_extension():
-    assert normalize_voice_command("найди файл report нижнее подчеркивание точка джейсон") == "найди файл report.json"
+    assert normalize_voice_command("найди файл report нижнее подчеркивание точка джейсон") == "найди файл report_.json"
     assert normalize_voice_command("найди файл report точка пдф") == "найди файл report.pdf"
 
 
