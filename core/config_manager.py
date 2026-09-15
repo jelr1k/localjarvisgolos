@@ -15,6 +15,16 @@ DEFAULTS = {
     "context_length": 32768,
     "max_tokens": 4096,
     "ollama": {"base_url": "http://localhost:11434"},
+    "voice": {
+        "sample_rate": 16000,
+        "channels": 1,
+        "input_device": None,
+        "model": "base",
+        "device": "cpu",
+        "compute_type": "int8",
+        "language": "ru",
+        "min_duration": 0.25,
+    },
     "tools": {
         "search_files": True,
         "read_file": True,
