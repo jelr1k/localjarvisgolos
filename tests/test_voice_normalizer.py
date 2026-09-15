@@ -3,15 +3,24 @@ from voice.command_normalizer import normalize_voice_command
 
 def test_normalize_spoken_txt_extension():
     assert normalize_voice_command("Где находится файл tool_test точка текстей?") == "Где находится файл tool_test.txt?"
+    assert normalize_voice_command("найди файл report точка тексти") == "найди файл report.txt"
 
 
 def test_normalize_spoken_punctuation_and_extension():
     assert normalize_voice_command("найди файл report нижнее подчеркивание точка джейсон") == "найди файл report.json"
+    assert normalize_voice_command("найди файл report точка пдф") == "найди файл report.pdf"
 
 
 def test_normalize_common_code_extensions():
     assert normalize_voice_command("прочитай main точка пайтон") == "прочитай main.py"
     assert normalize_voice_command("прочитай README точка эмдэ") == "прочитай README.md"
+    assert normalize_voice_command("открой config точка джей сон") == "открой config.json"
+
+
+def test_normalize_spoken_punctuation():
+    assert normalize_voice_command("привет точка как дела вопросительный знак") == "привет. как дела?"
+    assert normalize_voice_command("папка слэш документы") == "папка/документы"
+    assert normalize_voice_command("имя дефис файла") == "имя-файла"
 
 
 def test_normalize_spoken_backslash():
