@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, Signal, QThread
 from PySide6.QtWidgets import QMessageBox
 
 from chat.conversation import Conversation
-from core.alias_manager import AliasManager
+from core.alias_manager import AliasManager, DEFAULT_ACTION_ALIASES
 from llm.request import ChatRequest
 from services.command_router import CommandRouter
 from tools.executor import ToolExecutor
@@ -149,21 +149,47 @@ class ChatService(QObject):
         """Выбирает только инструменты, относящиеся к текущему запросу.
 
         Обычный чат получает пустой список tools. Для команд/задач набор сужается
-        по типу действия, чтобы модель не получала весь реестр без необходимости.
+        по типу действия, а для составных команд объединяются инструменты всех
+        найденных действий, чтобы LLM могла выполнить последовательность шагов.
         """
         lower = " ".join(text.lower().split())
         action = self.alias_manager.resolve_action(text)
         enabled = self._enabled_tools()
 
+        action_tools = {
+            "launch": {"launch_application", "get_process_status"},
+            "close": {"close_application", "get_process_status"},
+            "status": {"get_process_status"},
+            "search": {"search_files"},
+            "read": {"read_file"},
+            "delete": {"delete_file", "search_files"},
+        }
+
+        # resolve_action() возвращает только первое найденное действие. Для
+        # составной команды вроде «найди файл, прочитай его и перескажи» нужно
+        # найти все действия и передать LLM объединённый набор инструментов.
+        detected_actions: set[str] = set()
+        for action_name, aliases in DEFAULT_ACTION_ALIASES.items():
+            for alias in aliases:
+                if alias in lower:
+                    detected_actions.add(action_name)
+                    break
+
+        if len(detected_actions) > 1:
+            selected: set[str] = set()
+            for action_name in detected_actions:
+                selected.update(action_tools.get(action_name, set()))
+            result = selected & enabled
+            logger.info(
+                "chat_tool_scope text=%r tools=%s reason=compound_actions actions=%s",
+                text,
+                sorted(result),
+                sorted(detected_actions),
+            )
+            return result
+
         if action:
             action_name, _ = action
-            action_tools = {
-                "launch": {"launch_application", "get_process_status"},
-                "close": {"close_application", "get_process_status"},
-                "status": {"get_process_status"},
-                "search": {"search_files"},
-                "delete": {"delete_file", "search_files"},
-            }
             selected = action_tools.get(action_name)
             if selected:
                 return selected & enabled
