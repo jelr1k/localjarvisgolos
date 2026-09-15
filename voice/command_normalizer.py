@@ -15,7 +15,9 @@ _SPOKEN_PUNCTUATION = (
     (r"\bточк(?:а|у|ой)\b", "."),
     (r"\bсл[её]ш\b", "/"),
     (r"\bслэш\b", "/"),
-    (r"\bобратн(?:ый|ая)\s+слэш\b", "\\"),
+    # Use a function replacement: a single backslash is not a valid regex
+    # replacement string on Python 3.14 (it is interpreted as a bad escape).
+    (r"\bобратн(?:ый|ая)\s+слэш\b", lambda _: "\\"),
     (r"\bдефис\b", "-"),
     (r"\bтире\b", "-"),
 )
