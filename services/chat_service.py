@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from threading import Event
 
@@ -134,6 +135,52 @@ class ChatService(QObject):
         logger.debug("enabled_tools=%s", sorted(enabled))
         return enabled
 
+    def _tools_for_message(self, text: str) -> set[str]:
+        """Выбирает только инструменты, относящиеся к текущему запросу.
+
+        Обычный чат получает пустой список tools. Для команд/задач набор сужается
+        по типу действия, чтобы модель не получала весь реестр без необходимости.
+        """
+        lower = " ".join(text.lower().split())
+        action = self.alias_manager.resolve_action(text)
+        enabled = self._enabled_tools()
+
+        if action:
+            action_name, _ = action
+            action_tools = {
+                "launch": {"launch_application", "get_process_status"},
+                "close": {"close_application", "get_process_status"},
+                "status": {"get_process_status"},
+                "search": {"search_files"},
+                "delete": {"delete_file", "search_files"},
+            }
+            selected = action_tools.get(action_name)
+            if selected:
+                return selected & enabled
+
+        keyword_tools = {
+            "файл": {"search_files", "read_file", "file_info", "create_file", "write_file", "delete_file", "rename_file", "copy_file", "move_file"},
+            "файла": {"search_files", "read_file", "file_info", "create_file", "write_file", "delete_file", "rename_file", "copy_file", "move_file"},
+            "папк": {"search_files", "create_folder", "file_info", "copy_file", "move_file"},
+            "приложен": {"find_application", "get_process_status", "launch_application", "close_application"},
+            "програм": {"find_application", "get_process_status", "launch_application", "close_application"},
+            "сайт": {"open_url"},
+            "ссылк": {"open_url"},
+            "url": {"open_url"},
+        }
+        selected: set[str] = set()
+        for keyword, names in keyword_tools.items():
+            if keyword in lower:
+                selected.update(names)
+
+        result = selected & enabled
+        if result:
+            logger.info("chat_tool_scope text=%r tools=%s reason=keywords", text, sorted(result))
+            return result
+
+        logger.info("chat_tool_scope text=%r tools=[] reason=normal_chat", text)
+        return set()
+
     def refresh_tools(self):
         logger.info("refresh_tools")
         self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager) if self.ollama_manager else self.router
@@ -163,7 +210,7 @@ class ChatService(QObject):
                 return
 
         self._current_answer = ""
-        enabled_tools = self._enabled_tools()
+        tools_for_message = self._tools_for_message(text)
         request = ChatRequest(
             model=self.config.get("model"),
             messages=self.conversation.as_ollama_messages(),
@@ -171,9 +218,9 @@ class ChatService(QObject):
             temperature=float(self.config.get("temperature")),
             context_length=int(self.config.get("context_length")),
             max_tokens=int(self.config.get("max_tokens")),
-            tools=ollama_tools(enabled_tools),
+            tools=ollama_tools(tools_for_message),
         )
-        logger.info("llm_request_prepared model=%s messages=%r tools=%s", request.model, request.messages, sorted(enabled_tools))
+        logger.info("llm_request_prepared model=%s messages=%r tools=%s", request.model, request.messages, sorted(tools_for_message))
 
         self._thread = QThread()
         self._worker = GenerationWorker(self.provider, request, self.config, self.alias_manager)
