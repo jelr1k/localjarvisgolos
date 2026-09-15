@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from tools.applications import close_application, find_application, get_process_status, launch_application, open_url
+from tools.applications import find_application, get_process_status, launch_application, open_url
+from tools.application_closer import close_application
 from tools.files import (
     copy_file,
     create_file,
@@ -58,7 +59,7 @@ TOOLS = {
     "rename_file": {
         "function": rename_file,
         "description": _file_description("Переименовывает один файл"),
-        "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "new_name": {"type": "string"}}, "required": ["path", "new_name"]},
+        "parameters": {"type": "object", "properties": {"path": {"type": "string"}, "new_name": {"type": "string"},}, "required": ["path", "new_name"]},
         "requires_confirmation": True,
     },
     "copy_file": {
