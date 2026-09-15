@@ -1,5 +1,6 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QWidget,
     QVBoxLayout,
     QFormLayout,
@@ -200,7 +201,6 @@ class SettingsPage(QWidget):
         self.test_microphone.setEnabled(False)
         try:
             self.test_microphone.setText("Слушаю 1,5 секунды...")
-            QApplication = __import__("PySide6.QtWidgets", fromlist=["QApplication"]).QApplication
             QApplication.processEvents()
 
             audio = sd.rec(
