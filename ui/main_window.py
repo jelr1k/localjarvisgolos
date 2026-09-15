@@ -68,6 +68,7 @@ class MainWindow(QWidget):
         self.ollama_manager.set_base_url(self.config.ollama_url)
         self.chat_page.update_model_label(model)
         self.chat_page.update_assistant_name(assistant_name)
+        self.voice_controller.apply_config(self.config)
         window = self.window()
         if window:
             window.setWindowTitle(assistant_name or "JARVIS")
