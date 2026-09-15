@@ -32,8 +32,18 @@ class GenerationWorker(QObject):
         self.request = request
         self.config = config
         self.alias_manager = alias_manager
-        self.executor = ToolExecutor(config, alias_manager=alias_manager)
+        allowed_tools = {
+            tool.get("function", {}).get("name")
+            for tool in request.tools or []
+            if tool.get("function", {}).get("name")
+        }
+        self.executor = ToolExecutor(
+            config,
+            enabled_tools=allowed_tools,
+            alias_manager=alias_manager,
+        )
         self.max_tool_rounds = 5
+        logger.debug("generation_worker_created allowed_tools=%s", sorted(allowed_tools))
 
     def _confirm_tool(self, tool_name, arguments):
         logger.info("confirmation_requested source=llm tool=%s arguments=%r", tool_name, arguments)
