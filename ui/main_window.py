@@ -12,6 +12,7 @@ from ui.ollama_page import OllamaPage
 from ui.settings_page import SettingsPage
 from ui.statistics_page import StatisticsPage
 from ui.tools_page import ToolsPage
+from voice import VoiceController
 
 
 class MainWindow(QWidget):
@@ -25,6 +26,7 @@ class MainWindow(QWidget):
         self.alias_manager = alias_manager or AliasManager()
         self.model_service = ModelService(chat_service.provider)
         self.stats_service = StatisticsService()
+        self.voice_controller = VoiceController(config)
 
         self.tabs = QTabWidget()
         self.chat_page = ChatPage(chat_service, config)
@@ -53,6 +55,7 @@ class MainWindow(QWidget):
 
         self.chat_page.update_model_label(self.config.get("model"))
         self.chat_page.update_assistant_name(self.config.get("assistant_name", "JARVIS"))
+        self.chat_page.set_voice_controller(self.voice_controller)
         self.chat_page.send_requested.connect(self.chat_service.send)
 
         self._on_settings_changed(
@@ -78,3 +81,7 @@ class MainWindow(QWidget):
     def on_error(self, error):
         self.chat_page.finish_generation()
         QMessageBox.critical(self, "Ошибка", error)
+
+    def closeEvent(self, event):
+        self.voice_controller.close()
+        super().closeEvent(event)
