@@ -16,6 +16,13 @@ logger = logging.getLogger("jarvis.router")
 class CommandRouter:
     """Определяет однозначные русскоязычные команды, которым не нужен LLM."""
 
+    _GENERIC_APPLICATION_TARGETS = {
+        "приложение",
+        "приложения",
+        "программу",
+        "программа",
+    }
+
     def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None):
         self.config = config
         self.ollama_manager = ollama_manager
@@ -46,6 +53,18 @@ class CommandRouter:
         if details:
             return "Готово."
         return "Готово."
+
+    @staticmethod
+    def _close_reply(target: str, result: dict) -> str:
+        """Формирует понятный ответ именно для команды закрытия приложения."""
+        if not result.get("success"):
+            matches = result.get("matches") or []
+            if result.get("ambiguous") and matches:
+                return result.get("error") or "Неоднозначный запрос."
+            return f"Не удалось закрыть {target}: {result.get('error', 'неизвестная ошибка')}"
+        if result.get("already_closed") or result.get("running") is False:
+            return f"{target} уже закрыт."
+        return f"{target} закрыт."
 
     def _resolve_target(self, query, categories, alias_confirmation_callback=None):
         logger.debug("resolve_target query=%r categories=%r", query, categories)
@@ -145,11 +164,15 @@ class CommandRouter:
             return self._reply(executor.execute("launch_application", {"target": resolved}, confirmation_callback=confirmation_callback))
 
         if action_name == "close" and executor._is_enabled("close_application"):
+            if target.strip().casefold() in self._GENERIC_APPLICATION_TARGETS:
+                logger.info("route_close_missing_target target=%r", target)
+                return "Какое приложение закрыть?"
             resolved, error = self._resolve_target(target, ("applications",), alias_confirmation_callback)
             if error:
                 return f"Не выполнено: {error}"
             logger.info("route_close target=%r resolved=%r", target, resolved)
-            return self._reply(executor.execute("close_application", {"name": resolved}, confirmation_callback=confirmation_callback))
+            result = executor.execute("close_application", {"name": resolved}, confirmation_callback=confirmation_callback)
+            return self._close_reply(resolved, result)
 
-        logger.info("route_finish branch=unhandled_action action=%s elapsed=%.4fs", action_name, time.perf_counter() - started)
+        logger.info("route_finish branch=unhandled_action action=%s elapsed=%.4fs response=%r", action_name, time.perf_counter() - started, None)
         return None
