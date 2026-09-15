@@ -4,6 +4,7 @@ import logging
 
 from PySide6.QtCore import QObject, QThread, Signal
 
+from voice.devices import find_supported_sample_rate
 from voice.microphone import MicrophoneRecorder
 from voice.speech_recognizer import SpeechRecognizer
 
@@ -15,14 +16,15 @@ class _TranscriptionWorker(QObject):
     finished = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, recognizer: SpeechRecognizer, audio):
+    def __init__(self, recognizer: SpeechRecognizer, audio, sample_rate: int):
         super().__init__()
         self.recognizer = recognizer
         self.audio = audio
+        self.sample_rate = sample_rate
 
     def run(self):
         try:
-            self.finished.emit(self.recognizer.transcribe(self.audio))
+            self.finished.emit(self.recognizer.transcribe(self.audio, self.sample_rate))
         except Exception as exc:
             logger.exception("voice_transcription_failed")
             self.failed.emit(str(exc))
@@ -59,8 +61,13 @@ class VoiceController(QObject):
             self.recorder.stop()
             self.listening_changed.emit(False)
 
+        self.recording_sample_rate = find_supported_sample_rate(
+            device=self.device,
+            channels=self.channels,
+            preferred=self.sample_rate,
+        )
         self.recorder = MicrophoneRecorder(
-            sample_rate=self.sample_rate,
+            sample_rate=self.recording_sample_rate,
             channels=self.channels,
             device=self.device,
         )
@@ -70,7 +77,12 @@ class VoiceController(QObject):
             compute_type=self.compute_type,
             language=self.language,
         )
-        logger.info("voice_config_applied input_device=%r", self.device)
+        logger.info(
+            "voice_config_applied input_device=%r configured_sample_rate=%s recording_sample_rate=%s",
+            self.device,
+            self.sample_rate,
+            self.recording_sample_rate,
+        )
 
     @property
     def is_recording(self) -> bool:
@@ -97,7 +109,7 @@ class VoiceController(QObject):
             self.error.emit(f"Не удалось остановить запись: {exc}")
             return
 
-        if len(audio) < int(self.sample_rate * self.min_duration):
+        if len(audio) < int(self.recording_sample_rate * self.min_duration):
             logger.info("voice_recording_ignored reason=too_short samples=%d", len(audio))
             return
         self._transcribe(audio)
@@ -111,7 +123,11 @@ class VoiceController(QObject):
             return
         self.transcribing_changed.emit(True)
         self._thread = QThread()
-        self._worker = _TranscriptionWorker(self.recognizer, audio)
+        self._worker = _TranscriptionWorker(
+            self.recognizer,
+            audio,
+            self.recording_sample_rate,
+        )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.finished.connect(self._on_transcript)
