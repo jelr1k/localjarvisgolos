@@ -37,11 +37,7 @@ class GenerationWorker(QObject):
             for tool in request.tools or []
             if tool.get("function", {}).get("name")
         }
-        self.executor = ToolExecutor(
-            config,
-            enabled_tools=allowed_tools,
-            alias_manager=alias_manager,
-        )
+        self.executor = ToolExecutor(config, enabled_tools=allowed_tools, alias_manager=alias_manager)
         self.max_tool_rounds = 5
         logger.debug("generation_worker_created allowed_tools=%s", sorted(allowed_tools))
 
@@ -109,10 +105,7 @@ class GenerationWorker(QObject):
                         continue
                     result = self.executor.execute(tool_name, arguments, self._confirm_tool)
                     logger.info("llm_tool_result name=%s result=%r", tool_name, result)
-                    messages.append({
-                        "role": "tool",
-                        "content": json.dumps(result, ensure_ascii=False),
-                    })
+                    messages.append({"role": "tool", "content": json.dumps(result, ensure_ascii=False)})
 
             raise RuntimeError("Слишком много последовательных вызовов инструментов.")
         except Exception as exc:
@@ -145,15 +138,22 @@ class ChatService(QObject):
         logger.debug("enabled_tools=%s", sorted(enabled))
         return enabled
 
-    def _tools_for_message(self, text: str) -> set[str]:
-        """Выбирает только инструменты, относящиеся к текущему запросу.
+    @staticmethod
+    def _contextual_action_is_valid(text: str, action: tuple[str, str] | None) -> bool:
+        if not action or action[0] != "search":
+            return True
+        for alias in CommandRouter._CONTEXTUAL_SEARCH_ALIASES:
+            if re.match(rf"^{re.escape(alias)}(?:,)?\s+", text, flags=re.IGNORECASE):
+                return CommandRouter._is_contextual_file_search(alias, action[1])
+        return True
 
-        Обычный чат получает пустой список tools. Для команд/задач набор сужается
-        по типу действия, а для составных команд объединяются инструменты всех
-        найденных действий, чтобы LLM могла выполнить последовательность шагов.
-        """
+    def _tools_for_message(self, text: str) -> set[str]:
+        """Выбирает только инструменты, относящиеся к текущему запросу."""
         lower = " ".join(text.lower().split())
         action = self.alias_manager.resolve_action(text)
+        if not self._contextual_action_is_valid(text, action):
+            logger.info("chat_action_rejected reason=contextual_search_without_file text=%r action=%r", text, action)
+            action = None
         enabled = self._enabled_tools()
 
         action_tools = {
@@ -165,13 +165,13 @@ class ChatService(QObject):
             "delete": {"delete_file", "search_files"},
         }
 
-        # resolve_action() возвращает только первое найденное действие. Для
-        # составной команды вроде «найди файл, прочитай его и перескажи» нужно
-        # найти все действия и передать LLM объединённый набор инструментов.
+        # Для составной команды нужно найти все действия, но контекстные
+        # «где находится/где лежит» считаем поиском только при наличии явного
+        # файлового объекта.
         detected_actions: set[str] = set()
         for action_name, aliases in DEFAULT_ACTION_ALIASES.items():
             for alias in aliases:
-                if alias in lower:
+                if CommandRouter._contains_action_alias(lower, action_name, alias):
                     detected_actions.add(action_name)
                     break
 
@@ -180,12 +180,7 @@ class ChatService(QObject):
             for action_name in detected_actions:
                 selected.update(action_tools.get(action_name, set()))
             result = selected & enabled
-            logger.info(
-                "chat_tool_scope text=%r tools=%s reason=compound_actions actions=%s",
-                text,
-                sorted(result),
-                sorted(detected_actions),
-            )
+            logger.info("chat_tool_scope text=%r tools=%s reason=compound_actions actions=%s", text, sorted(result), sorted(detected_actions))
             return result
 
         if action:
