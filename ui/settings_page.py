@@ -122,6 +122,15 @@ class SettingsPage(QWidget):
         )
         refresh_microphones.clicked.connect(self._load_microphones)
 
+        test_microphone = QPushButton(
+            "Проверить выбранный микрофон"
+        )
+        test_microphone.setToolTip(
+            "Запишет 1,5 секунды с выбранного микрофона и проверит уровень сигнала."
+        )
+        test_microphone.clicked.connect(self._test_microphone)
+        self.test_microphone = test_microphone
+
         save = QPushButton(
             "Сохранить настройки"
         )
@@ -131,6 +140,7 @@ class SettingsPage(QWidget):
         layout.addWidget(box)
         layout.addWidget(refresh)
         layout.addWidget(refresh_microphones)
+        layout.addWidget(test_microphone)
         layout.addWidget(save)
         layout.addStretch()
 
@@ -176,6 +186,62 @@ class SettingsPage(QWidget):
             self.microphone.setToolTip(str(exc))
         finally:
             self.microphone.blockSignals(False)
+
+    def _test_microphone(self):
+        """Record a short sample from the currently selected input device."""
+        import numpy as np
+        import sounddevice as sd
+
+        device = self.microphone.currentData()
+        sample_rate = int(self.config.get("voice", {}).get("sample_rate", 16000))
+        channels = int(self.config.get("voice", {}).get("channels", 1))
+        duration = 1.5
+
+        self.test_microphone.setEnabled(False)
+        try:
+            self.test_microphone.setText("Слушаю 1,5 секунды...")
+            QApplication = __import__("PySide6.QtWidgets", fromlist=["QApplication"]).QApplication
+            QApplication.processEvents()
+
+            audio = sd.rec(
+                int(sample_rate * duration),
+                samplerate=sample_rate,
+                channels=channels,
+                dtype="float32",
+                device=device,
+                blocking=True,
+            )
+
+            audio = np.asarray(audio, dtype=np.float32)
+            peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+            rms = float(np.sqrt(np.mean(np.square(audio)))) if audio.size else 0.0
+
+            if peak < 0.003 or rms < 0.0008:
+                QMessageBox.warning(
+                    self,
+                    "Проверка микрофона",
+                    "Микрофон подключился, но сигнал почти отсутствует.\n\n"
+                    "Проверьте, что выбран правильный микрофон, он не отключён в Windows "
+                    "и приложению разрешён доступ к микрофону.\n\n"
+                    f"Пиковый уровень: {peak:.4f}\nСредний уровень: {rms:.4f}",
+                )
+            else:
+                QMessageBox.information(
+                    self,
+                    "Проверка микрофона",
+                    "Микрофон работает, сигнал обнаружен.\n\n"
+                    f"Пиковый уровень: {peak:.4f}\nСредний уровень: {rms:.4f}",
+                )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Проверка микрофона",
+                "Не удалось записать звук с выбранного микрофона.\n\n"
+                f"{exc}",
+            )
+        finally:
+            self.test_microphone.setText("Проверить выбранный микрофон")
+            self.test_microphone.setEnabled(True)
 
     def refresh_models(self):
         try:
