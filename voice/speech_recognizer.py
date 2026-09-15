@@ -16,7 +16,7 @@ class SpeechRecognizer:
 
     def __init__(
         self,
-        model_name: str = "base",
+        model_name: str = "small",
         device: str = "cpu",
         compute_type: str = "int8",
         language: str = "ru",
