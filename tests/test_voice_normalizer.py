@@ -14,6 +14,10 @@ def test_normalize_common_code_extensions():
     assert normalize_voice_command("прочитай README точка эмдэ") == "прочитай README.md"
 
 
+def test_normalize_spoken_backslash():
+    assert normalize_voice_command("путь обратный слэш папка") == "путь\\папка"
+
+
 def test_normalize_does_not_change_ordinary_text():
     text = "Найди текстовый файл с описанием проекта"
     assert normalize_voice_command(text) == text
