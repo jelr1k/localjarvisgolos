@@ -4,6 +4,6 @@
 
 ## Документы
 
-- [`AI_WORK_GUIDE.md`](../AI_WORK_GUIDE.md) — порядок изучения проекта и правила работы ИИ.
-- [`PATH_PORTABILITY_TZ.md`](../PATH_PORTABILITY_TZ.md) — переносимость путей и зависимостей от расположения приложения.
-- [`LOGGING_SYSTEM.md`](../LOGGING_SYSTEM.md) — система диагностического логирования.
+- [`AI_WORK_GUIDE.md`](./AI_WORK_GUIDE.md) — порядок изучения проекта и правила работы ИИ.
+- [`PATH_PORTABILITY_TZ.md`](./PATH_PORTABILITY_TZ.md) — переносимость путей и зависимостей от расположения приложения.
+- [`LOGGING_SYSTEM.md`](./LOGGING_SYSTEM.md) — система диагностического логирования.
