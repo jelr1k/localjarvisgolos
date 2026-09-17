@@ -7,13 +7,14 @@ import time
 from core.alias_manager import AliasManager, DEFAULT_ACTION_ALIASES
 from tools import applications
 from tools.executor import ToolExecutor
+from tools.paths import get_workspace_index
 from tools.registry import TOOLS
 
 logger = logging.getLogger("jarvis.router")
 
 
 class CommandRouter:
-    """Определяет однозначные русскоязычные команды, которым не нужен LLM."""
+    """Определяет однозначные команды, которым не нужен LLM."""
 
     _GENERIC_APPLICATION_TARGETS = {"приложение", "приложения", "программу", "программа"}
     _CONTEXTUAL_SEARCH_ALIASES = {"где находится", "где лежит", "расположение", "местоположение", "покажи"}
@@ -50,7 +51,6 @@ class CommandRouter:
         return cls._is_contextual_file_search(alias, target)
 
     def _has_multiple_actions(self, text: str) -> bool:
-        """Составные команды должны попасть в LLM, чтобы он выстроил цепочку tools."""
         normalized = " ".join(text.strip().split())
         if not normalized:
             return False
@@ -90,7 +90,6 @@ class CommandRouter:
 
     @staticmethod
     def _reply(result: dict, include_path: bool = True) -> str:
-        logger.debug("router_reply result=%r include_path=%s", result, include_path)
         if not result.get("success"):
             matches = result.get("matches") or []
             if result.get("ambiguous") and matches:
@@ -126,15 +125,25 @@ class CommandRouter:
         return f"{target} закрыт."
 
     def _resolve_target(self, query, categories, alias_confirmation_callback=None):
+        """Сначала ищет реальный объект Workspace, затем обращается к алиасам."""
         logger.debug("resolve_target query=%r categories=%r", query, categories)
+
+        if set(categories) & {"files", "folders"} or "applications" in categories:
+            entry, matches = get_workspace_index().resolve(query, categories, self.alias_manager, fuzzy=True)
+            if entry is not None:
+                logger.debug("workspace_index_exact query=%r target=%s", query, entry.path)
+                return str(entry.path), None
+            if len(matches) > 1:
+                candidates = [str(item.path) for item in matches]
+                return None, "Не удалось однозначно определить объект. Варианты: " + "; ".join(candidates[:5])
+
         exact = self.alias_manager.resolve_any(query, categories)
-        logger.debug("resolve_target exact=%r", exact)
+        logger.debug("resolve_target alias=%r", exact)
         if exact.get("status") == "exact":
             return exact["target"], None
         if exact.get("status") == "ambiguous":
             return None, "Неоднозначный алиас: " + ", ".join(exact.get("candidates", []))
         suggestions = self.alias_manager.suggest_any(query, categories, limit=5)
-        logger.debug("resolve_target suggestions=%r", suggestions)
         if not suggestions:
             return query, None
         if len(suggestions) > 1 and suggestions[0]["score"] - suggestions[1]["score"] < 0.08:
@@ -144,7 +153,6 @@ class CommandRouter:
         if alias_confirmation_callback is None:
             return query, None
         accepted = alias_confirmation_callback(query, suggestion["target"], suggestion["category"])
-        logger.info("alias_confirmation query=%r target=%r category=%s accepted=%s", query, suggestion["target"], suggestion["category"], accepted)
         if not accepted:
             return query, None
         self.alias_manager.add_alias(suggestion["category"], suggestion["target"], query)
@@ -159,13 +167,10 @@ class CommandRouter:
 
         if applications.has_pending_launch_choices() and re.fullmatch(r"(?:\d+|перв(?:ый|ая)|втор(?:ой|ая)|трет(?:ий|ья)|четверт(?:ый|ая)|четвёрт(?:ый|ая)|пят(?:ый|ая))\.?", lower):
             result = self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
-            logger.info("route_finish branch=pending_launch_choice elapsed=%.4fs response=%r", time.perf_counter() - started, result)
             return result
 
         if re.fullmatch(r"(?:статус|состояние) ollama", lower):
-            response = f"Ollama Server: {self.ollama_manager.server_status()}. Загружено моделей: {len(self.ollama_manager.get_loaded_models())}."
-            logger.info("route_finish branch=ollama_status elapsed=%.4fs response=%r", time.perf_counter() - started, response)
-            return response
+            return f"Ollama Server: {self.ollama_manager.server_status()}. Загружено моделей: {len(self.ollama_manager.get_loaded_models())}."
 
         if lower in {"запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"}:
             try:
@@ -184,7 +189,6 @@ class CommandRouter:
             return None
 
         action = self._resolve_action(normalized)
-        logger.debug("route_action_resolution result=%r", action)
         if not action:
             logger.info("route_finish branch=llm elapsed=%.4fs", time.perf_counter() - started)
             return None
@@ -193,10 +197,7 @@ class CommandRouter:
 
         if action_name == "search" and executor._is_enabled("search_files"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
-            resolved, error = self._resolve_target(target, ("files", "folders"), alias_confirmation_callback)
-            if error:
-                return f"Не выполнено: {error}"
-            return self._reply(executor.execute("search_files", {"name": resolved}, confirmation_callback=confirmation_callback))
+            return self._reply(executor.execute("search_files", {"name": target}, confirmation_callback=confirmation_callback))
 
         if action_name == "read" and executor._is_enabled("read_file"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
@@ -234,5 +235,4 @@ class CommandRouter:
             result = executor.execute("close_application", {"name": resolved}, confirmation_callback=confirmation_callback)
             return self._close_reply(resolved, result)
 
-        logger.info("route_finish branch=unhandled_action action=%s elapsed=%.4fs response=%r", action_name, time.perf_counter() - started, None)
         return None
