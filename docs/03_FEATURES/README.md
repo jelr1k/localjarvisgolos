@@ -4,4 +4,4 @@
 
 ## Документы
 
-- [`AUTO_ALIASES_TZ.md`](../AUTO_ALIASES_TZ.md) — автоматические алиасы, `WorkspaceIndex` и единый resolver.
+- [`AUTO_ALIASES_TZ.md`](./AUTO_ALIASES_TZ.md) — автоматические алиасы, `WorkspaceIndex` и единый resolver.
