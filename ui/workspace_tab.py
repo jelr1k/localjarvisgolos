@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from core.alias_manager import AliasManager
 from core.workspace_view_model import WorkspaceObject, WorkspaceViewModel
 
 
@@ -79,11 +80,16 @@ class AliasDialog(QDialog):
 
 
 class WorkspaceTab(QWidget):
-    """Read-only overview of Workspace with direct alias management."""
+    """Overview of Workspace with direct alias management."""
 
-    def __init__(self, workspace: Path, parent: QWidget | None = None):
+    def __init__(
+        self,
+        workspace: Path,
+        alias_manager: AliasManager | None = None,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
-        self.model = WorkspaceViewModel(workspace)
+        self.model = WorkspaceViewModel(workspace, alias_manager)
         self.objects: list[WorkspaceObject] = []
 
         root = QVBoxLayout(self)
@@ -117,8 +123,7 @@ class WorkspaceTab(QWidget):
         self.objects = self.model.refresh()
         self.list_widget.clear()
         for obj in self.objects:
-            label = obj.entry.relative_path
-            item = QListWidgetItem(label)
+            item = QListWidgetItem(obj.entry.relative_path)
             item.setData(Qt.ItemDataRole.UserRole, obj)
             self.list_widget.addItem(item)
         self._selection_changed(self.list_widget.currentRow())
