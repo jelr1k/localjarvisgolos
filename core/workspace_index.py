@@ -29,12 +29,7 @@ class WorkspaceEntry:
 
 
 class WorkspaceIndex:
-    """Живой индекс реального содержимого Workspace.
-
-    Индекс намеренно не хранит отдельную базу на диске. При refresh() источник
-    истины всегда сам Workspace, поэтому файлы, добавленные через Проводник,
-    становятся видимыми без ручной регистрации.
-    """
+    """Живой индекс реального содержимого Workspace."""
 
     _SEPARATORS = re.compile(r"[\s_.-]+")
 
@@ -47,7 +42,6 @@ class WorkspaceIndex:
         self._entries = []
         if not self.workspace.is_dir():
             return []
-
         for path in self.workspace.rglob("*"):
             try:
                 resolved = path.resolve()
@@ -86,6 +80,41 @@ class WorkspaceIndex:
         aliases.extend([entry.name, entry.stem, entry.relative_path])
         return list(dict.fromkeys(alias for alias in aliases if alias))
 
+    def search(
+        self,
+        query: str,
+        categories: tuple[str, ...],
+        alias_manager: AliasManager | None = None,
+        *,
+        fuzzy: bool = True,
+    ) -> list[WorkspaceEntry]:
+        normalized = self._normalize(query)
+        if not normalized:
+            return []
+        candidates = self.entries(categories)
+        exact = []
+        for entry in candidates:
+            if any(self._normalize(value) == normalized for value in self._aliases_for(entry, alias_manager)):
+                exact.append(entry)
+        if exact:
+            return sorted(exact, key=lambda item: item.relative_path.casefold())
+        if not fuzzy:
+            return []
+
+        scored: list[tuple[float, WorkspaceEntry]] = []
+        for entry in candidates:
+            score = max(
+                difflib.SequenceMatcher(None, normalized, self._normalize(value)).ratio()
+                for value in self._aliases_for(entry, alias_manager)
+            )
+            if score >= 0.72:
+                scored.append((score, entry))
+        scored.sort(key=lambda item: (-item[0], item[1].relative_path.casefold()))
+        if not scored:
+            return []
+        best_score = scored[0][0]
+        return [entry for score, entry in scored if score >= best_score - 0.06]
+
     def resolve(
         self,
         query: str,
@@ -94,45 +123,7 @@ class WorkspaceIndex:
         *,
         fuzzy: bool = True,
     ) -> tuple[WorkspaceEntry | None, list[WorkspaceEntry]]:
-        """Resolve only against real Workspace objects.
-
-        Returns (entry, matches). entry is set only for one unambiguous match.
-        No synthetic candidate is ever produced.
-        """
-        normalized = self._normalize(query)
-        if not normalized:
-            return None, []
-
-        candidates = self.entries(categories)
-        exact: list[WorkspaceEntry] = []
-        for entry in candidates:
-            values = self._aliases_for(entry, alias_manager)
-            if any(self._normalize(value) == normalized for value in values):
-                exact.append(entry)
-
-        if exact:
-            unique = {entry.path: entry for entry in exact}
-            matches = sorted(unique.values(), key=lambda item: item.relative_path.casefold())
-            return (matches[0], matches) if len(matches) == 1 else (None, matches)
-
-        if not fuzzy:
-            return None, []
-
-        scored: list[tuple[float, WorkspaceEntry]] = []
-        for entry in candidates:
-            best = max(
-                difflib.SequenceMatcher(None, normalized, self._normalize(value)).ratio()
-                for value in self._aliases_for(entry, alias_manager)
-            )
-            if best >= 0.72:
-                scored.append((best, entry))
-
-        scored.sort(key=lambda item: (-item[0], item[1].relative_path.casefold()))
-        if not scored:
-            return None, []
-
-        best_score = scored[0][0]
-        matches = [entry for score, entry in scored if score >= best_score - 0.06]
+        matches = self.search(query, categories, alias_manager, fuzzy=fuzzy)
         if len(matches) == 1:
             return matches[0], matches
         return None, matches
