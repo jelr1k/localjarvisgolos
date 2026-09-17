@@ -52,6 +52,32 @@ class AliasManagerTests(unittest.TestCase):
                 ["Prism Launcher", "Prism"],
             )
 
+    def test_automatic_aliases_for_steam(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+            aliases = manager.automatic_aliases("files", "Steam.url")
+            self.assertEqual(aliases, ["Steam", "Steam.url"])
+
+            aliases = manager.automatic_aliases("applications", "Steam")
+            self.assertIn("Steam", aliases)
+            self.assertIn("стим", aliases)
+
+    def test_automatic_aliases_do_not_translate_unknown_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+            aliases = manager.automatic_aliases("applications", "Some Random Tool")
+            self.assertEqual(aliases, ["Some Random Tool", "Some"])
+
+    def test_automatic_aliases_resolve_russian_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "aliases.json"
+            manager = AliasManager(path)
+            aliases = manager.automatic_aliases("applications", "Steam")
+            manager.set_aliases("applications", "Steam", aliases)
+
+            reloaded = AliasManager(path)
+            self.assertEqual(reloaded.resolve("applications", "стим")["target"], "Steam")
+
     def test_close_action_aliases_are_direct(self):
         with tempfile.TemporaryDirectory() as directory:
             manager = self.make_manager(directory)
