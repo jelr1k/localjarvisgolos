@@ -78,6 +78,8 @@ class WorkspaceIndex:
         if alias_manager is not None:
             values.extend(alias_manager.automatic_aliases(entry.category, entry.name))
             values.extend(alias_manager.get_aliases(entry.category, entry.name))
+            if entry.relative_path != entry.name:
+                values.extend(alias_manager.get_aliases(entry.category, entry.relative_path))
         return list(dict.fromkeys(value for value in values if value))
 
     def search(
