@@ -54,20 +54,17 @@ class CommandRouter:
         normalized = " ".join(text.strip().split())
         if not normalized:
             return False
-
         matches = []
         for action, defaults in DEFAULT_ACTION_ALIASES.items():
             for alias in defaults:
                 if self._contains_action_alias(normalized, action, alias):
                     matches.append(action)
                     break
-
         for action, entry in self.alias_manager.data.get("actions", {}).items():
             for alias in entry.get("aliases", []):
                 if self._contains_action_alias(normalized, action, alias):
                     matches.append(action)
                     break
-
         unique_actions = set(matches)
         if len(unique_actions) > 1:
             logger.info("compound_command detected actions=%s text=%r", sorted(unique_actions), text)
@@ -124,11 +121,11 @@ class CommandRouter:
             return f"{target} уже закрыт."
         return f"{target} закрыт."
 
-    def _resolve_target(self, query, categories, alias_confirmation_callback=None):
-        """Сначала ищет реальный объект Workspace, затем обращается к алиасам."""
-        logger.debug("resolve_target query=%r categories=%r", query, categories)
+    def _resolve_target(self, query, categories, alias_confirmation_callback=None, *, use_workspace_index=False):
+        """Разрешает цель через реальный Workspace index либо AliasManager."""
+        logger.debug("resolve_target query=%r categories=%r workspace_index=%s", query, categories, use_workspace_index)
 
-        if set(categories) & {"files", "folders"} or "applications" in categories:
+        if use_workspace_index:
             entry, matches = get_workspace_index().resolve(query, categories, self.alias_manager, fuzzy=True)
             if entry is not None:
                 logger.debug("workspace_index_exact query=%r target=%s", query, entry.path)
@@ -166,8 +163,7 @@ class CommandRouter:
         executor = self._executor()
 
         if applications.has_pending_launch_choices() and re.fullmatch(r"(?:\d+|перв(?:ый|ая)|втор(?:ой|ая)|трет(?:ий|ья)|четверт(?:ый|ая)|четвёрт(?:ый|ая)|пят(?:ый|ая))\.?", lower):
-            result = self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
-            return result
+            return self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
 
         if re.fullmatch(r"(?:статус|состояние) ollama", lower):
             return f"Ollama Server: {self.ollama_manager.server_status()}. Загружено моделей: {len(self.ollama_manager.get_loaded_models())}."
@@ -185,15 +181,12 @@ class CommandRouter:
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
 
         if self._has_multiple_actions(normalized):
-            logger.info("route_finish branch=compound_llm elapsed=%.4fs", time.perf_counter() - started)
             return None
 
         action = self._resolve_action(normalized)
         if not action:
-            logger.info("route_finish branch=llm elapsed=%.4fs", time.perf_counter() - started)
             return None
         action_name, target = action
-        logger.info("route_action action=%s target=%r", action_name, target)
 
         if action_name == "search" and executor._is_enabled("search_files"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
@@ -206,7 +199,7 @@ class CommandRouter:
 
         if action_name == "delete" and executor._is_enabled("delete_file"):
             target = re.sub(r"^(?:файл|файлы)\s+", "", target, flags=re.IGNORECASE)
-            resolved, error = self._resolve_target(target, ("files",), alias_confirmation_callback)
+            resolved, error = self._resolve_target(target, ("files",), alias_confirmation_callback, use_workspace_index=True)
             if error:
                 return f"Не выполнено: {error}"
             return self._reply(executor.execute("delete_file", {"path": resolved}, confirmation_callback=confirmation_callback))
@@ -218,7 +211,12 @@ class CommandRouter:
             return self._reply(executor.execute("get_process_status", {"name": resolved}, confirmation_callback=confirmation_callback))
 
         if action_name == "launch" and executor._is_enabled("launch_application"):
-            resolved, error = self._resolve_target(target, ("applications", "files", "folders"), alias_confirmation_callback)
+            resolved, error = self._resolve_target(
+                target,
+                ("applications", "files", "folders"),
+                alias_confirmation_callback,
+                use_workspace_index=True,
+            )
             if error:
                 return f"Не выполнено: {error}"
             status = executor.execute("get_process_status", {"name": resolved}, confirmation_callback=confirmation_callback) if executor._is_enabled("get_process_status") else {"running": False}
