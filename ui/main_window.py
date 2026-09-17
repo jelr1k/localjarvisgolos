@@ -35,7 +35,7 @@ class MainWindow(QWidget):
         self.stats_page = StatisticsPage(self.stats_service, self.ollama_manager)
         self.settings_page = SettingsPage(config, self.model_service)
         self.alias_page = AliasPage(self.alias_manager)
-        self.workspace_page = WorkspaceTab(WORKSPACE_DIR)
+        self.workspace_page = WorkspaceTab(WORKSPACE_DIR, self.alias_manager)
         self.tools_page = ToolsPage(config)
         self.ollama_page = OllamaPage(config, ollama_manager)
 
