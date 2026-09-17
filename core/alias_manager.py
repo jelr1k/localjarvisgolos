@@ -24,6 +24,29 @@ DEFAULT_ACTION_ALIASES = {
     "status": ["проверь", "проверить"],
 }
 
+# Часто используемые названия, для которых есть устойчивое русское произношение.
+# Намеренно не пытаемся переводить любой английский filename: автоматический
+# «переводчик названий» быстро превращается в генератор лингвистического мусора.
+AUTO_RUSSIAN_ALIASES = {
+    "steam": "стим",
+    "telegram": "телеграм",
+    "telegram desktop": "телеграм",
+    "discord": "дискорд",
+    "minecraft": "майнкрафт",
+    "prism launcher": "призм",
+    "geometry dash": "геометрия дэш",
+    "google chrome": "гугл хром",
+    "chrome": "хром",
+    "mozilla firefox": "мозилла файрфокс",
+    "firefox": "файрфокс",
+    "visual studio code": "вс код",
+    "visual studio": "вижуал студио",
+    "notepad": "ноутпад",
+    "spotify": "спотифай",
+    "vlc": "влс",
+    "obs": "обс",
+}
+
 _MORPH = None
 _CYRILLIC_WORD_RE = re.compile(r"^[а-яё-]+$", re.IGNORECASE)
 
@@ -295,6 +318,54 @@ class AliasManager:
             if basename and self._normalize_alias(basename) != normalized:
                 candidates.append(basename)
         return candidates
+
+    def automatic_aliases(self, category: str, target: str) -> list[str]:
+        """Возвращает безопасные алиасы для объекта Workspace без участия LLM.
+
+        Всегда добавляется имя без расширения. Русский вариант добавляется
+        только для известных приложений/сервисов, чтобы не плодить странные
+        автоматические переводы.
+        """
+        if category not in {"applications", "files", "folders"}:
+            return self.default_aliases(category, target)
+
+        text = str(target).strip()
+        if not text:
+            return []
+
+        path_name = Path(text.replace("\\", "/")).name
+        stem = Path(path_name).stem or path_name
+        candidates: list[str] = []
+
+        for value in (stem, path_name):
+            value = value.strip()
+            if value and value not in candidates:
+                candidates.append(value)
+
+        if category == "applications":
+            key = self._normalize_alias(stem)
+            russian = AUTO_RUSSIAN_ALIASES.get(key)
+            if russian and russian not in candidates:
+                candidates.append(russian)
+
+            # Сокращение для многословных названий: Discord Canary -> Discord.
+            first = re.split(r"[\s._-]+", stem, maxsplit=1)[0].strip()
+            if first and self._normalize_alias(first) != self._normalize_alias(stem):
+                candidates.append(first)
+
+        return self._unique_aliases(candidates)
+
+    @classmethod
+    def _unique_aliases(cls, aliases: list[str]) -> list[str]:
+        result = []
+        seen = set()
+        for alias in aliases:
+            normalized = cls._normalize_alias(alias)
+            if not alias.strip() or not normalized or normalized in seen:
+                continue
+            result.append(alias.strip())
+            seen.add(normalized)
+        return result
 
     @classmethod
     def default_action_aliases(cls, action: str) -> list[str]:
