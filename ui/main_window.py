@@ -4,6 +4,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QMessageBox, QTabWidget, QVBoxLayout, QWidget
 
 from core.alias_manager import AliasManager
+from core.app_paths import WORKSPACE_DIR
 from services.model_service import ModelService
 from services.statistics_service import StatisticsService
 from ui.alias_page import AliasPage
@@ -12,6 +13,7 @@ from ui.ollama_page import OllamaPage
 from ui.settings_page import SettingsPage
 from ui.statistics_page import StatisticsPage
 from ui.tools_page import ToolsPage
+from ui.workspace_tab import WorkspaceTab
 from voice import VoiceController
 
 
@@ -33,6 +35,7 @@ class MainWindow(QWidget):
         self.stats_page = StatisticsPage(self.stats_service, self.ollama_manager)
         self.settings_page = SettingsPage(config, self.model_service)
         self.alias_page = AliasPage(self.alias_manager)
+        self.workspace_page = WorkspaceTab(WORKSPACE_DIR)
         self.tools_page = ToolsPage(config)
         self.ollama_page = OllamaPage(config, ollama_manager)
 
@@ -40,6 +43,7 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.stats_page, "Генерация")
         self.tabs.addTab(self.settings_page, "Настройки")
         self.tabs.addTab(self.alias_page, "Алиасы")
+        self.tabs.addTab(self.workspace_page, "Workspace")
         self.tabs.addTab(self.tools_page, "Инструменты")
         self.tabs.addTab(self.ollama_page, "Ollama")
 
