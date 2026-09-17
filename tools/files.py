@@ -5,7 +5,7 @@ from pathlib import Path
 
 from security.sandbox import SandboxError, resolve_inside_sandbox
 from security.validator import validate_non_empty
-from tools.paths import find_by_name, prepare_tool_workspace, resolve_read_path, resolve_tool_path, resolve_tool_target
+from tools.paths import find_by_name, get_workspace_index, prepare_tool_workspace, resolve_read_path, resolve_tool_path, resolve_tool_target
 
 MAX_READ_BYTES = 2 * 1024 * 1024
 
@@ -38,8 +38,15 @@ def _existing_file(value: str) -> tuple[Path | None, list[Path], str | None]:
 def search_files(name: str = "", extension: str = "") -> dict:
     try:
         prepare_tool_workspace()
-        matches = find_by_name(name, extension or None, fuzzy=True)
-        return _result(True, details={"query": name, "count": len(matches)}, matches=[str(p) for p in matches])
+        query = validate_non_empty(name, "имя файла")
+        matches = get_workspace_index().search(query, ("files", "applications"), fuzzy=True)
+        if extension:
+            wanted = extension if extension.startswith(".") else f".{extension}"
+            matches = [entry for entry in matches if entry.suffix.casefold() == wanted.casefold()]
+        paths = [entry.path for entry in matches]
+        return _result(True, details={"query": name, "count": len(paths)}, matches=[str(path) for path in paths])
+    except ValueError as exc:
+        return _result(False, error=str(exc))
     except Exception as exc:
         return _result(False, error=f"Ошибка поиска: {exc}")
 
@@ -54,7 +61,7 @@ def read_file(path: str) -> dict:
     if len(matches) > 1:
         return _result(False, error="Найдено несколько файлов с таким именем.", ambiguous=True, matches=[str(p) for p in matches])
     if file_path is None:
-        return _result(False, error=f"Файл не найден среди разрешённых для чтения путей: {raw}")
+        return _result(False, error=f"Файл не найден в Workspace: {raw}")
 
     try:
         size = file_path.stat().st_size
