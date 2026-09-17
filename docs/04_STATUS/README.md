@@ -4,4 +4,4 @@
 
 ## Документы
 
-- [`IMPLEMENTATION_STATUS.md`](../IMPLEMENTATION_STATUS.md) — фактический статус реализации ветки `osnova`.
+- [`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) — фактический статус реализации ветки `osnova`.
