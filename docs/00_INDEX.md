@@ -19,7 +19,8 @@ docs/
 ├── 03_FEATURES/
 │   ├── README.md
 │   ├── AUTO_ALIASES_TZ.md
-│   └── COMMAND_REFERENCE.md
+│   ├── COMMAND_REFERENCE.md
+│   └── WORKSPACE_UI_TZ.md
 ├── 04_STATUS/
 │   ├── README.md
 │   └── IMPLEMENTATION_STATUS.md
@@ -47,6 +48,7 @@ docs/
 
 - `AUTO_ALIASES_TZ.md` — автоматические алиасы и `WorkspaceIndex`.
 - `COMMAND_REFERENCE.md` — единый справочник пользовательских команд Jarvis, включая Router-команды, LLM + Tools и планируемые возможности.
+- `WORKSPACE_UI_TZ.md` — интерфейс просмотра Workspace и настройки алиасов выбранного объекта.
 
 ### `04_STATUS`
 Текущее состояние реализации и список оставшихся задач.
