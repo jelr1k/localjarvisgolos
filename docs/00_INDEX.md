@@ -8,13 +8,20 @@
 docs/
 ├── 00_INDEX.md
 ├── 01_TZ/
-│   └── README.md
+│   ├── README.md
+│   ├── TZ_JARVIS.md
+│   └── TZ_JARVIS_UNIFIED.md
 ├── 02_ARCHITECTURE/
-│   └── README.md
+│   ├── README.md
+│   ├── AI_WORK_GUIDE.md
+│   ├── PATH_PORTABILITY_TZ.md
+│   └── LOGGING_SYSTEM.md
 ├── 03_FEATURES/
-│   └── README.md
+│   ├── README.md
+│   └── AUTO_ALIASES_TZ.md
 ├── 04_STATUS/
-│   └── README.md
+│   ├── README.md
+│   └── IMPLEMENTATION_STATUS.md
 └── 05_INSTALLATION/
     └── INSTALL_REQUIREMENTS.md
 ```
@@ -49,4 +56,4 @@ docs/
 
 - `INSTALL_REQUIREMENTS.md` — какие программы, локальные модели и Python-библиотеки нужны Jarvis, зачем они нужны и что устанавливается автоматически.
 
-> На первом этапе существующие документы остаются в корне `docs/`, чтобы не потерять их содержимое. Категории выше являются целевой организацией документации. Перенос самих файлов выполняется отдельно после проверки структуры.
+В результате корень `docs/` содержит только индекс, а сами документы разложены по тематическим подпапкам.
