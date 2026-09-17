@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 
 @dataclass(frozen=True)
@@ -16,7 +15,7 @@ class WorkspaceEntry:
 
 
 class WorkspaceIndex:
-    """Index of real objects currently present in the Jarvis Workspace."""
+    """Snapshot of real objects currently present in the Jarvis Workspace."""
 
     def __init__(self, workspace: Path):
         self.workspace = Path(workspace).resolve()
@@ -25,8 +24,8 @@ class WorkspaceIndex:
 
     def refresh(self) -> list[WorkspaceEntry]:
         self._entries = []
-        if not self.workspace.exists() or not self.workspace.is_dir():
-            return self._entries
+        if not self.workspace.is_dir():
+            return []
         for path in self.workspace.rglob("*"):
             try:
                 resolved = path.resolve()
@@ -45,7 +44,7 @@ class WorkspaceIndex:
                     is_dir=path.is_dir(),
                 )
             )
-        self._entries.sort(key=lambda item: item.relative_path.casefold())
+        self._entries.sort(key=lambda entry: entry.relative_path.casefold())
         return list(self._entries)
 
     def entries(self, *, include_dirs: bool = True) -> list[WorkspaceEntry]:
@@ -58,12 +57,8 @@ class WorkspaceIndex:
         if not normalized:
             return []
         return [
-            entry
-            for entry in self._entries
+            entry for entry in self._entries
             if entry.name.casefold() == normalized
             or entry.stem.casefold() == normalized
             or entry.relative_path.casefold() == normalized
         ]
-
-    def iter_files(self) -> Iterable[WorkspaceEntry]:
-        return (entry for entry in self._entries if not entry.is_dir)
