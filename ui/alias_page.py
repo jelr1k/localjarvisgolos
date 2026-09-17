@@ -48,8 +48,8 @@ class AliasPage(QWidget):
             "Здесь можно задать несколько названий одному приложению, файлу, папке или действию. "
             "Для файлов и папок указывай путь относительно workspace. "
             "Файл можно добавить в Workspace кнопкой или перетащить сюда из Проводника. "
-            "После добавления Jarvis автоматически определит файл и заполнит его имя, а тебе останется "
-            "при необходимости указать алиас и сохранить. "
+            "После добавления Jarvis автоматически создаст базовые алиасы, включая известные русские варианты, "
+            "а их при необходимости можно отредактировать вручную. "
             "Регистр не учитывается: Steam, steam и STEAM считаются одним названием. "
             "То же самое относится к русским вариантам: стим и Стим считаются одним названием. "
             "Одинаковые названия автоматически объединяются при сохранении."
@@ -189,7 +189,17 @@ class AliasPage(QWidget):
         self._category_changed()
 
         self.target.setText(target.name)
-        self.aliases.clear()
+        try:
+            auto_aliases = self.alias_manager.automatic_aliases("files", target.name)
+            self.alias_manager.set_aliases("files", target.name, auto_aliases)
+        except AliasError as exc:
+            QMessageBox.warning(self, "Алиасы", f"Файл добавлен, но автоматические алиасы не созданы: {exc}")
+        except OSError as exc:
+            QMessageBox.warning(self, "Алиасы", f"Файл добавлен, но aliases.json не удалось обновить: {exc}")
+
+        self.aliases.setPlainText("\n".join(self.alias_manager.get_aliases("files", target.name)))
+        self.refresh()
+        self._select_key(("files", target.name))
         self.target.setFocus()
         self.target.selectAll()
 
