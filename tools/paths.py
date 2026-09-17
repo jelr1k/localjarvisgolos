@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 
 from core.app_paths import APP_ROOT, WORKSPACE_DIR, ensure_application_dirs
+from core.workspace_index import WorkspaceIndex
 from security.sandbox import SandboxError, is_inside_sandbox, resolve_inside_sandbox
 
 TOOL_WORKSPACE = WORKSPACE_DIR
@@ -23,10 +24,20 @@ _CYRILLIC_TO_LATIN = str.maketrans({
 _FILENAME_SEPARATOR_RE = re.compile(r"[\s_.-]+")
 _VOWELS_RE = re.compile(r"[aeiouy]+")
 _FUZZY_FILENAME_THRESHOLD = 0.78
+_WORKSPACE_INDEX: WorkspaceIndex | None = None
 
 
 def _search_roots() -> tuple[Path, ...]:
     return (TOOL_WORKSPACE, APP_ROOT)
+
+
+def get_workspace_index() -> WorkspaceIndex:
+    global _WORKSPACE_INDEX
+    if _WORKSPACE_INDEX is None or _WORKSPACE_INDEX.workspace != TOOL_WORKSPACE.resolve():
+        _WORKSPACE_INDEX = WorkspaceIndex(TOOL_WORKSPACE)
+    else:
+        _WORKSPACE_INDEX.refresh()
+    return _WORKSPACE_INDEX
 
 
 def prepare_tool_workspace() -> Path:
@@ -52,13 +63,11 @@ def is_readable_search_path(path: Path) -> bool:
         return False
     if not resolved.is_file():
         return False
-    for root in _search_roots():
-        try:
-            resolved.relative_to(root.resolve())
-            return True
-        except ValueError:
-            continue
-    return False
+    try:
+        resolved.relative_to(TOOL_WORKSPACE.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def _clean_name(name: str) -> str:
@@ -117,6 +126,42 @@ def _iter_search_files(root: Path):
             yield current_path / filename
 
 
+def resolve_workspace_path(
+    value: str,
+    *,
+    categories: tuple[str, ...] = ("files", "applications", "folders"),
+    alias_manager=None,
+    fuzzy: bool = True,
+) -> tuple[Path | None, list[Path]]:
+    """Единый resolver: только реальные объекты текущего Workspace."""
+    prepare_tool_workspace()
+    raw = _clean_name(value)
+    if not raw:
+        return None, []
+
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        try:
+            resolved = candidate.resolve(strict=True)
+            resolved.relative_to(TOOL_WORKSPACE.resolve())
+        except (OSError, ValueError):
+            return None, []
+        entry, matches = get_workspace_index().resolve(
+            resolved.relative_to(TOOL_WORKSPACE.resolve()).as_posix(),
+            categories,
+            alias_manager,
+            fuzzy=False,
+        )
+        paths = [item.path for item in matches]
+        return (entry.path if entry else None), paths
+
+    entry, matches = get_workspace_index().resolve(raw, categories, alias_manager, fuzzy=fuzzy)
+    paths = [item.path for item in matches]
+    if entry is not None:
+        return entry.path, paths
+    return None, paths
+
+
 def find_by_name(name: str, extension: str | None = None, *, fuzzy: bool = False) -> list[Path]:
     prepare_tool_workspace()
     name = _clean_name(name)
@@ -173,58 +218,11 @@ def find_by_name(name: str, extension: str | None = None, *, fuzzy: bool = False
 
 
 def resolve_tool_path(value: str) -> tuple[Path | None, list[Path]]:
-    raw = _clean_name(value)
-    if not raw:
-        return None, []
-
-    prepare_tool_workspace()
-    candidate = Path(raw).expanduser()
-    if candidate.is_absolute():
-        try:
-            resolved = resolve_inside_sandbox(candidate, allow_nonexistent=False)
-            return (resolved, [resolved]) if resolved.is_file() else (None, [])
-        except SandboxError:
-            return None, []
-
-    try:
-        relative = resolve_inside_sandbox(candidate, allow_nonexistent=False)
-        if relative.is_file():
-            return relative, [relative]
-    except SandboxError:
-        pass
-
-    matches = find_by_name(raw)
-    matches = [match for match in matches if is_path_allowed(match)]
-    if len(matches) == 1:
-        return matches[0], matches
-    return None, matches
+    return resolve_workspace_path(value)
 
 
 def resolve_read_path(value: str) -> tuple[Path | None, list[Path]]:
-    raw = _clean_name(value)
-    if not raw:
-        return None, []
-
-    prepare_tool_workspace()
-    candidate = Path(raw).expanduser()
-    if candidate.is_absolute():
-        try:
-            resolved = candidate.resolve(strict=True)
-        except OSError:
-            return None, []
-        return (resolved, [resolved]) if is_readable_search_path(resolved) else (None, [])
-
-    try:
-        workspace_candidate = resolve_inside_sandbox(candidate, allow_nonexistent=False)
-        if workspace_candidate.is_file():
-            return workspace_candidate, [workspace_candidate]
-    except SandboxError:
-        pass
-
-    matches = find_by_name(raw)
-    if len(matches) == 1:
-        return matches[0], matches
-    return None, matches
+    return resolve_workspace_path(value, categories=("files", "applications"))
 
 
 def resolve_tool_target(value: str) -> Path:
