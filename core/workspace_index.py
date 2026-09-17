@@ -27,7 +27,6 @@ class WorkspaceIndex:
         self._entries = []
         if not self.workspace.exists() or not self.workspace.is_dir():
             return self._entries
-
         for path in self.workspace.rglob("*"):
             try:
                 resolved = path.resolve()
@@ -36,11 +35,10 @@ class WorkspaceIndex:
                 continue
             if not path.exists():
                 continue
-            relative = path.relative_to(self.workspace).as_posix()
             self._entries.append(
                 WorkspaceEntry(
                     path=resolved,
-                    relative_path=relative,
+                    relative_path=path.relative_to(self.workspace).as_posix(),
                     name=path.name,
                     stem=path.stem,
                     suffix=path.suffix,
@@ -54,9 +52,6 @@ class WorkspaceIndex:
         if include_dirs:
             return list(self._entries)
         return [entry for entry in self._entries if not entry.is_dir]
-
-    def paths(self) -> list[Path]:
-        return [entry.path for entry in self._entries]
 
     def find_name(self, query: str) -> list[WorkspaceEntry]:
         normalized = str(query).strip().casefold()
