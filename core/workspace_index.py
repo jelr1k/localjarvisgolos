@@ -74,11 +74,11 @@ class WorkspaceIndex:
         return " ".join(WorkspaceIndex._SEPARATORS.split(value))
 
     def _aliases_for(self, entry: WorkspaceEntry, alias_manager: AliasManager | None) -> list[str]:
-        if alias_manager is None:
-            return [entry.name, entry.stem, entry.relative_path]
-        aliases = alias_manager.automatic_aliases(entry.category, entry.name)
-        aliases.extend([entry.name, entry.stem, entry.relative_path])
-        return list(dict.fromkeys(alias for alias in aliases if alias))
+        values = [entry.name, entry.stem, entry.relative_path]
+        if alias_manager is not None:
+            values.extend(alias_manager.automatic_aliases(entry.category, entry.name))
+            values.extend(alias_manager.get_aliases(entry.category, entry.name))
+        return list(dict.fromkeys(value for value in values if value))
 
     def search(
         self,
@@ -92,10 +92,11 @@ class WorkspaceIndex:
         if not normalized:
             return []
         candidates = self.entries(categories)
-        exact = []
-        for entry in candidates:
-            if any(self._normalize(value) == normalized for value in self._aliases_for(entry, alias_manager)):
-                exact.append(entry)
+        exact = [
+            entry
+            for entry in candidates
+            if any(self._normalize(value) == normalized for value in self._aliases_for(entry, alias_manager))
+        ]
         if exact:
             return sorted(exact, key=lambda item: item.relative_path.casefold())
         if not fuzzy:
