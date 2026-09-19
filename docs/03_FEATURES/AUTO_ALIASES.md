@@ -1,8 +1,8 @@
 # Jarvis — автоматические алиасы и индекс Workspace
 
 **Статус:** ОСНОВНАЯ ЧАСТЬ РЕАЛИЗОВАНА  
-**Основное ТЗ:** `docs/TZ_JARVIS.md`  
-**Единое ТЗ:** `docs/TZ_JARVIS_UNIFIED.md`  
+**Основное ТЗ:** `docs/01_REQUIREMENTS/PROJECT_SPEC.md`  
+**Единое ТЗ:** `docs/01_REQUIREMENTS/ROADMAP.md`  
 **Ветка:** `osnova`
 
 ## 1. Цель
