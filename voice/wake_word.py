@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import queue
 import threading
 import urllib.request
 import zipfile
@@ -12,6 +13,7 @@ import sounddevice as sd
 from PySide6.QtCore import QObject, QThread, Signal
 
 from core.app_paths import APP_DATA_DIR
+from voice.devices import find_input_device_by_name, find_supported_sample_rate
 
 
 logger = logging.getLogger("jarvis.voice.wake_word")
@@ -94,13 +96,16 @@ class _WakeWordWorker(QObject):
                 _WAKE_WORDS,
             )
 
+            audio_queue: queue.Queue[bytes] = queue.Queue(maxsize=32)
+
             def callback(indata, frames, time_info, status):
                 if status:
                     logger.warning("wake_word_stream_status=%s", status)
                 if not self._stop_event.is_set():
-                    audio_queue.append(bytes(indata))
-
-            audio_queue: list[bytes] = []
+                    try:
+                        audio_queue.put_nowait(bytes(indata))
+                    except queue.Full:
+                        logger.warning("wake_word_audio_queue_full")
 
             with sd.RawInputStream(
                 samplerate=self.sample_rate,
@@ -111,9 +116,11 @@ class _WakeWordWorker(QObject):
                 callback=callback,
             ):
                 while not self._stop_event.is_set():
-                    if audio_queue:
-                        data = audio_queue.pop(0)
-                        recognizer.AcceptWaveform(data)
+                    try:
+                        data = audio_queue.get(timeout=0.05)
+                    except queue.Empty:
+                        continue
+                    recognizer.AcceptWaveform(data)
                         partial = json.loads(recognizer.PartialResult()).get("partial", "")
                         if _contains_wake_word(partial):
                             logger.info("wake_word_detected partial=%r", partial)
@@ -152,7 +159,20 @@ class WakeWordDetector(QObject):
         self.enabled = bool(voice_config.get("wake_word_enabled", True))
         self.wake_word = str(voice_config.get("wake_word", "Jarvis")).strip() or "Jarvis"
         self.device = voice_config.get("input_device")
+        device_name = voice_config.get("input_device_name")
+        if device_name:
+            resolved = find_input_device_by_name(device_name)
+            if resolved is not None:
+                self.device = int(resolved["index"])
         self.sample_rate = int(voice_config.get("sample_rate", 16000))
+        try:
+            self.sample_rate = find_supported_sample_rate(
+                device=self.device,
+                channels=1,
+                preferred=self.sample_rate,
+            )
+        except Exception as exc:
+            logger.warning("wake_word_sample_rate_unavailable device=%r error=%r", self.device, exc)
 
     def start(self):
         if not self.enabled or self.is_running():
