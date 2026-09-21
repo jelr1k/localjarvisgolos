@@ -155,6 +155,61 @@ class CommandRouter:
         self.alias_manager.add_alias(suggestion["category"], suggestion["target"], query)
         return suggestion["target"], None
 
+    def tools_for_message(self, text: str) -> set[str]:
+        """Определяет набор LLM-инструментов для текущего сообщения."""
+        lower = " ".join(text.lower().split())
+        action = self._resolve_action(lower)
+        executor = self._executor()
+        enabled = {name for name in TOOLS if executor._is_enabled(name)}
+
+        action_tools = {
+            "launch": {"launch_application", "get_process_status"},
+            "close": {"close_application", "get_process_status"},
+            "status": {"get_process_status"},
+            "search": {"search_files"},
+            "read": {"read_file"},
+            "delete": {"delete_file", "search_files"},
+        }
+
+        detected_actions: set[str] = set()
+        for action_name, aliases in DEFAULT_ACTION_ALIASES.items():
+            if any(self._contains_action_alias(lower, action_name, alias) for alias in aliases):
+                detected_actions.add(action_name)
+
+        if len(detected_actions) > 1:
+            selected = set()
+            for action_name in detected_actions:
+                selected.update(action_tools.get(action_name, set()))
+            result = selected & enabled
+            logger.info("router_tool_scope text=%r tools=%s reason=compound_actions actions=%s", text, sorted(result), sorted(detected_actions))
+            return result
+
+        if action:
+            selected = action_tools.get(action[0])
+            if selected:
+                result = selected & enabled
+                logger.info("router_tool_scope text=%r tools=%s reason=action", text, sorted(result))
+                return result
+
+        keyword_tools = {
+            "файл": {"search_files", "read_file", "file_info", "create_file", "write_file", "delete_file", "rename_file", "copy_file", "move_file"},
+            "файла": {"search_files", "read_file", "file_info", "create_file", "write_file", "delete_file", "rename_file", "copy_file", "move_file"},
+            "папк": {"search_files", "create_folder", "file_info", "copy_file", "move_file"},
+            "приложен": {"find_application", "get_process_status", "launch_application", "close_application"},
+            "програм": {"find_application", "get_process_status", "launch_application", "close_application"},
+            "сайт": {"open_url"},
+            "ссылк": {"open_url"},
+            "url": {"open_url"},
+        }
+        selected = set()
+        for keyword, names in keyword_tools.items():
+            if keyword in lower:
+                selected.update(names)
+
+        result = selected & enabled
+        logger.info("router_tool_scope text=%r tools=%s reason=keywords_or_chat", text, sorted(result))
+        return result
+
     def route(self, text: str, confirmation_callback=None, alias_confirmation_callback=None) -> str | None:
         started = time.perf_counter()
         normalized = " ".join(text.strip().split())
