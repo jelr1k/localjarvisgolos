@@ -8,7 +8,6 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-import numpy as np
 import sounddevice as sd
 from PySide6.QtCore import QObject, QThread, Signal, QTimer
 
@@ -36,12 +35,13 @@ def _contains_wake_word(text: str, wake_word: str) -> bool:
     target = _normalize(wake_word)
     if not normalized or not target:
         return False
-    return target in normalized or any(variant in normalized for variant in _wake_word_variants(wake_word))
+    return target in normalized or any(
+        variant in normalized for variant in _wake_word_variants(wake_word)
+    )
 
 
 def _normalize(text: str) -> str:
     return " ".join(text.casefold().replace("ё", "е").split())
-
 
 
 def _download_model(model_dir: Path) -> Path:
@@ -96,8 +96,11 @@ class _WakeWordWorker(QObject):
             from vosk import KaldiRecognizer, Model, SetLogLevel
 
             SetLogLevel(-1)
-            model = Model(str(self.model_dir))
-            grammar = json.dumps(list(_wake_word_variants(self.wake_word)), ensure_ascii=False)
+            model = Model(str(_download_model(self.model_dir)))
+            grammar = json.dumps(
+                list(_wake_word_variants(self.wake_word)),
+                ensure_ascii=False,
+            )
             recognizer = KaldiRecognizer(model, self.sample_rate, grammar)
 
             self.status.emit("Wake word: слушаю")
@@ -141,8 +144,6 @@ class _WakeWordWorker(QObject):
                         # restarts the detector after the voice command.
                         self._stop_event.set()
                         break
-                    else:
-                        self._stop_event.wait(0.01)
 
             logger.info("wake_word_listening_stopped")
         except Exception as exc:
@@ -185,17 +186,29 @@ class WakeWordDetector(QObject):
                 preferred=self.sample_rate,
             )
         except Exception as exc:
-            logger.warning("wake_word_sample_rate_unavailable device=%r error=%r", self.device, exc)
+            logger.warning(
+                "wake_word_sample_rate_unavailable device=%r error=%r",
+                self.device,
+                exc,
+            )
 
     def start(self):
         if not self.enabled or self.is_running():
             return
 
         self._thread = QThread()
-        self._worker = _WakeWordWorker(self.device, self.sample_rate, _MODEL_DIR, self.wake_word)
+        self._worker = _WakeWordWorker(
+            self.device,
+            self.sample_rate,
+            _MODEL_DIR,
+            self.wake_word,
+        )
         self._worker.moveToThread(self._thread)
 
-        self._thread.started.connect(self._run_worker)
+        # The worker itself must receive thread.started. Connecting it to
+        # WakeWordDetector._run_worker would execute _worker.run() in the
+        # GUI thread because WakeWordDetector lives there.
+        self._thread.started.connect(self._worker.run)
         self._worker.detected.connect(self._on_detected)
         self._worker.status.connect(self.status)
         self._worker.failed.connect(self._on_failed)
@@ -205,14 +218,6 @@ class WakeWordDetector(QObject):
         self.listening_changed.emit(True)
         self._thread.start()
         logger.info("wake_word_thread_started wake_word=%r", self.wake_word)
-
-    def _run_worker(self):
-        try:
-            _download_model(_MODEL_DIR)
-            self._worker.run()
-        except Exception as exc:
-            logger.exception("wake_word_worker_start_failed")
-            self._worker.failed.emit(str(exc))
 
     def stop(self):
         if self._worker is not None:
