@@ -49,6 +49,9 @@ class SettingsPage(QWidget):
         self.router_only_mode = QCheckBox("Только роутер, без LLM")
         self.router_only_mode.setChecked(bool(config.get("router_only_mode", False)))
         self.router_only_mode.setToolTip("Тестовый режим: запросы идут через Command Router. Если роутер не распознал команду, LLM не вызывается и модель не загружается.")
+        self.allow_outside_workspace = QCheckBox("Работа вне Workspace")
+        self.allow_outside_workspace.setChecked(bool(config.get("allow_outside_workspace", False)))
+        self.allow_outside_workspace.setToolTip("Разрешает запускать приложения и файлы, расположенные вне рабочей папки Jarvis. По умолчанию доступ запрещён.")
         self.microphone = QComboBox()
         self._load_microphones()
 
@@ -61,6 +64,7 @@ class SettingsPage(QWidget):
         form.addRow("Микрофон:", self.microphone)
         form.addRow("Ollama:", self.url)
         form.addRow("Режим тестирования:", self.router_only_mode)
+        form.addRow("Безопасность:", self.allow_outside_workspace)
 
         box = QGroupBox("Параметры")
         box.setLayout(form)
@@ -215,6 +219,7 @@ class SettingsPage(QWidget):
         self.config.data["max_tokens"] = self.max_tokens.value()
 
         self.config.data["router_only_mode"] = self.router_only_mode.isChecked()
+        self.config.data["allow_outside_workspace"] = self.allow_outside_workspace.isChecked()
 
         voice_config = self.config.data.setdefault("voice", {})
         selected_device = self.microphone.currentData()
