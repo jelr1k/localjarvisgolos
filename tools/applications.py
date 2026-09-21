@@ -338,7 +338,32 @@ def has_pending_launch_choices() -> bool:
     return bool(_PENDING_LAUNCH_CHOICES)
 
 
-def launch_application(target: str) -> dict:
+
+def _workspace_launch_denial(target: str, *, reason: str | None = None) -> dict:
+    message = (
+        "Доступ запрещён: объект находится вне Workspace. "
+        "В режиме «Только Workspace» запуск внешних файлов и приложений запрещён."
+    )
+    if reason:
+        message += f" {reason}"
+    logger.warning("launch_blocked_outside_workspace target=%r reason=%s", target, reason)
+    return _result(False, error=message, blocked=True, outside_workspace=True)
+
+
+def _is_outside_workspace_path(target: str) -> bool:
+    try:
+        from security.sandbox import is_inside_sandbox
+        path = Path(target).expanduser()
+        if not path.is_absolute() and not any(separator in target for separator in ("\\", "/", ":")):
+            return False
+        if not path.exists():
+            return False
+        return not is_inside_sandbox(path, allow_nonexistent=False)
+    except (OSError, ValueError):
+        return False
+
+
+def launch_application(target: str, allow_outside_workspace: bool = False) -> dict:
     global _PENDING_LAUNCH_CHOICES
     logger.info("launch_start target=%r", target)
     try:
@@ -356,6 +381,9 @@ def launch_application(target: str) -> dict:
         return _start_path(selected)
 
     _PENDING_LAUNCH_CHOICES = []
+    if not allow_outside_workspace and _is_outside_workspace_path(target):
+        return _workspace_launch_denial(target)
+
     file_path, matches = resolve_tool_path(target)
     logger.info("launch_workspace_resolution target=%r file_path=%r matches=%r", target, file_path, matches)
     if len(matches) > 1:
@@ -367,7 +395,13 @@ def launch_application(target: str) -> dict:
 
     found = find_application(target)
     if found.get("success"):
-        return _start_path(Path(found["path"]))
+        found_path = Path(found["path"])
+        if not allow_outside_workspace:
+            return _workspace_launch_denial(
+                target,
+                reason=f"Найдено приложение по адресу: {found_path}",
+            )
+        return _start_path(found_path)
 
     return _result(False, error=found.get("error") or f"Файл или приложение не найдено: {target}")
 
