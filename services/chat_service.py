@@ -10,11 +10,11 @@ from PySide6.QtCore import QObject, Signal, QThread, QTimer
 from PySide6.QtWidgets import QMessageBox
 
 from chat.conversation import Conversation
-from core.alias_manager import AliasManager, DEFAULT_ACTION_ALIASES
+from core.alias_manager import AliasManager
 from llm.request import ChatRequest
 from services.command_router import CommandRouter
 from tools.executor import ToolExecutor
-from tools.registry import TOOLS, ollama_tools
+from tools.registry import ollama_tools
 
 
 logger = logging.getLogger("jarvis.chat")
@@ -136,12 +136,6 @@ class ChatService(QObject):
         self._current_answer = ""
         self._pending_messages = deque()
         logger.info("chat_service_created model=%s", self.config.get("model"))
-
-    def _enabled_tools(self):
-        configured = self.config.get("tools", {})
-        enabled = {name for name in TOOLS if bool(configured.get(name, False))}
-        logger.debug("enabled_tools=%s", sorted(enabled))
-        return enabled
 
     def refresh_tools(self):
         logger.info("refresh_tools")
