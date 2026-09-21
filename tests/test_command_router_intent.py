@@ -35,3 +35,18 @@ def test_tools_for_message_is_owned_by_router(tmp_path):
     assert "launch_application" in router.tools_for_message("запусти Steam")
     assert "get_process_status" in router.tools_for_message("закрой Steam")
     assert router.tools_for_message("расскажи анекдот") == set()
+
+
+def test_embedded_application_name_is_resolved_from_natural_phrase(tmp_path):
+    router = make_router(tmp_path)
+    router.alias_manager.set_aliases("applications", "Steam.lnk", ["стим"])
+
+    assert router._resolve_target("мой Steam", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
+    assert router._resolve_target("мой стим", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
+
+
+def test_longest_embedded_alias_wins(tmp_path):
+    router = make_router(tmp_path)
+    router.alias_manager.set_aliases("applications", "Google Chrome.lnk", ["гугл хром"])
+
+    assert router._resolve_target("мой Google Chrome", ("applications",), use_workspace_index=False) == ("Google Chrome.lnk", None)
