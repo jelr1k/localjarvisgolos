@@ -68,6 +68,27 @@ class AliasManagerTests(unittest.TestCase):
             aliases = manager.automatic_aliases("applications", "Some Random Tool")
             self.assertEqual(aliases, ["Some Random Tool", "Some"])
 
+
+    def test_automatic_alias_registration_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+            first = manager.ensure_automatic_aliases("applications", "Steam.url")
+            second = manager.ensure_automatic_aliases("applications", "Steam.url")
+
+            self.assertEqual(first, ["Steam", "Steam.url"])
+            self.assertEqual(second, ["Steam", "Steam.url"])
+            self.assertEqual(manager.get_aliases("applications", "Steam.url"), ["Steam", "Steam.url"])
+
+    def test_automatic_alias_does_not_overwrite_existing_alias(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+            manager.set_aliases("applications", "Other.exe", ["стим"])
+
+            aliases = manager.ensure_automatic_aliases("applications", "Steam.exe")
+
+            self.assertNotIn("стим", aliases)
+            self.assertEqual(manager.get_aliases("applications", "Other.exe"), ["стим"])
+
     def test_automatic_aliases_resolve_russian_name(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "aliases.json"
