@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEd
 
 
 class ChatPage(QWidget):
-    send_requested = Signal(str)
+    send_requested = Signal(str, bool)
 
     def __init__(self, chat_service, config):
         super().__init__()
