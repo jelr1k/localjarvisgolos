@@ -29,6 +29,7 @@ class WorkspaceViewModel:
         self.index.refresh()
         result: list[WorkspaceObject] = []
         for entry in self.index.entries():
+            self.alias_manager.ensure_automatic_aliases(entry.category, entry.name)
             automatic = tuple(dict.fromkeys(self.alias_manager.automatic_aliases(entry.category, entry.name)))
             user = tuple(self.alias_manager.get_aliases(entry.category, entry.name))
             if entry.relative_path != entry.name:
@@ -39,6 +40,19 @@ class WorkspaceViewModel:
     def set_aliases(self, entry: WorkspaceEntry, aliases: list[str]) -> None:
         target = entry.name
         self.alias_manager.set_aliases(entry.category, target, aliases)
+
+    def add_file(self, source: str | Path) -> Path:
+        from tools.paths import add_file_to_workspace
+
+        target = add_file_to_workspace(source)
+        self.index.refresh()
+        self.alias_manager.ensure_automatic_aliases(
+            self.index.resolve(target.name, ("applications", "files"), self.alias_manager, fuzzy=False)[0].category
+            if self.index.resolve(target.name, ("applications", "files"), self.alias_manager, fuzzy=False)[0]
+            else "files",
+            target.name,
+        )
+        return target
 
     def remove_object_aliases(self, entry: WorkspaceEntry) -> None:
         self.alias_manager.remove_object(entry.category, entry.name)
