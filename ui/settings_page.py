@@ -53,6 +53,11 @@ class SettingsPage(QWidget):
         self.allow_outside_workspace.setChecked(bool(config.get("allow_outside_workspace", False)))
         self.allow_outside_workspace.setToolTip("Разрешает запускать приложения и файлы, расположенные вне рабочей папки Jarvis. По умолчанию доступ запрещён.")
         self.microphone = QComboBox()
+        self.wake_word_enabled = QCheckBox("Включить wake word")
+        self.wake_word_enabled.setChecked(bool(config.get("voice", {}).get("wake_word_enabled", True)))
+        self.wake_word = QLineEdit(config.get("voice", {}).get("wake_word", "Jarvis"))
+        self.wake_word.setPlaceholderText("Например: Jarvis или Компьютер")
+        self.wake_word.setToolTip("Фраза, которой активируется голосовой режим вне приложения.")
         self._load_microphones()
 
         form = QFormLayout()
@@ -62,6 +67,8 @@ class SettingsPage(QWidget):
         form.addRow("Контекст:", self.context)
         form.addRow("Максимум ответа:", self.max_tokens)
         form.addRow("Микрофон:", self.microphone)
+        form.addRow("Wake word:", self.wake_word)
+        form.addRow("", self.wake_word_enabled)
         form.addRow("Ollama:", self.url)
         form.addRow("Режим тестирования:", self.router_only_mode)
         form.addRow("Безопасность:", self.allow_outside_workspace)
@@ -229,6 +236,8 @@ class SettingsPage(QWidget):
             if selected_device is not None
             else None
         )
+        voice_config["wake_word_enabled"] = self.wake_word_enabled.isChecked()
+        voice_config["wake_word"] = self.wake_word.text().strip() or "Jarvis"
 
         self.config.data["ollama"]["base_url"] = self.url.text().strip().rstrip("/")
         self.config.save()
