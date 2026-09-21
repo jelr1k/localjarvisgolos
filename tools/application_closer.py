@@ -94,47 +94,18 @@ def _candidate_shortcuts(name: str) -> list[Path]:
 
 
 def _resolve_executable(name: str) -> tuple[Path | None, list[Path]]:
-    raw = name.strip().strip('"')
-    direct = Path(raw)
-    if direct.suffix.lower() == ".exe" and direct.is_file():
-        return direct.resolve(), [direct.resolve()]
+    """Использует тот же ApplicationResolver, что и остальные app-tools."""
+    resolved = _applications._APPLICATION_RESOLVER.resolve(name, allow_workspace=True)
+    if resolved.get("success"):
+        identity = resolved.get("identity", {})
+        executable = identity.get("target_executable") or identity.get("normalized_executable")
+        if executable:
+            sources = [Path(resolved["path"])] if resolved.get("path") else []
+            logger.info("close_identity_unified name=%r executable=%s sources=%r", name, executable, sources)
+            return Path(executable), sources
 
-    shortcuts = _candidate_shortcuts(raw)
-    targets: dict[str, tuple[Path, list[Path]]] = {}
-    unresolved: list[Path] = []
-
-    for shortcut in shortcuts:
-        target = _resolve_shortcut_with_windows_shell(shortcut)
-        if target is None or target.suffix.lower() != ".exe":
-            unresolved.append(shortcut)
-            continue
-        key = str(target).casefold()
-        if key not in targets:
-            targets[key] = (target, [])
-        targets[key][1].append(shortcut)
-
-    if len(targets) == 1:
-        target, matched_shortcuts = next(iter(targets.values()))
-        logger.info(
-            "close_identity_resolved name=%r executable=%s shortcuts=%r",
-            name,
-            target,
-            matched_shortcuts,
-        )
-        return target, matched_shortcuts
-
-    if len(targets) > 1:
-        logger.warning("close_identity_ambiguous name=%r targets=%r", name, list(targets),)
-        return None, shortcuts
-
-    # Для уже переданного имени exe допускаем PATH как последний безопасный
-    # вариант. Никаких shell-команд здесь не выполняется.
-    executable_name = raw if raw.casefold().endswith(".exe") else f"{raw}.exe"
-    path_match = shutil.which(executable_name)
-    if path_match:
-        return Path(path_match).resolve(), [Path(path_match).resolve()]
-
-    return None, unresolved or shortcuts
+    matches = resolved.get("matches") or []
+    return None, [Path(path) for path in matches]
 
 
 def close_application(name: str) -> dict:
