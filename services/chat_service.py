@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import time
+from collections import deque
 from threading import Event
 
-from PySide6.QtCore import QObject, Signal, QThread
+from PySide6.QtCore import QObject, Signal, QThread, QTimer
 from PySide6.QtWidgets import QMessageBox
 
 from chat.conversation import Conversation
@@ -134,6 +134,7 @@ class ChatService(QObject):
         self._thread = None
         self._worker = None
         self._current_answer = ""
+        self._pending_messages = deque()
         logger.info("chat_service_created model=%s", self.config.get("model"))
 
     def _enabled_tools(self):
@@ -142,93 +143,24 @@ class ChatService(QObject):
         logger.debug("enabled_tools=%s", sorted(enabled))
         return enabled
 
-    @staticmethod
-    def _contextual_action_is_valid(text: str, action: tuple[str, str] | None) -> bool:
-        if not action or action[0] != "search":
-            return True
-        for alias in CommandRouter._CONTEXTUAL_SEARCH_ALIASES:
-            if re.match(rf"^{re.escape(alias)}(?:,)?\s+", text, flags=re.IGNORECASE):
-                return CommandRouter._is_contextual_file_search(alias, action[1])
-        return True
-
-    def _tools_for_message(self, text: str) -> set[str]:
-        """Выбирает только инструменты, относящиеся к текущему запросу."""
-        lower = " ".join(text.lower().split())
-        action = self.alias_manager.resolve_action(text)
-        if not self._contextual_action_is_valid(text, action):
-            logger.info("chat_action_rejected reason=contextual_search_without_file text=%r action=%r", text, action)
-            action = None
-        enabled = self._enabled_tools()
-
-        action_tools = {
-            "launch": {"launch_application", "get_process_status"},
-            "close": {"close_application", "get_process_status"},
-            "status": {"get_process_status"},
-            "search": {"search_files"},
-            "read": {"read_file"},
-            "delete": {"delete_file", "search_files"},
-        }
-
-        # Для составной команды нужно найти все действия, но контекстные
-        # «где находится/где лежит» считаем поиском только при наличии явного
-        # файлового объекта.
-        detected_actions: set[str] = set()
-        for action_name, aliases in DEFAULT_ACTION_ALIASES.items():
-            for alias in aliases:
-                if CommandRouter._contains_action_alias(lower, action_name, alias):
-                    detected_actions.add(action_name)
-                    break
-
-        if len(detected_actions) > 1:
-            selected: set[str] = set()
-            for action_name in detected_actions:
-                selected.update(action_tools.get(action_name, set()))
-            result = selected & enabled
-            logger.info("chat_tool_scope text=%r tools=%s reason=compound_actions actions=%s", text, sorted(result), sorted(detected_actions))
-            return result
-
-        if action:
-            action_name, _ = action
-            selected = action_tools.get(action_name)
-            if selected:
-                return selected & enabled
-
-        keyword_tools = {
-            "файл": {"search_files", "read_file", "file_info", "create_file", "write_file", "delete_file", "rename_file", "copy_file", "move_file"},
-            "файла": {"search_files", "read_file", "file_info", "create_file", "write_file", "delete_file", "rename_file", "copy_file", "move_file"},
-            "папк": {"search_files", "create_folder", "file_info", "copy_file", "move_file"},
-            "приложен": {"find_application", "get_process_status", "launch_application", "close_application"},
-            "програм": {"find_application", "get_process_status", "launch_application", "close_application"},
-            "сайт": {"open_url"},
-            "ссылк": {"open_url"},
-            "url": {"open_url"},
-        }
-        selected: set[str] = set()
-        for keyword, names in keyword_tools.items():
-            if keyword in lower:
-                selected.update(names)
-
-        result = selected & enabled
-        if result:
-            logger.info("chat_tool_scope text=%r tools=%s reason=keywords", text, sorted(result))
-            return result
-
-        logger.info("chat_tool_scope text=%r tools=[] reason=normal_chat", text)
-        return set()
-
     def refresh_tools(self):
         logger.info("refresh_tools")
         self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager) if self.ollama_manager else self.router
 
     def send(self, text):
-        if self._thread and self._thread.isRunning():
-            logger.warning("send_ignored generation_already_running text=%r", text)
-            return
         text = text.strip()
         if not text:
             logger.debug("send_ignored empty_text")
             return
 
+        if self._thread and self._thread.isRunning():
+            self._pending_messages.append(text)
+            logger.info("message_queued generation_already_running queue_size=%d text=%r", len(self._pending_messages), text)
+            return
+
+        self._process_message(text)
+
+    def _process_message(self, text: str):
         logger.info("user_message text=%r", text)
         self.conversation.add("user", text)
 
@@ -245,7 +177,7 @@ class ChatService(QObject):
                 return
 
         self._current_answer = ""
-        tools_for_message = self._tools_for_message(text)
+        tools_for_message = self.router.tools_for_message(text) if self.router else set()
         request = ChatRequest(
             model=self.config.get("model"),
             messages=self.conversation.as_ollama_messages(),
@@ -322,6 +254,10 @@ class ChatService(QObject):
             self._thread.deleteLater()
         self._worker = None
         self._thread = None
+        if self._pending_messages:
+            next_text = self._pending_messages.popleft()
+            logger.info("message_dequeued queue_size=%d text=%r", len(self._pending_messages), next_text)
+            QTimer.singleShot(0, lambda text=next_text: self._process_message(text))
 
     def add_assistant_message(self, text):
         logger.info("assistant_message_added text=%r", text)
