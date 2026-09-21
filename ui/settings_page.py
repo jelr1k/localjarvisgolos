@@ -58,6 +58,13 @@ class SettingsPage(QWidget):
         self.wake_word = QLineEdit(config.get("voice", {}).get("wake_word", "Jarvis"))
         self.wake_word.setPlaceholderText("Например: Jarvis или Компьютер")
         self.wake_word.setToolTip("Фраза, которой активируется голосовой режим вне приложения.")
+        self.silence_duration = QDoubleSpinBox()
+        self.silence_duration.setRange(0.5, 10.0)
+        self.silence_duration.setSingleStep(0.1)
+        self.silence_duration.setDecimals(1)
+        self.silence_duration.setSuffix(" с")
+        self.silence_duration.setValue(float(config.get("voice", {}).get("silence_duration", 2.0)))
+        self.silence_duration.setToolTip("Сколько секунд тишины после речи нужно для автоматической остановки записи и отправки команды.")
         self._load_microphones()
 
         form = QFormLayout()
@@ -69,6 +76,7 @@ class SettingsPage(QWidget):
         form.addRow("Микрофон:", self.microphone)
         form.addRow("Wake word:", self.wake_word)
         form.addRow("", self.wake_word_enabled)
+        form.addRow("Тишина до автоотправки:", self.silence_duration)
         form.addRow("Ollama:", self.url)
         form.addRow("Режим тестирования:", self.router_only_mode)
         form.addRow("Безопасность:", self.allow_outside_workspace)
@@ -238,6 +246,7 @@ class SettingsPage(QWidget):
         )
         voice_config["wake_word_enabled"] = self.wake_word_enabled.isChecked()
         voice_config["wake_word"] = self.wake_word.text().strip() or "Jarvis"
+        voice_config["silence_duration"] = self.silence_duration.value()
 
         self.config.data["ollama"]["base_url"] = self.url.text().strip().rstrip("/")
         self.config.save()
