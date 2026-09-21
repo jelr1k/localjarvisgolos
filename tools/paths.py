@@ -231,12 +231,21 @@ def resolve_tool_target(value: str) -> Path:
 
 
 def add_file_to_workspace(source: str | Path) -> Path:
-    source_path = Path(source).expanduser()
+    source_path = Path(source).expanduser().resolve()
     if not source_path.exists() or not source_path.is_file():
         raise ValueError("Можно добавить только существующий файл.")
 
-    target = resolve_inside_sandbox(source_path.name, allow_nonexistent=True)
+    target = resolve_inside_sandbox(source_path.name, allow_nonexistent=True).resolve()
+    try:
+        source_path.relative_to(TOOL_WORKSPACE.resolve())
+        source_is_in_workspace = True
+    except ValueError:
+        source_is_in_workspace = False
+
     if target.exists():
+        # Повторный drag-and-drop того же объекта не создаёт дубликат.
+        if source_is_in_workspace and source_path == target:
+            return target
         raise FileExistsError(f"Файл уже существует в Workspace: {target.name}")
 
     try:
