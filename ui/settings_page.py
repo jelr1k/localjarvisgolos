@@ -30,9 +30,6 @@ class SettingsPage(QWidget):
         self.model.setEditable(True)
         self.model.addItem(config.get("model"))
 
-        self.thinking = QCheckBox("Включить режим раздумывания")
-        self.thinking.setChecked(bool(config.get("thinking")))
-
         self.temperature = QDoubleSpinBox()
         self.temperature.setRange(0.0, 2.0)
         self.temperature.setSingleStep(0.05)
@@ -49,18 +46,21 @@ class SettingsPage(QWidget):
         self.max_tokens.setValue(int(config.get("max_tokens")))
 
         self.url = QLineEdit(config.ollama_url)
+        self.router_only_mode = QCheckBox("Только роутер, без LLM")
+        self.router_only_mode.setChecked(bool(config.get("router_only_mode", False)))
+        self.router_only_mode.setToolTip("Тестовый режим: запросы идут через Command Router. Если роутер не распознал команду, LLM не вызывается и модель не загружается.")
         self.microphone = QComboBox()
         self._load_microphones()
 
         form = QFormLayout()
         form.addRow("Имя ассистента:", self.assistant_name)
         form.addRow("Модель:", self.model)
-        form.addRow("Раздумывания:", self.thinking)
         form.addRow("Температура:", self.temperature)
         form.addRow("Контекст:", self.context)
         form.addRow("Максимум ответа:", self.max_tokens)
         form.addRow("Микрофон:", self.microphone)
         form.addRow("Ollama:", self.url)
+        form.addRow("Режим тестирования:", self.router_only_mode)
 
         box = QGroupBox("Параметры")
         box.setLayout(form)
@@ -210,10 +210,11 @@ class SettingsPage(QWidget):
     def save(self):
         self.config.data["assistant_name"] = self.assistant_name.text().strip() or "JARVIS"
         self.config.data["model"] = self.model.currentText().strip()
-        self.config.data["thinking"] = self.thinking.isChecked()
         self.config.data["temperature"] = self.temperature.value()
         self.config.data["context_length"] = self.context.value()
         self.config.data["max_tokens"] = self.max_tokens.value()
+
+        self.config.data["router_only_mode"] = self.router_only_mode.isChecked()
 
         voice_config = self.config.data.setdefault("voice", {})
         selected_device = self.microphone.currentData()
