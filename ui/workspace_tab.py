@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QLineEdit,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
@@ -43,8 +44,6 @@ class AliasDialog(QDialog):
         layout.addWidget(self.editor)
 
         row = QHBoxLayout()
-        from PySide6.QtWidgets import QLineEdit
-
         self.input = QLineEdit()
         self.input.setPlaceholderText("например: мой стим")
         row.addWidget(self.input)
