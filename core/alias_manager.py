@@ -396,6 +396,21 @@ class AliasManager:
     def default_action_aliases(cls, action: str) -> list[str]:
         return list(DEFAULT_ACTION_ALIASES.get(action, []))
 
+    @staticmethod
+    def _is_command_filler(word: str) -> bool:
+        return word.casefold().replace("ё", "е") in {
+            item.replace("ё", "е") for item in _COMMAND_FILLER_WORDS
+        }
+
+    @classmethod
+    def _clean_command_target(cls, target: str) -> str:
+        words = target.strip(" ,:;.!?-").split()
+        while words and cls._is_command_filler(words[0]):
+            words.pop(0)
+        while words and cls._is_command_filler(words[-1]):
+            words.pop()
+        return " ".join(words).strip()
+
     def resolve_action(self, text: str) -> tuple[str, str] | None:
         normalized = " ".join(str(text).strip().split())
         if not normalized:
@@ -412,10 +427,13 @@ class AliasManager:
             pattern = rf"^{re.escape(prefix)}(?:,)?\s+(.+)$"
             match = re.match(pattern, normalized, flags=re.IGNORECASE)
             if match:
-                return action, match.group(1).strip()
+                target = self._clean_command_target(match.group(1))
+                if target:
+                    return action, target
 
-        # Разговорная команда может начинаться с мусорных/эмоциональных слов:
-        # «нахуй закрой стим», «блять открой дискорд». Они не меняют действие.
+        # Разговорная команда может начинаться с мусорных/эмоциональных слов
+        # или содержать их между действием и целью:
+        # «нахуй закрой стим», «закрой нахуй стим», «закрой стим блять».
         for alias, action in sorted(aliases, key=lambda item: len(item[0]), reverse=True):
             prefix = alias.strip()
             if not prefix:
@@ -424,10 +442,12 @@ class AliasManager:
             match = re.search(pattern, normalized, flags=re.IGNORECASE)
             if not match:
                 continue
+
             before = normalized[:match.start()].strip(" ,:;.!?-").split()
-            if before and all(
-                word.casefold().replace("ё", "е") in _COMMAND_FILLER_WORDS
-                for word in before
-            ):
-                return action, match.group(1).strip()
+            if before and not all(self._is_command_filler(word) for word in before):
+                continue
+
+            target = self._clean_command_target(match.group(1))
+            if target:
+                return action, target
         return None
