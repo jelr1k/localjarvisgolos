@@ -149,6 +149,11 @@ class ChatPage(QWidget):
     def flush_stream(self):
         if not self.pending_thinking and not self.pending_answer:
             return
+
+        scrollbar = self.chat.verticalScrollBar()
+        previous_value = scrollbar.value()
+        was_at_bottom = previous_value >= scrollbar.maximum() - 2
+
         cursor = self.chat.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
 
@@ -171,13 +176,20 @@ class ChatPage(QWidget):
                 if self.thinking_started:
                     cursor.insertHtml("<br><br><b>Ответ:</b><br>")
                 else:
-                    self.chat.append(f"<b>{self.assistant_name}:</b>")
+                    self.chat.append(f"<b>{escape(self.assistant_name)}:</b>")
                 self.answer_started = True
             cursor = self.chat.textCursor()
             cursor.movePosition(cursor.MoveOperation.End)
             cursor.insertText(self.pending_answer)
             self.pending_answer = ""
-        self.chat.ensureCursorVisible()
+
+        # При ручной прокрутке генерация не должна насильно возвращать чат
+        # к последнему сообщению. Если пользователь был внизу, автоскролл
+        # сохраняется как и раньше.
+        if was_at_bottom:
+            scrollbar.setValue(scrollbar.maximum())
+        else:
+            scrollbar.setValue(previous_value)
 
     def finish_generation(self):
         self.flush_stream()
