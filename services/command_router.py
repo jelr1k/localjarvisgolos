@@ -8,6 +8,7 @@ from core.alias_manager import AliasManager, DEFAULT_ACTION_ALIASES
 from tools import applications
 from tools.executor import ToolExecutor
 from tools.paths import get_workspace_index
+from core.target_resolver import TargetResolver
 from tools.registry import TOOLS
 
 logger = logging.getLogger("jarvis.router")
@@ -28,6 +29,7 @@ class CommandRouter:
         self.config = config
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
+        self.target_resolver = TargetResolver(self.alias_manager, get_workspace_index)
         logger.debug("router_created")
 
     def _executor(self) -> ToolExecutor:
@@ -122,38 +124,13 @@ class CommandRouter:
         return f"{target} закрыт."
 
     def _resolve_target(self, query, categories, alias_confirmation_callback=None, *, use_workspace_index=False):
-        """Разрешает цель через реальный Workspace index либо AliasManager."""
-        logger.debug("resolve_target query=%r categories=%r workspace_index=%s", query, categories, use_workspace_index)
-
-        if use_workspace_index:
-            entry, matches = get_workspace_index().resolve(query, categories, self.alias_manager, fuzzy=True)
-            if entry is not None:
-                logger.debug("workspace_index_exact query=%r target=%s", query, entry.path)
-                return str(entry.path), None
-            if len(matches) > 1:
-                candidates = [str(item.path) for item in matches]
-                return None, "Не удалось однозначно определить объект. Варианты: " + "; ".join(candidates[:5])
-
-        exact = self.alias_manager.resolve_any(query, categories)
-        logger.debug("resolve_target alias=%r", exact)
-        if exact.get("status") == "exact":
-            return exact["target"], None
-        if exact.get("status") == "ambiguous":
-            return None, "Неоднозначный алиас: " + ", ".join(exact.get("candidates", []))
-        suggestions = self.alias_manager.suggest_any(query, categories, limit=5)
-        if not suggestions:
-            return query, None
-        if len(suggestions) > 1 and suggestions[0]["score"] - suggestions[1]["score"] < 0.08:
-            items = [item["target"] for item in suggestions[:5]]
-            return None, "Не удалось однозначно определить объект. Варианты: " + "; ".join(items)
-        suggestion = suggestions[0]
-        if alias_confirmation_callback is None:
-            return query, None
-        accepted = alias_confirmation_callback(query, suggestion["target"], suggestion["category"])
-        if not accepted:
-            return query, None
-        self.alias_manager.add_alias(suggestion["category"], suggestion["target"], query)
-        return suggestion["target"], None
+        """Разрешает цель даже если она является частью естественной фразы."""
+        return self.target_resolver.resolve(
+            query,
+            categories,
+            alias_confirmation_callback=alias_confirmation_callback,
+            use_workspace_index=use_workspace_index,
+        )
 
     def tools_for_message(self, text: str) -> set[str]:
         """Определяет набор LLM-инструментов для текущего сообщения."""
