@@ -46,12 +46,9 @@ class WorkspaceViewModel:
 
         target = add_file_to_workspace(source)
         self.index.refresh()
-        self.alias_manager.ensure_automatic_aliases(
-            self.index.resolve(target.name, ("applications", "files"), self.alias_manager, fuzzy=False)[0].category
-            if self.index.resolve(target.name, ("applications", "files"), self.alias_manager, fuzzy=False)[0]
-            else "files",
-            target.name,
-        )
+        entry = next((item for item in self.index.entries() if item.path == target.resolve()), None)
+        if entry is not None:
+            self.alias_manager.ensure_automatic_aliases(entry.category, entry.name)
         return target
 
     def remove_object_aliases(self, entry: WorkspaceEntry) -> None:
