@@ -20,7 +20,7 @@ DEFAULTS = {
         "channels": 1,
         "input_device": None,
         "input_device_name": None,
-        "model": "base",
+        "model": "small",
         "device": "cpu",
         "compute_type": "int8",
         "language": "ru",
