@@ -130,7 +130,7 @@ class ChatService(QObject):
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
         self.conversation = Conversation()
-        self.router = CommandRouter(config, ollama_manager, self.alias_manager) if ollama_manager else None
+        self.router = CommandRouter(config, ollama_manager, self.alias_manager)
         self._thread = None
         self._worker = None
         self._current_answer = ""
@@ -139,7 +139,7 @@ class ChatService(QObject):
 
     def refresh_tools(self):
         logger.info("refresh_tools")
-        self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager) if self.ollama_manager else self.router
+        self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager)
 
     def send(self, text):
         text = text.strip()
