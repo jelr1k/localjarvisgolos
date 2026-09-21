@@ -12,6 +12,7 @@ DEFAULTS = {
     "model": "qwen3-1.7b-no-think:latest",
     "thinking": False,
     "router_only_mode": False,
+    "allow_outside_workspace": False,
     "temperature": 0.7,
     "context_length": 32768,
     "max_tokens": 4096,
