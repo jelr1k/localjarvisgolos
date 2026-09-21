@@ -375,8 +375,8 @@ def launch_application(target: str) -> dict:
 def _start_path(path: Path) -> dict:
     logger.info("launch_path_start path=%s", path)
     try:
-        if not path.is_file():
-            return _result(False, path=path, error="Указанный объект не является файлом.")
+        if not path.exists():
+            return _result(False, path=path, error="Указанный объект не существует.")
         os.startfile(str(path))
         logger.info("launch_path_success path=%s", path)
         return _result(True, path=path, details={"started": True})
