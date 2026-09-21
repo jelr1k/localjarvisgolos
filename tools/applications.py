@@ -381,6 +381,13 @@ def launch_application(target: str, allow_outside_workspace: bool = False) -> di
         return _start_path(selected)
 
     _PENDING_LAUNCH_CHOICES = []
+    candidate_path = Path(target).expanduser()
+    if candidate_path.is_absolute() and candidate_path.exists():
+        if not allow_outside_workspace and _is_outside_workspace_path(target):
+            return _workspace_launch_denial(target)
+        if allow_outside_workspace and _is_outside_workspace_path(target):
+            return _start_path(candidate_path.resolve())
+
     if not allow_outside_workspace and _is_outside_workspace_path(target):
         return _workspace_launch_denial(target)
 
