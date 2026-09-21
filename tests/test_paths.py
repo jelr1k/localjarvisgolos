@@ -26,6 +26,21 @@ class WorkspaceFileTests(unittest.TestCase):
             self.assertTrue(target.exists())
             self.assertEqual(target.read_bytes(), b"test-data")
 
+
+    def test_add_file_to_workspace_is_idempotent_for_existing_workspace_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+            source = workspace / "Steam.lnk"
+            source.write_bytes(b"shortcut")
+
+            with patch("tools.paths.prepare_tool_workspace", return_value=workspace), \
+                 patch("tools.paths.resolve_inside_sandbox", return_value=source):
+                result = add_file_to_workspace(source)
+
+            self.assertEqual(result, source.resolve())
+            self.assertEqual(source.read_bytes(), b"shortcut")
+
     def test_add_file_to_workspace_rejects_directories(self):
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "folder"
