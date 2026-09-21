@@ -178,11 +178,6 @@ class WakeWordDetector(QObject):
         if not self.enabled or self.is_running():
             return
 
-        if self.device is None:
-            self.status.emit("Wake word: микрофон не выбран")
-            logger.warning("wake_word_not_started reason=no_microphone")
-            return
-
         self._thread = QThread()
         self._worker = _WakeWordWorker(self.device, self.sample_rate, _MODEL_DIR)
         self._worker.moveToThread(self._thread)
