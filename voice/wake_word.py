@@ -21,16 +21,27 @@ logger = logging.getLogger("jarvis.voice.wake_word")
 _MODEL_NAME = "vosk-model-small-ru-0.22"
 _MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip"
 _MODEL_DIR = APP_DATA_DIR / "wake_word" / _MODEL_NAME
-_WAKE_WORDS = ("джарвис", "джервис", "jarvis")
+_DEFAULT_WAKE_WORD = "Jarvis"
+
+
+def _wake_word_variants(wake_word: str) -> tuple[str, ...]:
+    normalized = _normalize(wake_word)
+    if normalized == "jarvis":
+        return ("джарвис", "джервис", "jarvis")
+    return (normalized,) if normalized else (_normalize(_DEFAULT_WAKE_WORD),)
+
+
+def _contains_wake_word(text: str, wake_word: str) -> bool:
+    normalized = _normalize(text)
+    target = _normalize(wake_word)
+    if not normalized or not target:
+        return False
+    return target in normalized or any(variant in normalized for variant in _wake_word_variants(wake_word))
 
 
 def _normalize(text: str) -> str:
     return " ".join(text.casefold().replace("ё", "е").split())
 
-
-def _contains_wake_word(text: str) -> bool:
-    normalized = _normalize(text)
-    return any(word in normalized.split() for word in _WAKE_WORDS)
 
 
 def _download_model(model_dir: Path) -> Path:
@@ -69,11 +80,12 @@ class _WakeWordWorker(QObject):
     failed = Signal(str)
     finished = Signal()
 
-    def __init__(self, device, sample_rate: int, model_dir: Path):
+    def __init__(self, device, sample_rate: int, model_dir: Path, wake_word: str):
         super().__init__()
         self.device = device
         self.sample_rate = sample_rate
         self.model_dir = model_dir
+        self.wake_word = wake_word
         self._stop_event = threading.Event()
 
     def stop(self):
@@ -85,7 +97,7 @@ class _WakeWordWorker(QObject):
 
             SetLogLevel(-1)
             model = Model(str(self.model_dir))
-            grammar = json.dumps(list(_WAKE_WORDS), ensure_ascii=False)
+            grammar = json.dumps(list(_wake_word_variants(self.wake_word)), ensure_ascii=False)
             recognizer = KaldiRecognizer(model, self.sample_rate, grammar)
 
             self.status.emit("Wake word: слушаю")
@@ -93,7 +105,7 @@ class _WakeWordWorker(QObject):
                 "wake_word_listening_started device=%r sample_rate=%s grammar=%r",
                 self.device,
                 self.sample_rate,
-                _WAKE_WORDS,
+                _wake_word_variants(self.wake_word),
             )
 
             audio_queue: queue.Queue[bytes] = queue.Queue(maxsize=32)
@@ -121,8 +133,8 @@ class _WakeWordWorker(QObject):
                     except queue.Empty:
                         continue
                     recognizer.AcceptWaveform(data)
-                        partial = json.loads(recognizer.PartialResult()).get("partial", "")
-                        if _contains_wake_word(partial):
+                    partial = json.loads(recognizer.PartialResult()).get("partial", "")
+                    if _contains_wake_word(partial, self.wake_word):
                             logger.info("wake_word_detected partial=%r", partial)
                             self.detected.emit(partial)
                             # One trigger per listening session. MainWindow
@@ -152,6 +164,7 @@ class WakeWordDetector(QObject):
         super().__init__()
         self._thread: QThread | None = None
         self._worker: _WakeWordWorker | None = None
+        self._restart_requested = False
         self.apply_config(config)
 
     def apply_config(self, config: dict):
@@ -179,7 +192,7 @@ class WakeWordDetector(QObject):
             return
 
         self._thread = QThread()
-        self._worker = _WakeWordWorker(self.device, self.sample_rate, _MODEL_DIR)
+        self._worker = _WakeWordWorker(self.device, self.sample_rate, _MODEL_DIR, self.wake_word)
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._run_worker)
@@ -226,6 +239,17 @@ class WakeWordDetector(QObject):
             self._thread.deleteLater()
         self._worker = None
         self._thread = None
+        if self._restart_requested and self.enabled:
+            self._restart_requested = False
+            QTimer.singleShot(100, self.start)
+
+    def restart(self):
+        self._restart_requested = True
+        if not self.is_running():
+            self._restart_requested = False
+            self.start()
+        else:
+            self.stop()
 
     def close(self):
         self.stop()
