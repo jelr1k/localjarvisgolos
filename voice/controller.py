@@ -86,16 +86,30 @@ class VoiceController(QObject):
             self.recorder.stop()
             self.listening_changed.emit(False)
 
-        self.recording_sample_rate = find_supported_sample_rate(
-            device=self.device,
-            channels=self.channels,
-            preferred=self.sample_rate,
-        )
-        self.recorder = MicrophoneRecorder(
-            sample_rate=self.recording_sample_rate,
-            channels=self.channels,
-            device=self.device,
-        )
+        self.recorder = None
+        self.recording_sample_rate = self.sample_rate
+        try:
+            self.recording_sample_rate = find_supported_sample_rate(
+                device=self.device,
+                channels=self.channels,
+                preferred=self.sample_rate,
+            )
+            self.recorder = MicrophoneRecorder(
+                sample_rate=self.recording_sample_rate,
+                channels=self.channels,
+                device=self.device,
+            )
+        except Exception as exc:
+            # Voice is an optional input method. An unavailable microphone,
+            # stale device index, or unsupported sample rate must not prevent
+            # the rest of Jarvis from starting.
+            logger.warning(
+                "voice_microphone_unavailable device=%r sample_rate=%s error=%r",
+                self.device,
+                self.sample_rate,
+                exc,
+            )
+
         self.recognizer = SpeechRecognizer(
             model_name=self.model_name,
             device=self.device_type,
@@ -103,10 +117,11 @@ class VoiceController(QObject):
             language=self.language,
         )
         logger.info(
-            "voice_config_applied input_device=%r configured_sample_rate=%s recording_sample_rate=%s",
+            "voice_config_applied input_device=%r configured_sample_rate=%s recording_sample_rate=%s microphone_available=%s",
             self.device,
             self.sample_rate,
             self.recording_sample_rate,
+            self.recorder is not None,
         )
 
     @property
@@ -114,7 +129,10 @@ class VoiceController(QObject):
         return self.recorder is not None and self.recorder.is_recording
 
     def start(self):
-        if self.recorder is None or self.recorder.is_recording or self.transcribing():
+        if self.recorder is None:
+            self.error.emit("Микрофон недоступен. Проверь устройство в настройках голоса.")
+            return
+        if self.recorder.is_recording or self.transcribing():
             return
         try:
             self.recorder.start()
