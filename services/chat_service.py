@@ -26,10 +26,11 @@ class GenerationWorker(QObject):
     failed = Signal(str)
     confirmation_requested = Signal(str, object, object)
 
-    def __init__(self, provider, request, config, alias_manager: AliasManager):
+    def __init__(self, provider, request, config, alias_manager: AliasManager, ollama_manager=None):
         super().__init__()
         self.provider = provider
         self.request = request
+        self.ollama_manager = ollama_manager
         self.config = config
         self.alias_manager = alias_manager
         allowed_tools = {
@@ -66,6 +67,9 @@ class GenerationWorker(QObject):
         started = time.perf_counter()
         logger.info("generation_start model=%s message_count=%d thinking=%s temperature=%s context=%s max_tokens=%s tools=%s", self.request.model, len(self.request.messages), self.request.thinking, self.request.temperature, self.request.context_length, self.request.max_tokens, [tool.get("function", {}).get("name") for tool in self.request.tools or []])
         try:
+            if self.ollama_manager is not None and not self.ollama_manager.is_running():
+                logger.info("generation_ollama_not_running starting_on_worker=True")
+                self.ollama_manager.start()
             messages = list(self.request.messages)
             stats = None
             for round_number in range(1, self.max_tool_rounds + 1):
@@ -254,7 +258,7 @@ class ChatService(QObject):
         logger.info("llm_request_prepared model=%s messages=%r tools=%s", request.model, request.messages, sorted(tools_for_message))
 
         self._thread = QThread()
-        self._worker = GenerationWorker(self.provider, request, self.config, self.alias_manager)
+        self._worker = GenerationWorker(self.provider, request, self.config, self.alias_manager, self.ollama_manager)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.chunk.connect(self._on_chunk)
