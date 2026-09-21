@@ -96,17 +96,49 @@ def _application_identity(name: str, path: Path) -> dict:
     }
 
 
-def _resolve_application(name: str) -> dict:
-    logger.info("application_resolve_start name=%r", name)
-    found = find_application(name)
-    logger.debug("application_resolve_find_result name=%r result=%r", name, found)
-    if not found.get("success"):
+class ApplicationResolver:
+    """Единый resolver приложения: ярлык/Workspace -> реальный executable."""
+
+    def resolve(self, name: str, *, allow_workspace: bool = False) -> dict:
+        logger.info("application_resolver_start name=%r allow_workspace=%s", name, allow_workspace)
+        found = find_application(name)
+        if found.get("success"):
+            shortcut = Path(found["path"])
+            identity = _application_identity(name, shortcut)
+            logger.info("application_resolver_installed name=%r identity=%r", name, identity)
+            return _result(True, path=shortcut, identity=identity)
+
+        if allow_workspace:
+            workspace_path, workspace_matches = resolve_tool_path(name)
+            logger.info(
+                "application_resolver_workspace name=%r path=%r matches=%r",
+                name, workspace_path, workspace_matches,
+            )
+            if workspace_path is not None and len(workspace_matches) == 1:
+                target = _resolve_shortcut_target(workspace_path)
+                executable = (
+                    target if target and target.suffix.lower() == ".exe"
+                    else workspace_path if workspace_path.suffix.lower() == ".exe"
+                    else None
+                )
+                if executable is not None:
+                    identity = {
+                        "display_name": name,
+                        "shortcut": str(workspace_path),
+                        "target_executable": str(executable),
+                        "normalized_executable": _normalize_executable(executable),
+                        "executable_label": _normalize_process_label(executable),
+                    }
+                    return _result(True, path=workspace_path, identity=identity)
+
         return found
 
-    shortcut = Path(found["path"])
-    identity = _application_identity(name, shortcut)
-    logger.info("application_identity name=%r identity=%r", name, identity)
-    return _result(True, path=shortcut, identity=identity)
+
+_APPLICATION_RESOLVER = ApplicationResolver()
+
+
+def _resolve_application(name: str, *, allow_workspace: bool = False) -> dict:
+    return _APPLICATION_RESOLVER.resolve(name, allow_workspace=allow_workspace)
 
 
 def _process_cmdline_matches(cmdline: list[str] | None, executable: str | Path | None) -> bool:
@@ -354,22 +386,7 @@ def _start_path(path: Path) -> dict:
 
 
 def _resolve_close_identity(name: str) -> dict:
-    logger.info("close_identity_start name=%r", name)
-    resolved = _resolve_application(name)
-    if resolved.get("success"):
-        logger.info("close_identity_source=installed result=%r", resolved)
-        return resolved
-
-    workspace_path, workspace_matches = resolve_tool_path(name)
-    logger.info("close_identity_workspace path=%r matches=%r", workspace_path, workspace_matches)
-    if workspace_path is not None and len(workspace_matches) == 1:
-        target = _resolve_shortcut_target(workspace_path)
-        executable = target if target and target.suffix.lower() == ".exe" else (workspace_path if workspace_path.suffix.lower() == ".exe" else None)
-        if executable is not None:
-            result = _result(True, path=workspace_path, identity={"display_name": name, "shortcut": str(workspace_path), "target_executable": str(executable), "normalized_executable": _normalize_executable(executable), "executable_label": _normalize_process_label(executable)})
-            logger.info("close_identity_source=workspace result=%r", result)
-            return result
-    return resolved
+    return _APPLICATION_RESOLVER.resolve(name, allow_workspace=True)
 
 
 def close_application(name: str) -> dict:
