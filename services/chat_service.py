@@ -141,20 +141,20 @@ class ChatService(QObject):
         logger.info("refresh_tools")
         self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager)
 
-    def send(self, text):
+    def send(self, text, thinking=False):
         text = text.strip()
         if not text:
             logger.debug("send_ignored empty_text")
             return
 
         if self._thread and self._thread.isRunning():
-            self._pending_messages.append(text)
-            logger.info("message_queued generation_already_running queue_size=%d text=%r", len(self._pending_messages), text)
+            self._pending_messages.append((text, bool(thinking)))
+            logger.info("message_queued generation_already_running queue_size=%d text=%r thinking=%s", len(self._pending_messages), text, bool(thinking))
             return
 
-        self._process_message(text)
+        self._process_message(text, bool(thinking))
 
-    def _process_message(self, text: str):
+    def _process_message(self, text: str, thinking: bool = False):
         logger.info("user_message text=%r", text)
         self.conversation.add("user", text)
 
@@ -170,12 +170,19 @@ class ChatService(QObject):
                 self.direct_response.emit(direct)
                 return
 
+        if self.config.get("router_only_mode", False):
+            direct = "Роутер не распознал команду. LLM отключён в тестовом режиме."
+            logger.info("router_only_unrecognized text=%r", text)
+            self.conversation.add("assistant", direct)
+            self.direct_response.emit(direct)
+            return
+
         self._current_answer = ""
         tools_for_message = self.router.tools_for_message(text) if self.router else set()
         request = ChatRequest(
             model=self.config.get("model"),
             messages=self.conversation.as_ollama_messages(),
-            thinking=self.config.get("thinking"),
+            thinking=bool(thinking),
             temperature=float(self.config.get("temperature")),
             context_length=int(self.config.get("context_length")),
             max_tokens=int(self.config.get("max_tokens")),
@@ -249,9 +256,9 @@ class ChatService(QObject):
         self._worker = None
         self._thread = None
         if self._pending_messages:
-            next_text = self._pending_messages.popleft()
-            logger.info("message_dequeued queue_size=%d text=%r", len(self._pending_messages), next_text)
-            QTimer.singleShot(0, lambda text=next_text: self._process_message(text))
+            next_text, next_thinking = self._pending_messages.popleft()
+            logger.info("message_dequeued queue_size=%d text=%r thinking=%s", len(self._pending_messages), next_text, next_thinking)
+            QTimer.singleShot(0, lambda text=next_text, think=next_thinking: self._process_message(text, think))
 
     def add_assistant_message(self, text):
         logger.info("assistant_message_added text=%r", text)
