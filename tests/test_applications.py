@@ -173,6 +173,22 @@ class ApplicationToolTests(unittest.TestCase):
         find_application.assert_not_called()
         startfile.assert_called_once_with(str(shortcut))
 
+
+    def test_workspace_folder_can_be_opened(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "Games"
+            folder.mkdir()
+
+            with patch("tools.applications.resolve_tool_path", return_value=(folder, [folder])), \
+                 patch("tools.applications.find_application") as find_application, \
+                 patch("tools.applications.os.startfile") as startfile:
+                result = applications.launch_application("Games")
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["path"], str(folder))
+        find_application.assert_not_called()
+        startfile.assert_called_once_with(str(folder))
+
     def test_multiple_workspace_matches_are_saved_for_numbered_selection(self):
         with tempfile.TemporaryDirectory() as tmp:
             first = Path(tmp) / "Steam.lnk"
