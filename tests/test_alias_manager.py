@@ -107,6 +107,25 @@ class AliasManagerTests(unittest.TestCase):
             self.assertEqual(manager.resolve_action("Выключить Discord"), ("close", "Discord"))
             self.assertEqual(manager.resolve_action("открыть Steam"), ("launch", "Steam"))
 
+    def test_conversational_fillers_can_surround_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+
+            self.assertEqual(manager.resolve_action("нахуй закрой стим"), ("close", "стим"))
+            self.assertEqual(manager.resolve_action("закрой нахуй стим"), ("close", "стим"))
+            self.assertEqual(manager.resolve_action("закрой стим блять"), ("close", "стим"))
+            self.assertEqual(manager.resolve_action("блять закрой нахуй стим"), ("close", "стим"))
+            self.assertEqual(manager.resolve_action("ну пожалуйста закрой стим нахуй"), ("close", "стим"))
+
+    def test_filler_inside_target_is_preserved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = self.make_manager(directory)
+
+            self.assertEqual(
+                manager.resolve_action("закрой стим который блять завис"),
+                ("close", "стим который блять завис"),
+            )
+
     def test_fuzzy_suggestion_does_not_modify_storage(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "aliases.json"
