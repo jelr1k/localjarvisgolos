@@ -55,6 +55,17 @@ class ToolExecutor:
                     }
             arguments = resolved_arguments
 
+            if tool_name == "launch_application":
+                arguments = dict(arguments)
+                arguments["allow_outside_workspace"] = bool(
+                    self.permission_manager.config.get("allow_outside_workspace", False)
+                ) if self.permission_manager is not None else False
+                logger.info(
+                    "launch_workspace_policy allow_outside_workspace=%s target=%r",
+                    arguments["allow_outside_workspace"],
+                    arguments.get("target"),
+                )
+
             tool = TOOLS[tool_name]
             if tool.get("requires_confirmation", False):
                 logger.info("tool_confirmation_requested name=%s arguments=%r", tool_name, arguments)
