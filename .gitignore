@@ -17,6 +17,9 @@ project.code-workspace
 
 # Logs
 logs/
+
+# Runtime workspace
+workspace/
 *.log
 
 # Local config
