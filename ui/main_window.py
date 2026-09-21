@@ -87,7 +87,9 @@ class MainWindow(QWidget):
             window.setWindowTitle(assistant_name or "JARVIS")
         self.wake_word_detector.apply_config(self.config)
         if self.config.get("voice", {}).get("wake_word_enabled", True):
-            QTimer.singleShot(0, self.wake_word_detector.start)
+            self.wake_word_detector.restart()
+        else:
+            self.wake_word_detector.stop()
         self.settings_applied.emit()
 
     def _on_wake_word_detected(self, wake_word):
