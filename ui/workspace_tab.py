@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QMimeData, Qt
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QVBoxLayout,
@@ -37,14 +38,16 @@ class AliasDialog(QDialog):
         layout.addWidget(automatic)
 
         layout.addWidget(QLabel("Пользовательские алиасы (по одному на строку):"))
-        self.editor = QLineEdit()
-        self.editor.setPlaceholderText("например: мой стим")
-        self.list_widget = QListWidget()
-        self.list_widget.addItems(obj.user_aliases)
-        layout.addWidget(self.list_widget)
+        self.editor = QListWidget()
+        self.editor.addItems(obj.user_aliases)
+        layout.addWidget(self.editor)
 
         row = QHBoxLayout()
-        row.addWidget(self.editor)
+        from PySide6.QtWidgets import QLineEdit
+
+        self.input = QLineEdit()
+        self.input.setPlaceholderText("например: мой стим")
+        row.addWidget(self.input)
         add = QPushButton("Добавить")
         add.clicked.connect(self._add)
         row.addWidget(add)
@@ -59,18 +62,18 @@ class AliasDialog(QDialog):
         layout.addWidget(buttons)
 
     def _add(self):
-        alias = self.editor.text().strip()
+        alias = self.input.text().strip()
         if alias:
-            self.list_widget.addItem(alias)
-            self.editor.clear()
+            self.editor.addItem(alias)
+            self.input.clear()
 
     def _remove(self):
-        item = self.list_widget.currentItem()
+        item = self.editor.currentItem()
         if item:
-            self.list_widget.takeItem(self.list_widget.row(item))
+            self.editor.takeItem(self.editor.row(item))
 
     def _save(self):
-        aliases = [self.list_widget.item(i).text() for i in range(self.list_widget.count())]
+        aliases = [self.editor.item(i).text() for i in range(self.editor.count())]
         try:
             self._save_callback(aliases)
         except Exception as exc:
@@ -80,7 +83,7 @@ class AliasDialog(QDialog):
 
 
 class WorkspaceTab(QWidget):
-    """Overview of Workspace with direct alias management."""
+    """Workspace is the entry point for adding and resolving workspace objects."""
 
     def __init__(
         self,
@@ -91,15 +94,29 @@ class WorkspaceTab(QWidget):
         super().__init__(parent)
         self.model = WorkspaceViewModel(workspace, alias_manager)
         self.objects: list[WorkspaceObject] = []
+        self.setAcceptDrops(True)
 
         root = QVBoxLayout(self)
         header = QHBoxLayout()
         header.addWidget(QLabel(f"Workspace: {self.model.index.workspace}"))
         header.addStretch()
+
+        add = QPushButton("Добавить файл")
+        add.clicked.connect(self._choose_file)
+        header.addWidget(add)
+
         refresh = QPushButton("Обновить")
         refresh.clicked.connect(self.refresh)
         header.addWidget(refresh)
         root.addLayout(header)
+
+        self.drop_zone = QLabel("Перетащи файл сюда\nили нажми «Добавить файл»")
+        self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.drop_zone.setMinimumHeight(80)
+        self.drop_zone.setStyleSheet(
+            "border: 2px dashed palette(mid); padding: 14px; border-radius: 8px;"
+        )
+        root.addWidget(self.drop_zone)
 
         self.list_widget = QListWidget()
         self.list_widget.currentRowChanged.connect(self._selection_changed)
@@ -118,6 +135,64 @@ class WorkspaceTab(QWidget):
         root.addLayout(actions)
 
         self.refresh()
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if self._mime_has_files(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        paths = self._mime_file_paths(event.mimeData())
+        if not paths:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        for path in paths:
+            self._import_file(path)
+
+    @staticmethod
+    def _mime_has_files(mime_data: QMimeData) -> bool:
+        return bool(mime_data.hasUrls() and any(url.isLocalFile() for url in mime_data.urls()))
+
+    @staticmethod
+    def _mime_file_paths(mime_data: QMimeData) -> list[Path]:
+        paths: list[Path] = []
+        for url in mime_data.urls():
+            if not url.isLocalFile():
+                continue
+            path = Path(url.toLocalFile())
+            if path.is_file():
+                paths.append(path)
+        return paths
+
+    def _choose_file(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Добавить файл в Workspace",
+            "",
+            "Все файлы (*.*)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if path:
+            self._import_file(Path(path))
+
+    def _import_file(self, source: Path):
+        try:
+            target = self.model.add_file(source)
+        except FileExistsError as exc:
+            QMessageBox.information(self, "Workspace", str(exc))
+            self.refresh()
+            return
+        except (OSError, ValueError) as exc:
+            QMessageBox.critical(self, "Workspace", str(exc))
+            return
+
+        self.refresh()
+        for row, obj in enumerate(self.objects):
+            if obj.entry.path == target.resolve():
+                self.list_widget.setCurrentRow(row)
+                break
 
     def refresh(self):
         self.objects = self.model.refresh()
@@ -143,13 +218,15 @@ class WorkspaceTab(QWidget):
             f"Автоматические алиасы: {automatic}\n"
             f"Пользовательские алиасы: {user}"
         )
-        self.alias_button.setEnabled(True)
+        self.alias_button.setEnabled(obj.entry.category in {"applications", "files"})
 
     def _edit_aliases(self):
         row = self.list_widget.currentRow()
         if row < 0 or row >= len(self.objects):
             return
         obj = self.objects[row]
+        if obj.entry.category not in {"applications", "files"}:
+            return
         dialog = AliasDialog(self, obj, lambda aliases: self.model.set_aliases(obj.entry, aliases))
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
