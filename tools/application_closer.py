@@ -8,89 +8,15 @@ from __future__ import annotations
 """
 
 import logging
-import os
-import shutil
-import subprocess
 import time
 from pathlib import Path
 
 import psutil
 
 from tools import applications as _applications
-from tools.paths import resolve_tool_path
 
 logger = logging.getLogger("jarvis.process")
 
-
-def _resolve_shortcut_with_windows_shell(path: Path) -> Path | None:
-    """Разрешает .lnk без зависимости win32com/pywin32."""
-    if path.suffix.lower() != ".lnk":
-        return path
-
-    powershell = shutil.which("powershell.exe") or shutil.which("powershell")
-    if not powershell:
-        logger.error("shortcut_resolve_failed path=%s reason=powershell_unavailable", path)
-        return None
-
-    command = (
-        "$shell = New-Object -ComObject WScript.Shell; "
-        "$shortcut = $shell.CreateShortcut($env:JARVIS_SHORTCUT); "
-        "[Console]::Out.Write($shortcut.TargetPath)"
-    )
-    env = os.environ.copy()
-    env["JARVIS_SHORTCUT"] = str(path)
-
-    try:
-        completed = subprocess.run(
-            [powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command],
-            capture_output=True,
-            text=True,
-            timeout=3,
-            env=env,
-            check=False,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        logger.exception("shortcut_resolve_exception path=%s error=%r", path, exc)
-        return None
-
-    target = completed.stdout.strip().strip('"')
-    if completed.returncode != 0 or not target:
-        logger.error(
-            "shortcut_resolve_failed path=%s returncode=%s stderr=%r",
-            path,
-            completed.returncode,
-            completed.stderr.strip(),
-        )
-        return None
-
-    target_path = Path(target)
-    logger.info("shortcut_resolved_fallback path=%s target=%s", path, target_path)
-    return target_path.resolve()
-
-
-def _candidate_shortcuts(name: str) -> list[Path]:
-    wanted = name.strip().strip('"')
-    stem = Path(wanted).stem.casefold()
-    candidates: set[Path] = set()
-
-    workspace_path, workspace_matches = resolve_tool_path(wanted)
-    if workspace_path is not None and len(workspace_matches) == 1:
-        candidates.add(workspace_path.resolve())
-    elif workspace_matches:
-        candidates.update(Path(path).resolve() for path in workspace_matches)
-
-    for root in _applications._WINDOWS_APP_DIRS:
-        if not root.exists():
-            continue
-        try:
-            for item in root.rglob("*.lnk"):
-                if item.stem.casefold() == stem or item.name.casefold() == wanted.casefold():
-                    candidates.add(item.resolve())
-        except OSError:
-            logger.exception("shortcut_scan_failed root=%s", root)
-
-    return sorted(candidates, key=lambda path: str(path).casefold())
 
 
 def _resolve_executable(name: str) -> tuple[Path | None, list[Path]]:
