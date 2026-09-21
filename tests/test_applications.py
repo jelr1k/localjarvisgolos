@@ -174,6 +174,27 @@ class ApplicationToolTests(unittest.TestCase):
         startfile.assert_called_once_with(str(shortcut))
 
 
+    def test_installed_application_is_blocked_without_outside_workspace_permission(self):
+        outside = Path(tempfile.gettempdir()) / "Steam.lnk"
+        with patch("tools.applications.find_application", return_value={"success": True, "path": str(outside)}), \
+             patch("tools.applications.os.startfile") as startfile:
+            result = applications.launch_application("Steam")
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["blocked"])
+        self.assertTrue(result["outside_workspace"])
+        self.assertIn("вне Workspace", result["error"])
+        startfile.assert_not_called()
+
+    def test_installed_application_can_launch_when_outside_workspace_is_allowed(self):
+        outside = Path(tempfile.gettempdir()) / "Steam.lnk"
+        with patch("tools.applications.find_application", return_value={"success": True, "path": str(outside)}), \
+             patch("tools.applications.os.startfile") as startfile:
+            result = applications.launch_application("Steam", allow_outside_workspace=True)
+
+        self.assertTrue(result["success"])
+        startfile.assert_called_once_with(str(outside))
+
     def test_workspace_folder_can_be_opened(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = Path(tmp) / "Games"
