@@ -62,6 +62,7 @@ class MainWindow(QWidget):
         self.chat_page.update_assistant_name(self.config.get("assistant_name", "JARVIS"))
         self.chat_page.set_voice_controller(self.voice_controller)
         self.chat_page.send_requested.connect(self.chat_service.send)
+        self.chat_page.voice_recording_requested.connect(self.wake_word_detector.stop)
 
         self.wake_word_detector.detected.connect(self._on_wake_word_detected)
         self.wake_word_detector.status.connect(self._on_wake_word_status)
