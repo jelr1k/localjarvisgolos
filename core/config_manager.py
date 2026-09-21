@@ -27,6 +27,8 @@ DEFAULTS = {
         "compute_type": "int8",
         "language": "ru",
         "min_duration": 0.25,
+        "wake_word_enabled": True,
+        "wake_word": "Jarvis",
     },
     "tools": {
         "search_files": True,
