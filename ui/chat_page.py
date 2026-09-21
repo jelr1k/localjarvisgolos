@@ -27,6 +27,9 @@ class ChatPage(QWidget):
         self.input.setFixedHeight(90)
         self.send_button = QPushButton("Отправить")
         self.send_button.clicked.connect(self.send)
+        self.thinking_button = QPushButton("🧠 Размышление")
+        self.thinking_button.setCheckable(True)
+        self.thinking_button.setToolTip("Включает режим раздумывания для запросов, пока кнопка активна. Состояние не сохраняется.")
         self.voice_button = QPushButton("🎙 Начать говорить")
         self.voice_button.setToolTip("Нажми один раз, говори, затем нажми ещё раз для остановки")
         self.voice_button.setCheckable(True)
@@ -34,6 +37,7 @@ class ChatPage(QWidget):
 
         bottom = QHBoxLayout()
         bottom.addWidget(self.input)
+        bottom.addWidget(self.thinking_button)
         bottom.addWidget(self.send_button)
         bottom.addWidget(self.voice_button)
         layout = QVBoxLayout(self)
@@ -101,7 +105,7 @@ class ChatPage(QWidget):
         self.pending_answer = self.pending_thinking = ""
         self.thinking_started = self.answer_started = False
         self.send_button.setEnabled(False)
-        self.send_requested.emit(text)
+        self.send_requested.emit(text, self.thinking_button.isChecked())
 
     def on_voice_listening_changed(self, listening):
         self.voice_button.setChecked(listening)
