@@ -49,6 +49,10 @@ AUTO_RUSSIAN_ALIASES = {
 
 _MORPH = None
 _CYRILLIC_WORD_RE = re.compile(r"^[а-яё-]+$", re.IGNORECASE)
+_COMMAND_FILLER_WORDS = {
+    "ну", "давай", "пожалуйста", "плиз", "пж", "блять", "блядь", "бля", "нахуй",
+    "нафиг", "нахуя", "сука", "ебать", "ебаный", "ёбаный",
+}
 
 
 class AliasError(ValueError):
@@ -408,5 +412,22 @@ class AliasManager:
             pattern = rf"^{re.escape(prefix)}(?:,)?\s+(.+)$"
             match = re.match(pattern, normalized, flags=re.IGNORECASE)
             if match:
+                return action, match.group(1).strip()
+
+        # Разговорная команда может начинаться с мусорных/эмоциональных слов:
+        # «нахуй закрой стим», «блять открой дискорд». Они не меняют действие.
+        for alias, action in sorted(aliases, key=lambda item: len(item[0]), reverse=True):
+            prefix = alias.strip()
+            if not prefix:
+                continue
+            pattern = rf"(?<!\w){re.escape(prefix)}(?!\w)(?:,)?\s+(.+)$"
+            match = re.search(pattern, normalized, flags=re.IGNORECASE)
+            if not match:
+                continue
+            before = normalized[:match.start()].strip(" ,:;.!?-").split()
+            if before and all(
+                word.casefold().replace("ё", "е") in _COMMAND_FILLER_WORDS
+                for word in before
+            ):
                 return action, match.group(1).strip()
         return None
