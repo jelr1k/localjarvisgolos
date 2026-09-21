@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFileDialog,
     QComboBox,
     QFormLayout,
     QHBoxLayout,
@@ -25,8 +22,6 @@ from core.alias_manager import AliasError, AliasManager
 CATEGORY_LABELS = {
     "applications": "Приложение",
     "files": "Файл",
-    "folders": "Папка",
-    "actions": "Действие",
 }
 
 
@@ -38,30 +33,18 @@ class AliasPage(QWidget):
         self.alias_manager = alias_manager
         self._editing_key = None
 
-        title = QLabel("Алиасы и Workspace")
+        title = QLabel("Алиасы")
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
 
         hint = QLabel(
-            "Здесь можно задать несколько названий одному приложению, файлу, папке или действию. "
-            "Для файлов и папок указывай путь относительно workspace. "
-            "Файл можно добавить в Workspace кнопкой или перетащить сюда из Проводника. "
-            "После добавления Jarvis автоматически создаст базовые алиасы, включая известные русские варианты, "
-            "а их при необходимости можно отредактировать вручную. "
+            "Здесь можно задать несколько названий одному приложению или файлу. "
+            "Workspace является основной точкой добавления файлов, поэтому добавление "
+            "объектов через эту вкладку больше не выполняется. "
             "Регистр не учитывается: Steam, steam и STEAM считаются одним названием. "
             "То же самое относится к русским вариантам: стим и Стим считаются одним названием. "
             "Одинаковые названия автоматически объединяются при сохранении."
         )
         hint.setWordWrap(True)
-
-        self.drop_zone = QLabel("Перетащи файл сюда\nили используй «Добавить файл»")
-        self.drop_zone.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_zone.setMinimumHeight(90)
-        self.drop_zone.setStyleSheet(
-            "border: 2px dashed palette(mid); padding: 18px; border-radius: 8px;"
-        )
-
-        self.add_file_button = QPushButton("Добавить файл")
-        self.add_file_button.clicked.connect(self._choose_file)
 
         self.items = QListWidget()
         self.items.currentItemChanged.connect(self._load_selected)
@@ -136,14 +119,12 @@ class AliasPage(QWidget):
 
     def _category_changed(self):
         category = self.category.currentData()
-        if category == "actions":
-            self.target.setPlaceholderText("Например: launch, search, delete, status")
-        elif category == "applications":
+        if category == "applications":
             self.target.setPlaceholderText("Например: Discord или Prism Launcher")
-        elif category == "files":
-            self.target.setPlaceholderText("Имя или путь относительно workspace, например: notes/todo.txt")
         else:
-            self.target.setPlaceholderText("Путь относительно workspace, например: projects")
+            self.target.setPlaceholderText(
+                "Имя или путь относительно workspace, например: notes/todo.txt"
+            )
 
     def _load_selected(self, current, previous=None):
         if current is None:
