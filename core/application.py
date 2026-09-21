@@ -29,7 +29,12 @@ class JarvisApplication(QMainWindow):
         self.alias_manager = AliasManager()
         logger.debug("alias_manager_created")
         self.ollama_manager = OllamaManager(self.config.ollama_url)
-        self.ollama_manager.start()
+        try:
+            # Ollama is needed only for LLM requests. A missing server must not
+            # prevent Jarvis from starting and handling direct local commands.
+            self.ollama_manager.start()
+        except RuntimeError as exc:
+            logger.warning("ollama_start_at_boot_failed error=%s", exc)
 
         self.provider = OllamaProvider(self.config.ollama_url)
         self.chat_service = ChatService(self.provider, self.config, self.ollama_manager, self.alias_manager)
