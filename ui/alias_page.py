@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QMimeData, Qt
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFileDialog,
     QComboBox,
@@ -21,7 +20,6 @@ from PySide6.QtWidgets import (
 )
 
 from core.alias_manager import AliasError, AliasManager
-from tools.paths import add_file_to_workspace
 
 
 CATEGORY_LABELS = {
@@ -39,7 +37,6 @@ class AliasPage(QWidget):
         super().__init__()
         self.alias_manager = alias_manager
         self._editing_key = None
-        self.setAcceptDrops(True)
 
         title = QLabel("Алиасы и Workspace")
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
@@ -72,8 +69,6 @@ class AliasPage(QWidget):
         self.category = QComboBox()
         self.category.addItem(CATEGORY_LABELS["applications"], "applications")
         self.category.addItem(CATEGORY_LABELS["files"], "files")
-        self.category.addItem(CATEGORY_LABELS["folders"], "folders")
-        self.category.addItem(CATEGORY_LABELS["actions"], "actions")
         self.category.currentIndexChanged.connect(self._category_changed)
 
         self.target = QLineEdit()
@@ -119,95 +114,18 @@ class AliasPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(title)
         layout.addWidget(hint)
-        layout.addWidget(self.drop_zone)
-        layout.addWidget(self.add_file_button)
         layout.addLayout(content)
 
         self.refresh()
         self._new()
-
-    def dragEnterEvent(self, event: QDragEnterEvent):
-        if self._mime_has_files(event.mimeData()):
-            event.acceptProposedAction()
-        else:
-            event.ignore()
-
-    def dropEvent(self, event: QDropEvent):
-        paths = self._mime_file_paths(event.mimeData())
-        if not paths:
-            event.ignore()
-            return
-
-        event.acceptProposedAction()
-        for path in paths:
-            self._import_file(path)
-
-    @staticmethod
-    def _mime_has_files(mime_data: QMimeData) -> bool:
-        return bool(mime_data.hasUrls() and any(url.isLocalFile() for url in mime_data.urls()))
-
-    @staticmethod
-    def _mime_file_paths(mime_data: QMimeData) -> list[Path]:
-        paths: list[Path] = []
-        for url in mime_data.urls():
-            if not url.isLocalFile():
-                continue
-            path = Path(url.toLocalFile())
-            if path.is_file():
-                paths.append(path)
-        return paths
-
-    def _choose_file(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Добавить файл в Workspace",
-            "",
-            "Все файлы (*.*)",
-            options=QFileDialog.Option.DontUseNativeDialog,
-        )
-        if path:
-            self._import_file(Path(path))
-
-    def _import_file(self, source: Path):
-        try:
-            target = add_file_to_workspace(source)
-        except FileExistsError as exc:
-            QMessageBox.warning(self, "Workspace", str(exc))
-            return
-        except (OSError, ValueError) as exc:
-            QMessageBox.critical(self, "Workspace", str(exc))
-            return
-
-        self._editing_key = None
-        self.items.clearSelection()
-
-        index = self.category.findData("files")
-        if index >= 0:
-            self.category.blockSignals(True)
-            self.category.setCurrentIndex(index)
-            self.category.blockSignals(False)
-        self._category_changed()
-
-        self.target.setText(target.name)
-        try:
-            auto_aliases = self.alias_manager.automatic_aliases("files", target.name)
-            self.alias_manager.set_aliases("files", target.name, auto_aliases)
-        except AliasError as exc:
-            QMessageBox.warning(self, "Алиасы", f"Файл добавлен, но автоматические алиасы не созданы: {exc}")
-        except OSError as exc:
-            QMessageBox.warning(self, "Алиасы", f"Файл добавлен, но aliases.json не удалось обновить: {exc}")
-
-        self.aliases.setPlainText("\n".join(self.alias_manager.get_aliases("files", target.name)))
-        self.refresh()
-        self._select_key(("files", target.name))
-        self.target.setFocus()
-        self.target.selectAll()
 
     def refresh(self):
         current_key = self._editing_key
         self.items.blockSignals(True)
         self.items.clear()
         for entry in self.alias_manager.list_objects():
+            if entry["category"] not in {"applications", "files"}:
+                continue
             label = f"[{CATEGORY_LABELS.get(entry['category'], entry['category'])}] {entry['target']}"
             item = QListWidgetItem(label)
             item.setData(Qt.ItemDataRole.UserRole, (entry["category"], entry["target"]))
