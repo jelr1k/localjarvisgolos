@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QObject, QThread, Signal, QTimer
 
 from core.app_paths import APP_DATA_DIR
 from voice.devices import find_input_device_by_name, find_supported_sample_rate
@@ -135,12 +135,12 @@ class _WakeWordWorker(QObject):
                     recognizer.AcceptWaveform(data)
                     partial = json.loads(recognizer.PartialResult()).get("partial", "")
                     if _contains_wake_word(partial, self.wake_word):
-                            logger.info("wake_word_detected partial=%r", partial)
-                            self.detected.emit(partial)
-                            # One trigger per listening session. MainWindow
-                            # restarts the detector after the voice command.
-                            self._stop_event.set()
-                            break
+                        logger.info("wake_word_detected partial=%r", partial)
+                        self.detected.emit(partial)
+                        # One trigger per listening session. MainWindow
+                        # restarts the detector after the voice command.
+                        self._stop_event.set()
+                        break
                     else:
                         self._stop_event.wait(0.01)
 
