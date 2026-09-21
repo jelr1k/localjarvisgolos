@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEd
 
 class ChatPage(QWidget):
     send_requested = Signal(str, bool)
+    voice_recording_requested = Signal()
 
     def __init__(self, chat_service, config):
         super().__init__()
@@ -85,6 +86,7 @@ class ChatPage(QWidget):
         if self.voice_controller.is_recording:
             self.voice_controller.stop()
         else:
+            self.voice_recording_requested.emit()
             self.voice_controller.start()
 
     def send(self):
