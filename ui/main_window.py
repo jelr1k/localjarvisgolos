@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, QTimer
 from PySide6.QtWidgets import QMessageBox, QTabWidget, QVBoxLayout, QWidget
 
 from core.alias_manager import AliasManager
@@ -14,7 +14,7 @@ from ui.settings_page import SettingsPage
 from ui.statistics_page import StatisticsPage
 from ui.tools_page import ToolsPage
 from ui.workspace_tab import WorkspaceTab
-from voice import VoiceController
+from voice import VoiceController, WakeWordDetector
 
 
 class MainWindow(QWidget):
@@ -29,6 +29,7 @@ class MainWindow(QWidget):
         self.model_service = ModelService(chat_service.provider)
         self.stats_service = StatisticsService()
         self.voice_controller = VoiceController(config)
+        self.wake_word_detector = WakeWordDetector(config)
 
         self.tabs = QTabWidget()
         self.chat_page = ChatPage(chat_service, config)
@@ -62,6 +63,13 @@ class MainWindow(QWidget):
         self.chat_page.set_voice_controller(self.voice_controller)
         self.chat_page.send_requested.connect(self.chat_service.send)
 
+        self.wake_word_detector.detected.connect(self._on_wake_word_detected)
+        self.wake_word_detector.status.connect(self._on_wake_word_status)
+        self.wake_word_detector.error.connect(self._on_wake_word_error)
+        self.voice_controller.listening_changed.connect(self._on_voice_listening_changed)
+        self.voice_controller.transcript_ready.connect(self._on_voice_command_finished)
+        self.voice_controller.error.connect(self._on_voice_command_error)
+
         self._on_settings_changed(
             self.config.get("model"),
             self.config.get("assistant_name", "JARVIS"),
@@ -76,7 +84,35 @@ class MainWindow(QWidget):
         window = self.window()
         if window:
             window.setWindowTitle(assistant_name or "JARVIS")
+        self.wake_word_detector.apply_config(self.config)
+        if self.config.get("voice", {}).get("wake_word_enabled", True):
+            QTimer.singleShot(0, self.wake_word_detector.start)
         self.settings_applied.emit()
+
+    def _on_wake_word_detected(self, wake_word):
+        import logging
+        logging.getLogger("jarvis.voice").info("wake_word_triggered wake_word=%r", wake_word)
+        self.wake_word_detector.stop()
+        self.chat_page.voice_status.setText("Голос: 🔴 wake word услышан, говори…")
+        QTimer.singleShot(120, self.voice_controller.start)
+
+    def _on_wake_word_status(self, status):
+        self.chat_page.voice_status.setText(status)
+
+    def _on_wake_word_error(self, error):
+        import logging
+        logging.getLogger("jarvis.voice").error(error)
+        self.chat_page.voice_status.setText("Голос: ошибка wake word")
+
+    def _on_voice_listening_changed(self, listening):
+        if listening:
+            self.wake_word_detector.stop()
+
+    def _on_voice_command_finished(self, text):
+        QTimer.singleShot(250, self.wake_word_detector.start)
+
+    def _on_voice_command_error(self, error):
+        QTimer.singleShot(250, self.wake_word_detector.start)
 
     def on_generation_finished(self, stats):
         self.stats_service.add(stats)
@@ -88,5 +124,6 @@ class MainWindow(QWidget):
         QMessageBox.critical(self, "Ошибка", error)
 
     def closeEvent(self, event):
+        self.wake_word_detector.close()
         self.voice_controller.close()
         super().closeEvent(event)
