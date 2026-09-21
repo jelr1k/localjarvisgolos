@@ -214,6 +214,27 @@ class AliasManager:
         aliases.append(alias)
         self.set_aliases(category, target, aliases)
 
+    def ensure_automatic_aliases(self, category: str, target: str) -> list[str]:
+        """Добавляет только безопасные автоматические алиасы, не трогая ручные."""
+        if category not in {"applications", "files", "folders"}:
+            return self.get_aliases(category, target)
+
+        current = self.get_aliases(category, target)
+        result = list(current)
+        changed = False
+        for alias in self.automatic_aliases(category, target):
+            if self._normalize_alias(alias) in {self._normalize_alias(item) for item in result}:
+                continue
+            conflict = self._find_conflict(category, alias, except_target=target)
+            if conflict:
+                continue
+            result.append(alias)
+            changed = True
+
+        if changed:
+            self.set_aliases(category, target, result)
+        return result
+
     def remove_object(self, category: str, target: str) -> None:
         if category not in CATEGORIES:
             raise AliasError(f"Неизвестный тип алиаса: {category}")
