@@ -1,3 +1,5 @@
+from html import escape
+
 from PySide6.QtCore import Signal, QEvent, Qt, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton
 
@@ -92,7 +94,7 @@ class ChatPage(QWidget):
         text = text.strip()
         if not text:
             return
-        self.chat.append(f"<b>Ты:</b> {text}")
+        self.chat.append(f"<b>Ты:</b> {escape(text)}")
         if clear_input:
             self.input.clear()
         self.answer = self.thinking = ""
@@ -129,10 +131,10 @@ class ChatPage(QWidget):
         self.voice_status.setText("Голос: ошибка")
         self.voice_button.setChecked(False)
         self.voice_button.setEnabled(True)
-        self.chat.append(f"<b>{self.assistant_name}:</b> {error}")
+        self.chat.append(f"<b>{escape(self.assistant_name)}:</b> {escape(error)}")
 
     def on_direct_response(self, text):
-        self.chat.append(f"<b>{self.assistant_name}:</b> {text}")
+        self.chat.append(f"<b>{escape(self.assistant_name)}:</b> {escape(text)}")
         self.send_button.setEnabled(True)
         self.input.setFocus()
 
@@ -152,7 +154,7 @@ class ChatPage(QWidget):
 
         if self.pending_thinking:
             if not self.thinking_started:
-                self.chat.append(f"<b>{self.assistant_name}:</b>")
+                self.chat.append(f"<b>{escape(self.assistant_name)}:</b>")
                 cursor = self.chat.textCursor()
                 cursor.movePosition(cursor.MoveOperation.End)
                 cursor.insertHtml("<br><i>Раздумья:</i><br>")
