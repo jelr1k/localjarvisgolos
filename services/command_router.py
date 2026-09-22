@@ -28,7 +28,10 @@ class CommandRouter:
     ROUTER_COMMANDS = {
         "create_file": {"name": "Создать файл", "pattern": r"(?:создай|создать)\s+(?:новый\s+)?файл\s+(.+?)(?:\s+с\s+(?:содержимым|текстом))?\s*", "display": ["создай файл <имя>", "создать файл <имя>"]},
         "create_folder": {"name": "Создать папку", "pattern": r"(?:создай|создать)\s+(?:новую)\s+папку\s+(.+?)\s*", "display": ["создай папку <имя>", "создать папку <имя>"]},
-        "write_file": {"name": "Записать / перезаписать файл", "display": ["запиши в файл <имя> на <текст>", "запиши в файл <имя>: <текст>", "перезапиши файл <имя> на <текст>", "перезапиши файл <имя>: <текст>"]},
+        "write_file": {"name": "Записать / перезаписать файл", "patterns": [
+            r"(?:запиши|записать|перезапиши|перезаписать)\s+(?:в\s+)?(?:файл\s+)?(.+?)\s+(?:на|содержимым|текстом|со\s+текстом)\s+(.+)",
+            r"(?:запиши|перезапиши)\s+(?:в\s+)?(?:файл\s+)?(.+?)\s*:\s*(.+)"
+        ], "display": ["запиши в файл <имя> на <текст>", "запиши в файл <имя>: <текст>", "перезапиши файл <имя> на <текст>", "перезапиши файл <имя>: <текст>"]},
         "rename_file": {"name": "Переименовать файл", "pattern": r"(?:переименуй|переименовать)\s+(?:файл\s+)?(.+?)\s+(?:в|на)\s+(.+)", "display": ["переименуй файл <имя> в <новое имя>", "переименовать файл <имя> в <новое имя>"]},
         "copy_file": {"name": "Скопировать файл", "pattern": r"(?:скопируй|скопировать)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", "display": ["скопируй файл <имя> в <папку>", "скопировать файл <имя> в <папку>"]},
         "move_file": {"name": "Переместить файл", "pattern": r"(?:перемести|переместить)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", "display": ["перемести файл <имя> в <папку>", "переместить файл <имя> в <папку>"]},
@@ -187,17 +190,13 @@ class CommandRouter:
             return self._direct_tool("create_folder", {"path": path}, confirmation_callback)
 
         # Запись файла. Форматы: «запиши в файл X: текст» / «перезапиши файл X на текст».
-        match = re.fullmatch(
-            r"(?:запиши|записать|перезапиши|перезаписать)\s+(?:в\s+)?(?:файл\s+)?(.+?)\s+(?:на|содержимым|текстом|со\s+текстом)\s+(.+)",
-            text,
-            re.IGNORECASE,
-        )
+        match = self._match_definition("write_file", text)
         if match and executor._is_enabled("write_file"):
             path, content = match.groups()
             return self._direct_tool("write_file", {"path": path.strip().strip("\"'"), "content": content.strip()}, confirmation_callback)
 
         # Двоеточие удобно для диктовки: «запиши в файл test.txt: привет».
-        match = re.fullmatch(r"(?:запиши|перезапиши)\s+(?:в\s+)?(?:файл\s+)?(.+?)\s*:\s*(.+)", text, re.IGNORECASE)
+        match = self._match_definition("write_file", text)
         if match and executor._is_enabled("write_file"):
             path, content = match.groups()
             return self._direct_tool("write_file", {"path": path.strip().strip("\"'"), "content": content.strip()}, confirmation_callback)
