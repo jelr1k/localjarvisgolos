@@ -20,6 +20,9 @@ class ChatPage(QWidget):
         self.answer_started = False
         self.assistant_name = config.get("assistant_name", "JARVIS")
         self.model_label = QLabel()
+        self.wake_word_label = QLabel()
+        self.wake_word_recognition = QLabel("Vosk: —")
+        self.wake_word_recognition.setToolTip("Последний текст, который распознал Vosk во время ожидания wake word.")
         self.voice_status = QLabel("Голос: готов")
         self.chat = QTextEdit()
         self.chat.setReadOnly(True)
@@ -43,6 +46,8 @@ class ChatPage(QWidget):
         bottom.addWidget(self.voice_button)
         layout = QVBoxLayout(self)
         layout.addWidget(self.model_label)
+        layout.addWidget(self.wake_word_label)
+        layout.addWidget(self.wake_word_recognition)
         layout.addWidget(self.voice_status)
         layout.addWidget(self.chat)
         layout.addLayout(bottom)
@@ -62,6 +67,12 @@ class ChatPage(QWidget):
 
     def update_model_label(self, model):
         self.model_label.setText(f"Модель: {model}")
+
+    def update_wake_word(self, wake_word):
+        self.wake_word_label.setText(f"Wake word: {wake_word}")
+
+    def update_wake_word_recognition(self, text):
+        self.wake_word_recognition.setText(f"Vosk: «{text}»" if text else "Vosk: —")
 
     def update_assistant_name(self, name):
         self.assistant_name = name.strip() or "JARVIS"
