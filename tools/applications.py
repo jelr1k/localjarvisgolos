@@ -15,8 +15,12 @@ from tools.paths import resolve_tool_path
 
 try:
     import win32com.client
+    import win32con
+    import win32gui
 except ImportError:  # pragma: no cover - Windows dependency
     win32com = None
+    win32con = None
+    win32gui = None
 
 
 logger = logging.getLogger("jarvis.process")
@@ -153,6 +157,65 @@ def _process_cmdline_matches(cmdline: list[str] | None, executable: str | Path |
         if _normalize_executable(argument_text) == target or _normalize_process_label(argument_text) == target_label:
             return True
     return False
+
+
+def minimize_application(name: str) -> dict:
+    """Сворачивает видимые окна найденного приложения по его реальному executable."""
+    logger.info("minimize_application_start name=%r", name)
+    if win32gui is None:
+        return {"success": False, "error": "Для управления окнами Windows нужен pywin32."}
+
+    resolved = _APPLICATION_RESOLVER.resolve(name, allow_workspace=True)
+    if not resolved.get("success"):
+        return {
+            "success": False,
+            "error": resolved.get("error") or f"Не удалось найти приложение: {name}",
+            "matches": resolved.get("matches", []),
+        }
+
+    identity = resolved.get("identity", {})
+    executable = identity.get("target_executable") or identity.get("normalized_executable")
+    if not executable:
+        return {"success": False, "error": f"Не удалось определить исполняемый файл приложения: {name}"}
+
+    matches = _running_process_matches(name, executable=str(executable))
+    pids = {item.get("pid") for item in matches if item.get("pid")}
+    if not pids:
+        return {"success": False, "error": f"{name} сейчас не запущен."}
+
+    minimized = []
+    errors = []
+
+    def callback(hwnd, _extra):
+        try:
+            if not win32gui.IsWindowVisible(hwnd):
+                return True
+            _thread_id, pid = win32process.GetWindowThreadProcessId(hwnd)
+            if pid not in pids:
+                return True
+            win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+            minimized.append(hwnd)
+        except Exception as exc:
+            errors.append(str(exc))
+        return True
+
+    try:
+        import win32process
+        win32gui.EnumWindows(callback, None)
+    except Exception as exc:
+        logger.exception("minimize_application_failed name=%r", name)
+        return {"success": False, "error": f"Не удалось свернуть {name}: {exc}"}
+
+    result = {
+        "success": bool(minimized) and not errors,
+        "running": True,
+        "details": {"windows": minimized, "errors": errors},
+    }
+    if not minimized:
+        result["success"] = False
+        result["error"] = f"У {name} не найдено видимых окон."
+    logger.info("minimize_application_finish name=%r result=%r", name, result)
+    return result
 
 
 def _process_snapshot(proc: psutil.Process) -> dict:
