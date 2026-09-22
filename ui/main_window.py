@@ -132,6 +132,24 @@ class MainWindow(QWidget):
         self.chat_page.finish_generation()
         QMessageBox.critical(self, "Ошибка", error)
 
+    def minimize_window(self) -> None:
+        """Сворачивает именно верхнее окно Jarvis, а не центральный виджет."""
+        window = self.window()
+        if window is not None:
+            window.showMinimized()
+
+    def maximize_window(self) -> None:
+        """Разворачивает именно верхнее окно Jarvis."""
+        window = self.window()
+        if window is not None:
+            window.showMaximized()
+
+    def restore_window(self) -> None:
+        """Возвращает верхнее окно Jarvis к обычному размеру."""
+        window = self.window()
+        if window is not None:
+            window.showNormal()
+
     def shutdown(self) -> None:
         """Запрашивает полное завершение верхнего окна Jarvis."""
         window = self.window()
