@@ -228,6 +228,7 @@ def _download_model(model_dir: Path) -> Path:
 
 class _WakeWordWorker(QObject):
     detected = Signal(str)
+    recognized = Signal(str)
     status = Signal(str)
     failed = Signal(str)
     finished = Signal()
@@ -301,6 +302,8 @@ class _WakeWordWorker(QObject):
 
                     recognizer.AcceptWaveform(data)
                     partial = json.loads(recognizer.PartialResult()).get("partial", "")
+                    if partial:
+                        self.recognized.emit(partial)
                     if _contains_wake_word(partial, self.wake_word):
                         logger.info(
                             "wake_word_detected partial=%r mode=%s",
@@ -325,6 +328,7 @@ class WakeWordDetector(QObject):
     """Always-on lightweight wake-word detector using Vosk."""
 
     detected = Signal(str)
+    recognized = Signal(str)
     listening_changed = Signal(bool)
     status = Signal(str)
     error = Signal(str)
@@ -378,6 +382,7 @@ class WakeWordDetector(QObject):
         # GUI thread because WakeWordDetector lives there.
         self._thread.started.connect(self._worker.run)
         self._worker.detected.connect(self._on_detected)
+        self._worker.recognized.connect(self.recognized)
         self._worker.status.connect(self.status)
         self._worker.failed.connect(self._on_failed)
         self._worker.finished.connect(self._thread.quit)
