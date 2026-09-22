@@ -159,7 +159,7 @@ class OllamaManager:
             try:
                 name = (process.info.get("name") or "").casefold()
                 cmdline = " ".join(process.info.get("cmdline") or []).casefold()
-                if name == "ollama.exe" and re.search(r"(?:^|\\s)serve(?:\\s|$)", cmdline):
+                if name == "ollama.exe" and re.search(r"(?:^|\s)serve(?:\s|$)", cmdline):
                     result.append(process)
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
