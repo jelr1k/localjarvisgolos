@@ -46,6 +46,7 @@ DEFAULTS = {
         "get_process_status": True,
         "launch_application": True,
         "close_application": True,
+        "minimize_application": True,
         "open_url": True,
     },
 }
