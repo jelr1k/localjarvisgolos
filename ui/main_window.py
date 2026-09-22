@@ -132,6 +132,17 @@ class MainWindow(QWidget):
         self.chat_page.finish_generation()
         QMessageBox.critical(self, "Ошибка", error)
 
+    def shutdown(self) -> None:
+        """Запрашивает полное завершение верхнего окна Jarvis."""
+        window = self.window()
+        shutdown = getattr(window, "shutdown", None) if window is not None else None
+        if callable(shutdown):
+            shutdown()
+        elif window is not None:
+            window.close()
+        else:
+            self.close()
+
     def closeEvent(self, event):
         self.wake_word_detector.close()
         self.voice_controller.close()
