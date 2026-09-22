@@ -5,6 +5,7 @@ import subprocess
 import time
 
 import requests
+import psutil
 
 
 logger = logging.getLogger("jarvis.ollama")
@@ -152,7 +153,45 @@ class OllamaManager:
     def stop_server(self) -> dict:
         logger.info("ollama_stop_requested started_by_jarvis=%s pid=%s", self.started_by_jarvis, self.process.pid if self.process else None)
         if not self.started_by_jarvis or self.process is None:
-            return {"success": False, "error": "Ollama запущена не Jarvis или процесс запуска неизвестен."}
+            # Ollama может быть запущена отдельно от Jarvis. В этом случае
+            # собственного subprocess-хендла нет, поэтому ищем именно
+            # процесс "ollama.exe serve", не трогая остальные процессы Ollama.
+            server_processes = []
+            for process in psutil.process_iter(["name", "cmdline"]):
+                try:
+                    name = (process.info.get("name") or "").casefold()
+                    cmdline = " ".join(process.info.get("cmdline") or []).casefold()
+                    if name == "ollama.exe" and "serve" in cmdline:
+                        server_processes.append(process)
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+
+            if not server_processes:
+                return {"success": False, "error": "Процесс Ollama Server не найден."}
+
+            errors = []
+            for process in server_processes:
+                try:
+                    process.terminate()
+                except (psutil.NoSuchProcess, psutil.AccessDenied) as exc:
+                    errors.append(str(exc))
+
+            _, alive = psutil.wait_procs(server_processes, timeout=5)
+            for process in alive:
+                try:
+                    process.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied) as exc:
+                    errors.append(str(exc))
+
+            if errors:
+                logger.warning("ollama_external_stop_partial errors=%r", errors)
+                return {"success": False, "error": f"Не удалось полностью остановить Ollama: {'; '.join(errors)}"}
+
+            self.process = None
+            self.started_by_jarvis = False
+            logger.info("ollama_external_stop_success processes=%d", len(server_processes))
+            return {"success": True}
+
         try:
             if self.process.poll() is None:
                 self.process.terminate()
