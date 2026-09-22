@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import subprocess
 import time
+import re
 
 import requests
 import psutil
@@ -150,68 +151,78 @@ class OllamaManager:
         logger.error("ollama_start_timeout timeout=%s", timeout)
         raise RuntimeError(f"Ollama не успела запуститься за {timeout} секунд.")
 
+    @staticmethod
+    def _server_processes() -> list[psutil.Process]:
+        """Находит все процессы Ollama Server независимо от того, кто их запустил."""
+        result = []
+        for process in psutil.process_iter(["pid", "name", "cmdline"]):
+            try:
+                name = (process.info.get("name") or "").casefold()
+                cmdline = " ".join(process.info.get("cmdline") or []).casefold()
+                if name == "ollama.exe" and re.search(r"(?:^|\\s)serve(?:\\s|$)", cmdline):
+                    result.append(process)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+        return result
+
     def stop_server(self) -> dict:
+        """Останавливает Ollama Server независимо от способа его запуска."""
         logger.info("ollama_stop_requested started_by_jarvis=%s pid=%s", self.started_by_jarvis, self.process.pid if self.process else None)
-        if not self.started_by_jarvis or self.process is None:
-            # Ollama может быть запущена отдельно от Jarvis. В этом случае
-            # собственного subprocess-хендла нет, поэтому ищем именно
-            # процесс "ollama.exe serve", не трогая остальные процессы Ollama.
-            server_processes = []
-            for process in psutil.process_iter(["name", "cmdline"]):
-                try:
-                    name = (process.info.get("name") or "").casefold()
-                    cmdline = " ".join(process.info.get("cmdline") or []).casefold()
-                    if name == "ollama.exe" and "serve" in cmdline:
-                        server_processes.append(process)
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    continue
 
-            if not server_processes:
+        server_processes = self._server_processes()
+
+        if self.process is not None:
+            try:
+                if self.process.poll() is None and all(process.pid != self.process.pid for process in server_processes):
+                    server_processes.append(psutil.Process(self.process.pid))
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+                pass
+
+        if not server_processes:
+            self.process = None
+            self.started_by_jarvis = False
+            if not self.is_running():
                 return {"success": False, "error": "Процесс Ollama Server не найден."}
+            return {"success": False, "error": "Ollama отвечает, но процесс Server не удалось определить."}
 
-            errors = []
-            for process in server_processes:
-                try:
-                    process.terminate()
-                except (psutil.NoSuchProcess, psutil.AccessDenied) as exc:
-                    errors.append(str(exc))
+        errors = []
+        for process in server_processes:
+            try:
+                logger.info("ollama_stop_terminate pid=%s", process.pid)
+                process.terminate()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+                errors.append(f"PID {process.pid}: {exc}")
 
-            _, alive = psutil.wait_procs(server_processes, timeout=5)
+        _, alive = psutil.wait_procs(server_processes, timeout=5)
+
+        if alive:
             for process in alive:
                 try:
+                    logger.warning("ollama_stop_kill pid=%s", process.pid)
                     process.kill()
-                except (psutil.NoSuchProcess, psutil.AccessDenied) as exc:
-                    errors.append(str(exc))
+                except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+                    errors.append(f"PID {process.pid}: {exc}")
 
-            if errors:
-                logger.warning("ollama_external_stop_partial errors=%r", errors)
-                return {"success": False, "error": f"Не удалось полностью остановить Ollama: {'; '.join(errors)}"}
+            _, alive = psutil.wait_procs(alive, timeout=3)
 
-            self.process = None
-            self.started_by_jarvis = False
-            logger.info("ollama_external_stop_success processes=%d", len(server_processes))
-            return {"success": True}
+        self.process = None
+        self.started_by_jarvis = False
 
-        try:
-            if self.process.poll() is None:
-                self.process.terminate()
-                self.process.wait(timeout=5)
-            self.process = None
-            self.started_by_jarvis = False
-            logger.info("ollama_stop_success forced=False")
-            return {"success": True}
-        except subprocess.TimeoutExpired:
-            logger.warning("ollama_stop_timeout forcing_kill=True")
-            try:
-                self.process.kill()
-                self.process.wait(timeout=3)
-            finally:
-                self.process = None
-                self.started_by_jarvis = False
-            return {"success": True, "details": {"forced": True}}
-        except OSError as exc:
-            logger.exception("ollama_stop_failed")
-            return {"success": False, "error": f"Не удалось остановить Ollama: {exc}"}
+        stopped = not self.is_running()
+        if not stopped:
+            errors.append("Ollama Server всё ещё отвечает на API.")
+
+        result = {
+            "success": stopped and not errors,
+            "details": {
+                "terminated_pids": [process.pid for process in server_processes],
+                "still_alive": [process.pid for process in alive],
+            },
+        }
+        if not result["success"]:
+            result["error"] = "; ".join(errors) or "Не удалось остановить Ollama Server."
+        logger.info("ollama_stop_finish result=%r", result)
+        return result
 
     def shutdown_for_app(self) -> None:
         logger.info("ollama_shutdown_for_app")
