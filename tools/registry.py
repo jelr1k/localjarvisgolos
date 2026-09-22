@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tools.applications import find_application, get_process_status, launch_application, open_url
+from tools.applications import find_application, get_process_status, launch_application, minimize_application, open_url
 from tools.application_closer import close_application
 from tools.files import (
     copy_file,
@@ -102,6 +102,12 @@ TOOLS = {
         "function": launch_application,
         "description": "Запускает найденное Windows-приложение/ярлык или файл, разрешённый sandbox. Не использует shell.",
         "parameters": {"type": "object", "properties": {"target": {"type": "string"}}, "required": ["target"]},
+        "requires_confirmation": False,
+    },
+    "minimize_application": {
+        "function": minimize_application,
+        "description": "Сворачивает окна запущенного Windows-приложения, найденного через ярлык/алиас и реальный executable.",
+        "parameters": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
         "requires_confirmation": False,
     },
     "close_application": {
