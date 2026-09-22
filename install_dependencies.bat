@@ -1,18 +1,29 @@
 @echo off
 chcp 65001 >nul
+setlocal
 
-cd /d "%~dp0"
+set "SCRIPT_DIR=%~dp0"
 
-set "LOG_DIR=%~dp0logs"
+rem Support both the current root layout and the future start\ layout.
+if exist "%SCRIPT_DIR%core\" (
+    set "PROJECT_ROOT=%SCRIPT_DIR%"
+) else (
+    set "PROJECT_ROOT=%SCRIPT_DIR%..\"
+)
+
+set "LOG_DIR=%PROJECT_ROOT%logs"
 set "LOG_FILE=%LOG_DIR%\startup.log"
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+
+set "REQUIREMENTS_FILE=%PROJECT_ROOT%config\requirements.txt"
+if not exist "%REQUIREMENTS_FILE%" set "REQUIREMENTS_FILE=%PROJECT_ROOT%requirements.txt"
 
 echo.>>"%LOG_FILE%"
 echo ==================================================>>"%LOG_FILE%"
 echo [%date% %time%] Проверка и установка зависимостей Jarvis>>"%LOG_FILE%"
 
 echo Проверка и установка зависимостей Jarvis...
-python -m pip install -r "%~dp0requirements.txt" >>"%LOG_FILE%" 2>&1
+python -m pip install -r "%REQUIREMENTS_FILE%" >>"%LOG_FILE%" 2>&1
 
 if errorlevel 1 (
     echo [%date% %time%] ОШИБКА: не удалось установить зависимости Jarvis.>>"%LOG_FILE%"
