@@ -30,7 +30,13 @@ class CommandRouter:
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
         self.target_resolver = TargetResolver(self.alias_manager, get_workspace_index)
+        self.ui_controller = None
         logger.debug("router_created")
+
+    def set_ui_controller(self, controller) -> None:
+        """Подключает UI для команд, которые относятся к самому Jarvis и его окну."""
+        self.ui_controller = controller
+        logger.debug("router_ui_controller_set controller=%s", type(controller).__name__)
 
     def _executor(self) -> ToolExecutor:
         return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
@@ -132,6 +138,109 @@ class CommandRouter:
             use_workspace_index=use_workspace_index,
         )
 
+    def _direct_tool(self, tool_name: str, arguments: dict, confirmation_callback=None) -> str:
+        result = self._executor().execute(
+            tool_name,
+            arguments,
+            confirmation_callback=confirmation_callback,
+        )
+        return self._reply(result)
+
+    def _route_extended_tools(self, text: str, confirmation_callback=None, alias_confirmation_callback=None) -> str | None:
+        """Прямые маршруты для всех инструментов, которые иначе доступны LLM."""
+        lower = " ".join(text.lower().split())
+        executor = self._executor()
+
+        # Создание файла/папки.
+        match = re.fullmatch(r"(?:создай|создать)\s+(?:новый\s+)?файл\s+(.+?)(?:\s+с\s+(?:содержимым|текстом))?\s*", text, re.IGNORECASE)
+        if match and executor._is_enabled("create_file"):
+            path = match.group(1).strip().strip(""'")
+            return self._direct_tool("create_file", {"path": path, "content": ""}, confirmation_callback)
+
+        match = re.fullmatch(r"(?:создай|создать)\s+(?:новую\s+)?папку\s+(.+?)\s*", text, re.IGNORECASE)
+        if match and executor._is_enabled("create_folder"):
+            path = match.group(1).strip().strip(""'")
+            return self._direct_tool("create_folder", {"path": path}, confirmation_callback)
+
+        # Запись файла. Форматы: «запиши в файл X: текст» / «перезапиши файл X на текст».
+        match = re.fullmatch(
+            r"(?:запиши|записать|перезапиши|перезаписать)\s+(?:в\s+)?(?:файл\s+)?(.+?)\s+(?:на|содержимым|текстом|со\s+текстом)\s+(.+)",
+            text,
+            re.IGNORECASE,
+        )
+        if match and executor._is_enabled("write_file"):
+            path, content = match.groups()
+            return self._direct_tool("write_file", {"path": path.strip().strip(""'"), "content": content.strip()}, confirmation_callback)
+
+        # Двоеточие удобно для диктовки: «запиши в файл test.txt: привет».
+        match = re.fullmatch(r"(?:запиши|перезапиши)\s+(?:в\s+)?(?:файл\s+)?(.+?)\s*:\s*(.+)", text, re.IGNORECASE)
+        if match and executor._is_enabled("write_file"):
+            path, content = match.groups()
+            return self._direct_tool("write_file", {"path": path.strip().strip(""'"), "content": content.strip()}, confirmation_callback)
+
+        # Переименование/копирование/перемещение.
+        match = re.fullmatch(r"(?:переименуй|переименовать)\s+(?:файл\s+)?(.+?)\s+(?:в|на)\s+(.+)", text, re.IGNORECASE)
+        if match and executor._is_enabled("rename_file"):
+            path, new_name = match.groups()
+            return self._direct_tool("rename_file", {"path": path.strip().strip(""'"), "new_name": new_name.strip().strip(""'")}, confirmation_callback)
+
+        match = re.fullmatch(r"(?:скопируй|скопировать)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", text, re.IGNORECASE)
+        if match and executor._is_enabled("copy_file"):
+            path, destination = match.groups()
+            return self._direct_tool("copy_file", {"path": path.strip().strip(""'"), "destination": destination.strip().strip(""'")}, confirmation_callback)
+
+        match = re.fullmatch(r"(?:перемести|переместить)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", text, re.IGNORECASE)
+        if match and executor._is_enabled("move_file"):
+            path, destination = match.groups()
+            return self._direct_tool("move_file", {"path": path.strip().strip(""'"), "destination": destination.strip().strip(""'")}, confirmation_callback)
+
+        # Информация о файле.
+        match = re.fullmatch(r"(?:информация|сведения|свойства)\s+(?:о\s+)?(?:файле\s+)?(.+)", text, re.IGNORECASE)
+        if match and executor._is_enabled("file_info"):
+            path = match.group(1).strip().strip(""'")
+            return self._direct_tool("file_info", {"path": path}, confirmation_callback)
+
+        # Поиск приложения.
+        match = re.fullmatch(r"(?:найди|найти)\s+(?:приложение|приложения|программу|программа)\s+(.+)", text, re.IGNORECASE)
+        if match and executor._is_enabled("find_application"):
+            name = match.group(1).strip()
+            return self._direct_tool("find_application", {"name": name}, confirmation_callback)
+
+        # Открытие URL.
+        match = re.fullmatch(r"(?:открой|открыть)\s+(https?://\S+)", text, re.IGNORECASE)
+        if match and executor._is_enabled("open_url"):
+            return self._direct_tool("open_url", {"url": match.group(1)}, confirmation_callback)
+
+        # Специальные команды Jarvis/окна. Они намеренно НЕ являются LLM tools.
+        if self.ui_controller is not None:
+            if lower in {"закрой себя", "закрой джарвис", "закрой jarvis", "выключись", "закройся", "заверши работу"}:
+                self.ui_controller.close()
+                return "Закрываю Jarvis."
+
+            if lower in {"свернись", "сверни окно", "свернись в трей", "сверни jarvis"}:
+                self.ui_controller.showMinimized()
+                return "Сворачиваю окно."
+
+            if lower in {"развернись", "разверни окно", "разверни jarvis", "на весь экран", "сделай окно на весь экран"}:
+                self.ui_controller.showMaximized()
+                return "Разворачиваю окно."
+
+            if lower in {"восстанови окно", "верни обычный размер", "сделай окно обычным", "верни окно"}:
+                self.ui_controller.showNormal()
+                return "Восстанавливаю обычный размер окна."
+
+        # Ollama и модель.
+        if lower in {"выгрузи модель", "выгрузить модель", "выгрузи текущую модель", "освободи модель", "освободи память от модели"}:
+            model = self.config.get("model")
+            result = self.ollama_manager.unload_model(model)
+            return f"Модель {model} выгружена." if result.get("success") else f"Не удалось выгрузить модель: {result.get('error', 'неизвестная ошибка')}"
+
+        if lower in {"закрой ламу", "закрой ollama", "останови ламу", "останови ollama", "выключи ollama", "останови сервер ollama"}:
+            result = self.ollama_manager.stop_server()
+            return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error', 'неизвестная ошибка')}"
+
+        return None
+
     def tools_for_message(self, text: str) -> set[str]:
         """Определяет набор LLM-инструментов для текущего сообщения."""
         lower = " ".join(text.lower().split())
@@ -211,6 +320,10 @@ class CommandRouter:
         if lower in {"останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"}:
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
+
+        extended = self._route_extended_tools(normalized, confirmation_callback, alias_confirmation_callback)
+        if extended is not None:
+            return extended
 
         if self._has_multiple_actions(normalized):
             return None
