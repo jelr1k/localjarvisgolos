@@ -22,7 +22,11 @@ class ChatPage(QWidget):
         self.model_label = QLabel()
         self.wake_word_label = QLabel()
         self.wake_word_recognition = QLabel("Vosk: —")
-        self.wake_word_recognition.setToolTip("Последний текст, который распознал Vosk во время ожидания wake word.")
+        self.wake_word_recognition.setToolTip(
+            "Последний текст, который распознал Vosk во время ожидания wake word."
+        )
+        self.wake_word_recognition.setWordWrap(True)
+        self.wake_word_recognition.setMaximumHeight(48)
         self.voice_status = QLabel("Голос: готов")
         self.chat = QTextEdit()
         self.chat.setReadOnly(True)
@@ -72,7 +76,15 @@ class ChatPage(QWidget):
         self.wake_word_label.setText(f"Wake word: {wake_word}")
 
     def update_wake_word_recognition(self, text):
-        self.wake_word_recognition.setText(f"Vosk: «{text}»" if text else "Vosk: —")
+        text = " ".join(str(text or "").split())
+        if text:
+            words = text.split()
+            # Vosk partial result может постепенно расти на длинной фразе.
+            # Показываем только последние 10 слов, чтобы QLabel не раздувал окно.
+            text = " ".join(words[-10:])
+            self.wake_word_recognition.setText(f"Vosk: «{text}»")
+        else:
+            self.wake_word_recognition.setText("Vosk: —")
 
     def update_assistant_name(self, name):
         self.assistant_name = name.strip() or "JARVIS"
