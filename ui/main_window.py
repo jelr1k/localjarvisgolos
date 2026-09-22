@@ -59,12 +59,14 @@ class MainWindow(QWidget):
         self.tools_page.tools_changed.connect(self.chat_service.refresh_tools)
 
         self.chat_page.update_model_label(self.config.get("model"))
+        self.chat_page.update_wake_word(self.config.get("voice", {}).get("wake_word", "Jarvis"))
         self.chat_page.update_assistant_name(self.config.get("assistant_name", "JARVIS"))
         self.chat_page.set_voice_controller(self.voice_controller)
         self.chat_page.send_requested.connect(self.chat_service.send)
         self.chat_page.voice_recording_requested.connect(self.wake_word_detector.stop)
 
         self.wake_word_detector.detected.connect(self._on_wake_word_detected)
+        self.wake_word_detector.recognized.connect(self.chat_page.update_wake_word_recognition)
         self.wake_word_detector.status.connect(self._on_wake_word_status)
         self.wake_word_detector.error.connect(self._on_wake_word_error)
         self.voice_controller.listening_changed.connect(self._on_voice_listening_changed)
@@ -80,11 +82,13 @@ class MainWindow(QWidget):
         self.chat_service.provider.set_base_url(self.config.ollama_url)
         self.ollama_manager.set_base_url(self.config.ollama_url)
         self.chat_page.update_model_label(model)
+        self.chat_page.update_wake_word(self.config.get("voice", {}).get("wake_word", "Jarvis"))
         self.chat_page.update_assistant_name(assistant_name)
         self.voice_controller.apply_config(self.config)
         window = self.window()
         if window:
             window.setWindowTitle(assistant_name or "JARVIS")
+        self.chat_page.update_wake_word_recognition("")
         self.wake_word_detector.apply_config(self.config)
         if self.config.get("voice", {}).get("wake_word_enabled", True):
             self.wake_word_detector.restart()
