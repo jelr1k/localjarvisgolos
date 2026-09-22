@@ -131,15 +131,23 @@ class ChatService(QObject):
         self.alias_manager = alias_manager or AliasManager()
         self.conversation = Conversation()
         self.router = CommandRouter(config, ollama_manager, self.alias_manager)
+        self._ui_controller = None
         self._thread = None
         self._worker = None
         self._current_answer = ""
         self._pending_messages = deque()
         logger.info("chat_service_created model=%s", self.config.get("model"))
 
+    def set_ui_controller(self, controller) -> None:
+        self._ui_controller = controller
+        self.router.set_ui_controller(controller)
+        logger.debug("chat_ui_controller_set controller=%s", type(controller).__name__)
+
     def refresh_tools(self):
         logger.info("refresh_tools")
         self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager)
+        if self._ui_controller is not None:
+            self.router.set_ui_controller(self._ui_controller)
 
     def send(self, text, thinking=False):
         text = text.strip()
