@@ -6,6 +6,7 @@ import queue
 import threading
 import urllib.request
 import zipfile
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import sounddevice as sd
@@ -22,6 +23,22 @@ _MODEL_URL = "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip"
 _MODEL_DIR = APP_DATA_DIR / "wake_word" / _MODEL_NAME
 _DEFAULT_WAKE_WORD = "Jarvis"
 
+# Vosk's runtime grammar only accepts words that already exist in the model
+# vocabulary. For a user-defined word that is absent from the dictionary we
+# fall back to unrestricted Vosk recognition and fuzzy matching against the
+# requested wake word. This keeps the Vosk backend and allows arbitrary
+# user-entered words without rebuilding a Kaldi graph on every settings change.
+_FUZZY_THRESHOLD = 0.78
+_SHORT_WORD_THRESHOLD = 0.88
+
+
+def _normalize(text: str) -> str:
+    return " ".join(text.casefold().replace("ё", "е").split())
+
+
+def _compact(text: str) -> str:
+    return "".join(_normalize(text).split())
+
 
 def _wake_word_variants(wake_word: str) -> tuple[str, ...]:
     normalized = _normalize(wake_word)
@@ -30,18 +47,149 @@ def _wake_word_variants(wake_word: str) -> tuple[str, ...]:
     return (normalized,) if normalized else (_normalize(_DEFAULT_WAKE_WORD),)
 
 
+def _transliterate_to_russian(text: str) -> str:
+    """Return a rough Russian phonetic spelling for Latin wake words."""
+    text = _compact(text)
+    if not text or any(char in "аеёиоуыэюя" for char in text):
+        return text
+
+    # Longest sequences first. This is deliberately phonetic, not linguistic:
+    # the result is only used as an additional fuzzy-match candidate.
+    replacements = (
+        ("shch", "щ"),
+        ("sch", "щ"),
+        ("zh", "ж"),
+        ("kh", "х"),
+        ("ch", "ч"),
+        ("sh", "ш"),
+        ("yu", "ю"),
+        ("ju", "ю"),
+        ("ya", "я"),
+        ("ja", "я"),
+        ("yo", "е"),
+        ("jo", "е"),
+        ("ye", "е"),
+        ("je", "е"),
+        ("ts", "ц"),
+        ("th", "т"),
+        ("ph", "ф"),
+        ("qu", "кв"),
+        ("ck", "к"),
+        ("ee", "и"),
+        ("oo", "у"),
+    )
+    for source, target in replacements:
+        text = text.replace(source, target)
+
+    single = {
+        "a": "а",
+        "b": "б",
+        "c": "к",
+        "d": "д",
+        "e": "е",
+        "f": "ф",
+        "g": "г",
+        "h": "х",
+        "i": "и",
+        "j": "дж",
+        "k": "к",
+        "l": "л",
+        "m": "м",
+        "n": "н",
+        "o": "о",
+        "p": "п",
+        "q": "к",
+        "r": "р",
+        "s": "с",
+        "t": "т",
+        "u": "у",
+        "v": "в",
+        "w": "в",
+        "x": "кс",
+        "y": "й",
+        "z": "з",
+    }
+    return "".join(single.get(char, char) for char in text)
+
+
+def _wake_word_candidates(wake_word: str) -> tuple[str, ...]:
+    candidates: list[str] = []
+    for variant in _wake_word_variants(wake_word):
+        for candidate in (variant, _transliterate_to_russian(variant)):
+            compact = _compact(candidate)
+            if compact and compact not in candidates:
+                candidates.append(compact)
+    return tuple(candidates)
+
+
+def _similarity(left: str, right: str) -> float:
+    return SequenceMatcher(None, _compact(left), _compact(right)).ratio()
+
+
 def _contains_wake_word(text: str, wake_word: str) -> bool:
     normalized = _normalize(text)
-    target = _normalize(wake_word)
-    if not normalized or not target:
+    if not normalized:
         return False
-    return target in normalized or any(
-        variant in normalized for variant in _wake_word_variants(wake_word)
-    )
+
+    compact_text = _compact(normalized)
+    candidates = _wake_word_candidates(wake_word)
+
+    for candidate in candidates:
+        if candidate in compact_text:
+            return True
+
+    # Check individual words and short word groups. This catches Vosk outputs
+    # such as "джел рик" when the configured wake word is "Джелрик".
+    words = normalized.split()
+    for start in range(len(words)):
+        joined = ""
+        for end in range(start, min(len(words), start + 4)):
+            joined += words[end]
+            if len(joined) < 3:
+                continue
+            for candidate in candidates:
+                score = _similarity(joined, candidate)
+                threshold = (
+                    _SHORT_WORD_THRESHOLD
+                    if len(candidate) <= 5
+                    else _FUZZY_THRESHOLD
+                )
+                if score >= threshold:
+                    logger.debug(
+                        "wake_word_fuzzy_match candidate=%r recognized=%r score=%.3f",
+                        candidate,
+                        joined,
+                        score,
+                    )
+                    return True
+
+    return False
 
 
-def _normalize(text: str) -> str:
-    return " ".join(text.casefold().replace("ё", "е").split())
+def _vocabulary_path(model_dir: Path) -> Path:
+    return model_dir / "graph" / "words.txt"
+
+
+def _word_in_vocabulary(model_dir: Path, word: str) -> bool:
+    """Check whether the exact normalized word is present in Vosk's graph."""
+    vocabulary_path = _vocabulary_path(model_dir)
+    if not vocabulary_path.is_file():
+        logger.warning("wake_word_vocabulary_missing path=%s", vocabulary_path)
+        return False
+
+    target = _normalize(word)
+    if not target:
+        return False
+
+    try:
+        with vocabulary_path.open("r", encoding="utf-8", errors="replace") as file:
+            for line in file:
+                parts = line.split()
+                if parts and _normalize(parts[0]) == target:
+                    return True
+    except OSError:
+        logger.exception("wake_word_vocabulary_read_failed path=%s", vocabulary_path)
+    return False
 
 
 def _download_model(model_dir: Path) -> Path:
@@ -96,21 +244,32 @@ class _WakeWordWorker(QObject):
             from vosk import KaldiRecognizer, Model, SetLogLevel
 
             SetLogLevel(-1)
-            model = Model(str(_download_model(self.model_dir)))
-            grammar = json.dumps(
-                list(_wake_word_variants(self.wake_word)),
-                ensure_ascii=False,
-            )
-            recognizer = KaldiRecognizer(model, self.sample_rate, grammar)
+            model_dir = _download_model(self.model_dir)
+            model = Model(str(model_dir))
+
+            use_grammar = _word_in_vocabulary(model_dir, self.wake_word)
+            if use_grammar:
+                grammar_words = _wake_word_variants(self.wake_word)
+                grammar = json.dumps(list(grammar_words), ensure_ascii=False)
+                recognizer = KaldiRecognizer(model, self.sample_rate, grammar)
+                logger.info(
+                    "wake_word_mode=grammar wake_word=%r grammar=%r",
+                    self.wake_word,
+                    grammar_words,
+                )
+            else:
+                # An unknown word cannot be inserted into a Vosk grammar just
+                # by putting its spelling into JSON. The small model's graph
+                # must already contain the word. Unrestricted recognition lets
+                # us match Vosk's closest transcription instead.
+                recognizer = KaldiRecognizer(model, self.sample_rate)
+                logger.info(
+                    "wake_word_mode=fuzzy wake_word=%r candidates=%r",
+                    self.wake_word,
+                    _wake_word_candidates(self.wake_word),
+                )
 
             self.status.emit("Wake word: слушаю")
-            logger.info(
-                "wake_word_listening_started device=%r sample_rate=%s grammar=%r",
-                self.device,
-                self.sample_rate,
-                _wake_word_variants(self.wake_word),
-            )
-
             audio_queue: queue.Queue[bytes] = queue.Queue(maxsize=32)
 
             def callback(indata, frames, time_info, status):
@@ -135,10 +294,15 @@ class _WakeWordWorker(QObject):
                         data = audio_queue.get(timeout=0.05)
                     except queue.Empty:
                         continue
+
                     recognizer.AcceptWaveform(data)
                     partial = json.loads(recognizer.PartialResult()).get("partial", "")
                     if _contains_wake_word(partial, self.wake_word):
-                        logger.info("wake_word_detected partial=%r", partial)
+                        logger.info(
+                            "wake_word_detected partial=%r mode=%s",
+                            partial,
+                            "grammar" if use_grammar else "fuzzy",
+                        )
                         self.detected.emit(partial)
                         # One trigger per listening session. MainWindow
                         # restarts the detector after the voice command.
