@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal, QTimer
-from PySide6.QtWidgets import QMessageBox, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QMessageBox, QPushButton, QTabWidget, QVBoxLayout, QWidget
 
 from core.alias_manager import AliasManager
 from core.app_paths import WORKSPACE_DIR
@@ -9,6 +9,7 @@ from services.model_service import ModelService
 from services.statistics_service import StatisticsService
 from ui.alias_page import AliasPage
 from ui.chat_page import ChatPage
+from ui.commands_window import CommandsWindow
 from ui.ollama_page import OllamaPage
 from ui.settings_page import SettingsPage
 from ui.statistics_page import StatisticsPage
@@ -39,6 +40,9 @@ class MainWindow(QWidget):
         self.workspace_page = WorkspaceTab(WORKSPACE_DIR, self.alias_manager)
         self.tools_page = ToolsPage(config)
         self.ollama_page = OllamaPage(config, ollama_manager)
+        self.commands_window = None
+        self.commands_button = QPushButton("Команды")
+        self.commands_button.clicked.connect(self.show_commands_window)
 
         self.tabs.addTab(self.chat_page, "Чат")
         self.tabs.addTab(self.stats_page, "Генерация")
@@ -48,7 +52,12 @@ class MainWindow(QWidget):
         self.tabs.addTab(self.tools_page, "Инструменты")
         self.tabs.addTab(self.ollama_page, "Ollama")
 
+        top_bar = QHBoxLayout()
+        top_bar.addStretch()
+        top_bar.addWidget(self.commands_button)
+
         layout = QVBoxLayout(self)
+        layout.addLayout(top_bar)
         layout.addWidget(self.tabs)
 
         self.chat_service.set_ui_controller(self)
@@ -79,6 +88,17 @@ class MainWindow(QWidget):
             self.config.get("model"),
             self.config.get("assistant_name", "JARVIS"),
         )
+
+    def show_commands_window(self) -> None:
+        if self.commands_window is None:
+            self.commands_window = CommandsWindow(self.chat_service.router, self)
+        else:
+            self.commands_window.router = self.chat_service.router
+            self.commands_window.refresh()
+
+        self.commands_window.show()
+        self.commands_window.raise_()
+        self.commands_window.activateWindow()
 
     def _on_settings_changed(self, model, assistant_name):
         self.chat_service.provider.set_base_url(self.config.ollama_url)
