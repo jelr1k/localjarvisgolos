@@ -84,18 +84,9 @@ class SettingsPage(QWidget):
         box = QGroupBox("Параметры")
         box.setLayout(form)
 
-        refresh = QPushButton("Обновить список моделей")
-        refresh.clicked.connect(self.refresh_models)
-
-        refresh_microphones = QPushButton("Обновить список микрофонов")
-        refresh_microphones.clicked.connect(self._load_microphones)
-
-        test_microphone = QPushButton("Проверить выбранный микрофон")
-        test_microphone.setToolTip(
-            "Запишет 1,5 секунды с выбранного микрофона на поддерживаемой частоте."
-        )
-        test_microphone.clicked.connect(self._test_microphone)
-        self.test_microphone = test_microphone
+        refresh = QPushButton("Обновить данные")
+        refresh.setToolTip("Обновить список моделей Ollama и список доступных микрофонов.")
+        refresh.clicked.connect(self.refresh_data)
 
         save = QPushButton("Сохранить настройки")
         save.clicked.connect(self.save)
@@ -103,10 +94,7 @@ class SettingsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(box)
         layout.addWidget(refresh)
-        layout.addWidget(refresh_microphones)
-        layout.addWidget(test_microphone)
         layout.addWidget(save)
-        layout.addStretch()
 
     def _load_microphones(self):
         try:
@@ -215,7 +203,10 @@ class SettingsPage(QWidget):
             self.test_microphone.setText("Проверить выбранный микрофон")
             self.test_microphone.setEnabled(True)
 
-    def refresh_models(self):
+    def refresh_data(self):
+        """Refresh external device/model lists without changing saved settings."""
+        errors = []
+
         try:
             models = self.model_service.get_models()
             current = self.model.currentText()
@@ -224,7 +215,25 @@ class SettingsPage(QWidget):
             if current:
                 self.model.setCurrentText(current)
         except Exception as exc:
-            QMessageBox.warning(self, "Ollama", str(exc))
+            errors.append(f"Модели Ollama: {exc}")
+
+        try:
+            self._load_microphones()
+        except Exception as exc:
+            errors.append(f"Микрофоны: {exc}")
+
+        if errors:
+            QMessageBox.warning(
+                self,
+                "Обновление данных",
+                "Не всё удалось обновить.\\n\\n" + "\\n".join(errors),
+            )
+        else:
+            QMessageBox.information(
+                self,
+                "Обновление данных",
+                "Списки моделей и микрофонов обновлены.",
+            )
 
     def save(self):
         self.config.data["assistant_name"] = self.assistant_name.text().strip() or "JARVIS"
