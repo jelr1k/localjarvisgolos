@@ -103,11 +103,37 @@ class OllamaManager:
         if not self.is_running():
             return {"success": False, "error": "Ollama Server не запущен."}
         try:
-            response = requests.post(f"{self.base_url}/api/generate", json={"model": model, "prompt": "", "stream": False, "keep_alive": 0}, timeout=10)
-            logger.debug("ollama_unload_model_response status=%s headers=%r body=%r", response.status_code, dict(response.headers), response.text)
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json={"model": model, "prompt": "", "stream": False, "keep_alive": 0},
+                timeout=30,
+            )
+            logger.debug(
+                "ollama_unload_model_response status=%s headers=%r body=%r",
+                response.status_code,
+                dict(response.headers),
+                response.text,
+            )
             response.raise_for_status()
+
+            # Ollama может принять keep_alive=0 раньше, чем модель исчезнет
+            # из /api/ps. Не объявляем выгрузку успешной, пока это реально
+            # не произошло.
+            deadline = time.monotonic() + 10
+            status = self.get_model_status(model)
+            while status is not None and time.monotonic() < deadline:
+                time.sleep(0.25)
+                status = self.get_model_status(model)
+
+            if status is not None:
+                return {
+                    "success": False,
+                    "model": model,
+                    "error": "Ollama приняла запрос, но модель всё ещё загружена.",
+                }
+
             self.used_models.discard(model)
-            result = {"success": True, "model": model, "status": self.get_model_status(model) is None}
+            result = {"success": True, "model": model, "status": False}
             logger.info("ollama_unload_model_finish result=%r", result)
             return result
         except requests.RequestException as exc:
