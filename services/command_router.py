@@ -154,12 +154,12 @@ class CommandRouter:
         # Создание файла/папки.
         match = re.fullmatch(r"(?:создай|создать)\s+(?:новый\s+)?файл\s+(.+?)(?:\s+с\s+(?:содержимым|текстом))?\s*", text, re.IGNORECASE)
         if match and executor._is_enabled("create_file"):
-            path = match.group(1).strip().strip(""'")
+            path = match.group(1).strip().strip("\"'")
             return self._direct_tool("create_file", {"path": path, "content": ""}, confirmation_callback)
 
         match = re.fullmatch(r"(?:создай|создать)\s+(?:новую\s+)?папку\s+(.+?)\s*", text, re.IGNORECASE)
         if match and executor._is_enabled("create_folder"):
-            path = match.group(1).strip().strip(""'")
+            path = match.group(1).strip().strip("\"'")
             return self._direct_tool("create_folder", {"path": path}, confirmation_callback)
 
         # Запись файла. Форматы: «запиши в файл X: текст» / «перезапиши файл X на текст».
@@ -170,34 +170,34 @@ class CommandRouter:
         )
         if match and executor._is_enabled("write_file"):
             path, content = match.groups()
-            return self._direct_tool("write_file", {"path": path.strip().strip(""'"), "content": content.strip()}, confirmation_callback)
+            return self._direct_tool("write_file", {"path": path.strip().strip("\"'"), "content": content.strip()}, confirmation_callback)
 
         # Двоеточие удобно для диктовки: «запиши в файл test.txt: привет».
         match = re.fullmatch(r"(?:запиши|перезапиши)\s+(?:в\s+)?(?:файл\s+)?(.+?)\s*:\s*(.+)", text, re.IGNORECASE)
         if match and executor._is_enabled("write_file"):
             path, content = match.groups()
-            return self._direct_tool("write_file", {"path": path.strip().strip(""'"), "content": content.strip()}, confirmation_callback)
+            return self._direct_tool("write_file", {"path": path.strip().strip("\"'"), "content": content.strip()}, confirmation_callback)
 
         # Переименование/копирование/перемещение.
         match = re.fullmatch(r"(?:переименуй|переименовать)\s+(?:файл\s+)?(.+?)\s+(?:в|на)\s+(.+)", text, re.IGNORECASE)
         if match and executor._is_enabled("rename_file"):
             path, new_name = match.groups()
-            return self._direct_tool("rename_file", {"path": path.strip().strip(""'"), "new_name": new_name.strip().strip(""'")}, confirmation_callback)
+            return self._direct_tool("rename_file", {"path": path.strip().strip("\"'"), "new_name": new_name.strip().strip("\"'")}, confirmation_callback)
 
         match = re.fullmatch(r"(?:скопируй|скопировать)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", text, re.IGNORECASE)
         if match and executor._is_enabled("copy_file"):
             path, destination = match.groups()
-            return self._direct_tool("copy_file", {"path": path.strip().strip(""'"), "destination": destination.strip().strip(""'")}, confirmation_callback)
+            return self._direct_tool("copy_file", {"path": path.strip().strip("\"'"), "destination": destination.strip().strip("\"'")}, confirmation_callback)
 
         match = re.fullmatch(r"(?:перемести|переместить)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", text, re.IGNORECASE)
         if match and executor._is_enabled("move_file"):
             path, destination = match.groups()
-            return self._direct_tool("move_file", {"path": path.strip().strip(""'"), "destination": destination.strip().strip(""'")}, confirmation_callback)
+            return self._direct_tool("move_file", {"path": path.strip().strip("\"'"), "destination": destination.strip().strip("\"'")}, confirmation_callback)
 
         # Информация о файле.
         match = re.fullmatch(r"(?:информация|сведения|свойства)\s+(?:о\s+)?(?:файле\s+)?(.+)", text, re.IGNORECASE)
         if match and executor._is_enabled("file_info"):
-            path = match.group(1).strip().strip(""'")
+            path = match.group(1).strip().strip("\"'")
             return self._direct_tool("file_info", {"path": path}, confirmation_callback)
 
         # Поиск приложения.
