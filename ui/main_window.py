@@ -51,6 +51,8 @@ class MainWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.tabs)
 
+        self.chat_service.set_ui_controller(self)
+
         self.chat_service.chunk_received.connect(self.chat_page.on_chunk)
         self.chat_service.direct_response.connect(self.chat_page.on_direct_response)
         self.chat_service.generation_finished.connect(self.on_generation_finished)
