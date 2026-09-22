@@ -25,6 +25,30 @@ class CommandRouter:
         flags=re.IGNORECASE,
     )
 
+    ROUTER_COMMANDS = {
+        "create_file": {"name": "Создать файл", "display": ["создай файл <имя>", "создать файл <имя>"]},
+        "create_folder": {"name": "Создать папку", "display": ["создай папку <имя>", "создать папку <имя>"]},
+        "write_file": {"name": "Записать / перезаписать файл", "display": ["запиши в файл <имя> на <текст>", "запиши в файл <имя>: <текст>", "перезапиши файл <имя> на <текст>", "перезапиши файл <имя>: <текст>"]},
+        "rename_file": {"name": "Переименовать файл", "display": ["переименуй файл <имя> в <новое имя>", "переименовать файл <имя> в <новое имя>"]},
+        "copy_file": {"name": "Скопировать файл", "display": ["скопируй файл <имя> в <папку>", "скопировать файл <имя> в <папку>"]},
+        "move_file": {"name": "Переместить файл", "display": ["перемести файл <имя> в <папку>", "переместить файл <имя> в <папку>"]},
+        "file_info": {"name": "Информация о файле", "display": ["информация о файле <имя>", "сведения о файле <имя>", "свойства файла <имя>"]},
+        "find_application": {"name": "Найти приложение", "display": ["найди приложение <имя>", "найти приложение <имя>"]},
+        "open_url": {"name": "Открыть URL", "display": ["открой <http://...>", "открыть <https://...>"]},
+        "ollama_status": {"name": "Статус Ollama", "display": ["статус ollama", "состояние ollama"]},
+        "ollama_start": {"name": "Запустить Ollama", "display": ["запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"]},
+        "ollama_stop": {"name": "Остановить Ollama", "display": ["останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"]},
+        "model_unload": {"name": "Выгрузить модель", "display": ["выгрузи модель", "выгрузить модель", "выгрузи текущую модель", "освободи модель", "освободи память от модели"]},
+        "jarvis_minimize": {"name": "Свернуть окно Jarvis", "display": ["свернись", "сверни окно", "свернись в трей", "сверни jarvis"]},
+        "jarvis_maximize": {"name": "Развернуть окно Jarvis", "display": ["развернись", "разверни окно", "разверни jarvis", "на весь экран", "сделай окно на весь экран"]},
+        "jarvis_restore": {"name": "Восстановить обычный размер окна Jarvis", "display": ["восстанови окно", "верни обычный размер", "сделай окно обычным", "верни окно"]},
+        "jarvis_shutdown": {"name": "Закрыть Jarvis", "display": ["закрой себя", "закрой джарвис", "закрой jarvis", "выключись", "закройся", "заверши работу"]},
+    }
+
+    @classmethod
+    def _definition_display(cls, command_id: str) -> list[str]:
+        return list(cls.ROUTER_COMMANDS.get(command_id, {}).get("display", []))
+
     def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None):
         self.config = config
         self.ollama_manager = ollama_manager
@@ -249,7 +273,7 @@ class CommandRouter:
                     self.ui_controller.close()
                 return "Полностью закрываю Jarvis."
 
-            if lower in {"свернись", "сверни окно", "свернись в трей", "сверни jarvis"}:
+            if lower in {item.casefold() for item in self._definition_display("jarvis_minimize")}:
                 minimize = getattr(self.ui_controller, "minimize_window", None)
                 if callable(minimize):
                     minimize()
@@ -257,7 +281,7 @@ class CommandRouter:
                     self.ui_controller.showMinimized()
                 return "Сворачиваю окно."
 
-            if lower in {"развернись", "разверни окно", "разверни jarvis", "на весь экран", "сделай окно на весь экран"}:
+            if lower in {item.casefold() for item in self._definition_display("jarvis_maximize")}:
                 maximize = getattr(self.ui_controller, "maximize_window", None)
                 if callable(maximize):
                     maximize()
@@ -265,7 +289,7 @@ class CommandRouter:
                     self.ui_controller.showMaximized()
                 return "Разворачиваю окно."
 
-            if lower in {"восстанови окно", "верни обычный размер", "сделай окно обычным", "верни окно"}:
+            if lower in {item.casefold() for item in self._definition_display("jarvis_restore")}:
                 restore = getattr(self.ui_controller, "restore_window", None)
                 if callable(restore):
                     restore()
@@ -305,123 +329,18 @@ class CommandRouter:
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error', 'неизвестная ошибка')}"
 
-        if lower in {"выгрузи модель", "выгрузить модель", "выгрузи текущую модель", "освободи модель", "освободи память от модели"}:
+        if lower in {item.casefold() for item in self._definition_display("model_unload")}:
             result = self.ollama_manager.unload_model(model)
             return f"Модель {model} выгружена." if result.get("success") else f"Не удалось выгрузить модель: {result.get('error', 'неизвестная ошибка')}"
 
         return None
 
     def command_catalog(self) -> list[dict[str, object]]:
-        """Возвращает справочник команд, которые обрабатывает сам Command Router."""
-        catalog = [
-            {
-                "name": "Открыть приложение",
-                "commands": list(DEFAULT_ACTION_ALIASES["launch"]),
-            },
-            {
-                "name": "Закрыть приложение",
-                "commands": list(DEFAULT_ACTION_ALIASES["close"]),
-            },
-            {
-                "name": "Найти файл или папку",
-                "commands": list(DEFAULT_ACTION_ALIASES["search"]),
-            },
-            {
-                "name": "Прочитать файл",
-                "commands": list(DEFAULT_ACTION_ALIASES["read"]),
-            },
-            {
-                "name": "Удалить файл",
-                "commands": list(DEFAULT_ACTION_ALIASES["delete"]),
-            },
-            {
-                "name": "Проверить приложение",
-                "commands": list(DEFAULT_ACTION_ALIASES["status"]),
-            },
-            {
-                "name": "Свернуть приложение",
-                "commands": list(DEFAULT_ACTION_ALIASES["minimize"]),
-            },
-            {
-                "name": "Создать файл",
-                "commands": ["создай файл <имя>", "создать файл <имя>"],
-            },
-            {
-                "name": "Создать папку",
-                "commands": ["создай папку <имя>", "создать папку <имя>"],
-            },
-            {
-                "name": "Записать / перезаписать файл",
-                "commands": [
-                    "запиши в файл <имя> на <текст>",
-                    "запиши в файл <имя>: <текст>",
-                    "перезапиши файл <имя> на <текст>",
-                    "перезапиши файл <имя>: <текст>",
-                ],
-            },
-            {
-                "name": "Переименовать файл",
-                "commands": ["переименуй файл <имя> в <новое имя>", "переименовать файл <имя> в <новое имя>"],
-            },
-            {
-                "name": "Скопировать файл",
-                "commands": ["скопируй файл <имя> в <папку>", "скопировать файл <имя> в <папку>"],
-            },
-            {
-                "name": "Переместить файл",
-                "commands": ["перемести файл <имя> в <папку>", "переместить файл <имя> в <папку>"],
-            },
-            {
-                "name": "Информация о файле",
-                "commands": ["информация о файле <имя>", "сведения о файле <имя>", "свойства файла <имя>"],
-            },
-            {
-                "name": "Найти приложение",
-                "commands": ["найди приложение <имя>", "найти приложение <имя>"],
-            },
-            {
-                "name": "Открыть URL",
-                "commands": ["открой <http://...>", "открыть <https://...>"],
-            },
-            {
-                "name": "Статус Ollama",
-                "commands": ["статус ollama", "состояние ollama"],
-            },
-            {
-                "name": "Запустить Ollama",
-                "commands": ["запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"],
-            },
-            {
-                "name": "Остановить Ollama",
-                "commands": ["останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"],
-            },
-            {
-                "name": "Выгрузить модель",
-                "commands": ["выгрузи модель", "выгрузить модель", "выгрузи текущую модель", "освободи модель", "освободи память от модели"],
-            },
-            {
-                "name": "Свернуть окно Jarvis",
-                "commands": ["свернись", "сверни окно", "свернись в трей", "сверни jarvis"],
-            },
-            {
-                "name": "Развернуть окно Jarvis",
-                "commands": ["развернись", "разверни окно", "разверни jarvis", "на весь экран", "сделай окно на весь экран"],
-            },
-            {
-                "name": "Восстановить обычный размер окна Jarvis",
-                "commands": ["восстанови окно", "верни обычный размер", "сделай окно обычным", "верни окно"],
-            },
-            {
-                "name": "Закрыть Jarvis",
-                "commands": ["закрой себя", "закрой джарвис", "закрой jarvis", "выключись", "закройся", "заверши работу"],
-            },
-        ]
+        """Справочник из единого набора определений Router.
 
-        # Пользовательские алиасы действий тоже относятся к фактически
-        # распознаваемым Router-командам, поэтому показываем их рядом с
-        # встроенными вариантами.
-        custom_actions = self.alias_manager.data.get("actions", {})
-        by_name = {item["name"]: item for item in catalog}
+        Действия берутся непосредственно из AliasManager, а расширенные команды
+        из ROUTER_COMMANDS. Отдельный ручной каталог больше не нужен.
+        """
         action_names = {
             "launch": "Открыть приложение",
             "close": "Закрыть приложение",
@@ -431,17 +350,20 @@ class CommandRouter:
             "status": "Проверить приложение",
             "minimize": "Свернуть приложение",
         }
-        for action, entry in custom_actions.items():
+        catalog = []
+        for action, aliases in DEFAULT_ACTION_ALIASES.items():
             name = action_names.get(action)
             if not name:
                 continue
-            item = by_name.get(name)
-            if item:
-                existing = {str(command).casefold() for command in item["commands"]}
-                for alias in entry.get("aliases", []):
-                    if str(alias).casefold() not in existing:
-                        item["commands"].append(alias)
-
+            commands = list(aliases)
+            custom = self.alias_manager.data.get("actions", {}).get(action, {})
+            for alias in custom.get("aliases", []):
+                if alias not in commands:
+                    commands.append(alias)
+            catalog.append({"name": name, "commands": commands})
+        for definition in self.ROUTER_COMMANDS.values():
+            if definition.get("display"):
+                catalog.append({"name": definition["name"], "commands": list(definition["display"])})
         return catalog
 
     def tools_for_message(self, text: str) -> set[str]:
@@ -500,20 +422,27 @@ class CommandRouter:
         logger.info("router_tool_scope text=%r tools=%s reason=keywords_or_chat", text, sorted(result))
         return result
 
+    @staticmethod
+    def _normalize_command_text(text: str) -> str:
+        normalized = " ".join(str(text).strip().split())
+        # Vosk/Whisper иногда добавляют точку/знак вопроса к короткой команде.
+        # Убираем только конечную пунктуацию, не трогая содержимое цели.
+        return normalized.rstrip(" 	.,!?;:")
+
     def route(self, text: str, confirmation_callback=None, alias_confirmation_callback=None) -> str | None:
         started = time.perf_counter()
-        normalized = " ".join(text.strip().split())
-        lower = normalized.lower()
+        normalized = self._normalize_command_text(text)
+        lower = normalized.casefold()
         logger.info("route_start text=%r normalized=%r", text, normalized)
         executor = self._executor()
 
         if applications.has_pending_launch_choices() and re.fullmatch(r"(?:\d+|перв(?:ый|ая)|втор(?:ой|ая)|трет(?:ий|ья)|четверт(?:ый|ая)|четвёрт(?:ый|ая)|пят(?:ый|ая))\.?", lower):
             return self._reply(executor.execute("launch_application", {"target": normalized}, confirmation_callback=confirmation_callback))
 
-        if re.fullmatch(r"(?:статус|состояние) ollama", lower):
+        if lower in {item.casefold() for item in self._definition_display("ollama_status")}:
             return f"Ollama Server: {self.ollama_manager.server_status()}. Загружено моделей: {len(self.ollama_manager.get_loaded_models())}."
 
-        if lower in {"запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"}:
+        if lower in {item.casefold() for item in self._definition_display("ollama_start")}:
             try:
                 self.ollama_manager.start()
                 return "Ollama Server запущен."
@@ -521,7 +450,7 @@ class CommandRouter:
                 logger.exception("route_ollama_start_failed")
                 return f"Не удалось запустить Ollama: {exc}"
 
-        if lower in {"останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"}:
+        if lower in {item.casefold() for item in self._definition_display("ollama_stop")}:
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error')}"
 
