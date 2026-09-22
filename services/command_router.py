@@ -311,6 +311,139 @@ class CommandRouter:
 
         return None
 
+    def command_catalog(self) -> list[dict[str, object]]:
+        """Возвращает справочник команд, которые обрабатывает сам Command Router."""
+        catalog = [
+            {
+                "name": "Открыть приложение",
+                "commands": list(DEFAULT_ACTION_ALIASES["launch"]),
+            },
+            {
+                "name": "Закрыть приложение",
+                "commands": list(DEFAULT_ACTION_ALIASES["close"]),
+            },
+            {
+                "name": "Найти файл или папку",
+                "commands": list(DEFAULT_ACTION_ALIASES["search"]),
+            },
+            {
+                "name": "Прочитать файл",
+                "commands": list(DEFAULT_ACTION_ALIASES["read"]),
+            },
+            {
+                "name": "Удалить файл",
+                "commands": list(DEFAULT_ACTION_ALIASES["delete"]),
+            },
+            {
+                "name": "Проверить приложение",
+                "commands": list(DEFAULT_ACTION_ALIASES["status"]),
+            },
+            {
+                "name": "Свернуть приложение",
+                "commands": list(DEFAULT_ACTION_ALIASES["minimize"]),
+            },
+            {
+                "name": "Создать файл",
+                "commands": ["создай файл <имя>", "создать файл <имя>"],
+            },
+            {
+                "name": "Создать папку",
+                "commands": ["создай папку <имя>", "создать папку <имя>"],
+            },
+            {
+                "name": "Записать / перезаписать файл",
+                "commands": [
+                    "запиши в файл <имя> на <текст>",
+                    "запиши в файл <имя>: <текст>",
+                    "перезапиши файл <имя> на <текст>",
+                    "перезапиши файл <имя>: <текст>",
+                ],
+            },
+            {
+                "name": "Переименовать файл",
+                "commands": ["переименуй файл <имя> в <новое имя>", "переименовать файл <имя> в <новое имя>"],
+            },
+            {
+                "name": "Скопировать файл",
+                "commands": ["скопируй файл <имя> в <папку>", "скопировать файл <имя> в <папку>"],
+            },
+            {
+                "name": "Переместить файл",
+                "commands": ["перемести файл <имя> в <папку>", "переместить файл <имя> в <папку>"],
+            },
+            {
+                "name": "Информация о файле",
+                "commands": ["информация о файле <имя>", "сведения о файле <имя>", "свойства файла <имя>"],
+            },
+            {
+                "name": "Найти приложение",
+                "commands": ["найди приложение <имя>", "найти приложение <имя>"],
+            },
+            {
+                "name": "Открыть URL",
+                "commands": ["открой <http://...>", "открыть <https://...>"],
+            },
+            {
+                "name": "Статус Ollama",
+                "commands": ["статус ollama", "состояние ollama"],
+            },
+            {
+                "name": "Запустить Ollama",
+                "commands": ["запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"],
+            },
+            {
+                "name": "Остановить Ollama",
+                "commands": ["останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"],
+            },
+            {
+                "name": "Выгрузить модель",
+                "commands": ["выгрузи модель", "выгрузить модель", "выгрузи текущую модель", "освободи модель", "освободи память от модели"],
+            },
+            {
+                "name": "Свернуть окно Jarvis",
+                "commands": ["свернись", "сверни окно", "свернись в трей", "сверни jarvis"],
+            },
+            {
+                "name": "Развернуть окно Jarvis",
+                "commands": ["развернись", "разверни окно", "разверни jarvis", "на весь экран", "сделай окно на весь экран"],
+            },
+            {
+                "name": "Восстановить обычный размер окна Jarvis",
+                "commands": ["восстанови окно", "верни обычный размер", "сделай окно обычным", "верни окно"],
+            },
+            {
+                "name": "Закрыть Jarvis",
+                "commands": ["закрой себя", "закрой джарвис", "закрой jarvis", "выключись", "закройся", "заверши работу"],
+            },
+        ]
+
+        # Пользовательские алиасы действий тоже относятся к фактически
+        # распознаваемым Router-командам, поэтому показываем их рядом с
+        # встроенными вариантами.
+        custom_actions = self.alias_manager.data.get("actions", {})
+        by_name = {item["name"]: item for item in catalog}
+        action_names = {
+            "launch": "Открыть приложение",
+            "close": "Закрыть приложение",
+            "search": "Найти файл или папку",
+            "read": "Прочитать файл",
+            "delete": "Удалить файл",
+            "status": "Проверить приложение",
+            "minimize": "Свернуть приложение",
+        }
+        for action, entry in custom_actions.items():
+            name = action_names.get(action)
+            if not name:
+                continue
+            item = by_name.get(name)
+            if item:
+                existing = {str(command).casefold() for command in item["commands"]}
+                for alias in entry.get("aliases", []):
+                    if str(alias).casefold() not in existing:
+                        item["commands"].append(alias)
+
+        return catalog
+
     def tools_for_message(self, text: str) -> set[str]:
         """Определяет набор LLM-инструментов для текущего сообщения."""
         lower = " ".join(text.lower().split())
