@@ -52,6 +52,19 @@ class CommandRouter:
     def _definition_display(cls, command_id: str) -> list[str]:
         return list(cls.ROUTER_COMMANDS.get(command_id, {}).get("display", []))
 
+    @classmethod
+    def _match_definition(cls, command_id: str, text: str):
+        definition = cls.ROUTER_COMMANDS[command_id]
+        patterns = definition.get("patterns")
+        if patterns is None:
+            pattern = definition.get("pattern")
+            patterns = [pattern] if pattern else []
+        for pattern in patterns:
+            match = re.fullmatch(pattern, text, flags=re.IGNORECASE)
+            if match:
+                return match
+        return None
+
     def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None):
         self.config = config
         self.ollama_manager = ollama_manager
