@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QApplication, QMainWindow
 
 from core.alias_manager import AliasManager
 from core.config_manager import ConfigManager
@@ -45,6 +45,36 @@ class JarvisApplication(QMainWindow):
         self.setWindowTitle(self.config.get("assistant_name", "JARVIS"))
         self.resize(1100, 750)
         logger.info("application_init_finish title=%r size=%sx%s model=%s", self.windowTitle(), self.width(), self.height(), self.config.get("model"))
+        self._shutdown_started = False
+
+    def shutdown(self) -> None:
+        """Полностью завершает Jarvis, включая его главное окно и Qt event loop."""
+        if self._shutdown_started:
+            return
+
+        self._shutdown_started = True
+        logger.info("application_shutdown_requested")
+
+        try:
+            # MainWindow владеет голосовыми компонентами. Его closeEvent
+            # останавливает Wake Word и VoiceController.
+            self.window.close()
+            logger.info("application_main_window_closed")
+        except Exception:
+            logger.exception("application_main_window_close_failed")
+
+        try:
+            # Закрываем само верхнеуровневое окно. Это также запускает
+            # application-level cleanup в closeEvent().
+            self.close()
+            logger.info("application_top_level_window_closed")
+        except Exception:
+            logger.exception("application_top_level_window_close_failed")
+
+        app = QApplication.instance()
+        if app is not None:
+            logger.info("application_qt_quit_requested")
+            app.quit()
 
     def closeEvent(self, event):
         logger.info("application_close_start")
