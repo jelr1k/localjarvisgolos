@@ -26,15 +26,15 @@ class CommandRouter:
     )
 
     ROUTER_COMMANDS = {
-        "create_file": {"name": "Создать файл", "display": ["создай файл <имя>", "создать файл <имя>"]},
-        "create_folder": {"name": "Создать папку", "display": ["создай папку <имя>", "создать папку <имя>"]},
+        "create_file": {"name": "Создать файл", "pattern": r"(?:создай|создать)\s+(?:новый\s+)?файл\s+(.+?)(?:\s+с\s+(?:содержимым|текстом))?\s*", "display": ["создай файл <имя>", "создать файл <имя>"]},
+        "create_folder": {"name": "Создать папку", "pattern": r"(?:создай|создать)\s+(?:новую)\s+папку\s+(.+?)\s*", "display": ["создай папку <имя>", "создать папку <имя>"]},
         "write_file": {"name": "Записать / перезаписать файл", "display": ["запиши в файл <имя> на <текст>", "запиши в файл <имя>: <текст>", "перезапиши файл <имя> на <текст>", "перезапиши файл <имя>: <текст>"]},
-        "rename_file": {"name": "Переименовать файл", "display": ["переименуй файл <имя> в <новое имя>", "переименовать файл <имя> в <новое имя>"]},
-        "copy_file": {"name": "Скопировать файл", "display": ["скопируй файл <имя> в <папку>", "скопировать файл <имя> в <папку>"]},
-        "move_file": {"name": "Переместить файл", "display": ["перемести файл <имя> в <папку>", "переместить файл <имя> в <папку>"]},
-        "file_info": {"name": "Информация о файле", "display": ["информация о файле <имя>", "сведения о файле <имя>", "свойства файла <имя>"]},
-        "find_application": {"name": "Найти приложение", "display": ["найди приложение <имя>", "найти приложение <имя>"]},
-        "open_url": {"name": "Открыть URL", "display": ["открой <http://...>", "открыть <https://...>"]},
+        "rename_file": {"name": "Переименовать файл", "pattern": r"(?:переименуй|переименовать)\s+(?:файл\s+)?(.+?)\s+(?:в|на)\s+(.+)", "display": ["переименуй файл <имя> в <новое имя>", "переименовать файл <имя> в <новое имя>"]},
+        "copy_file": {"name": "Скопировать файл", "pattern": r"(?:скопируй|скопировать)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", "display": ["скопируй файл <имя> в <папку>", "скопировать файл <имя> в <папку>"]},
+        "move_file": {"name": "Переместить файл", "pattern": r"(?:перемести|переместить)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", "display": ["перемести файл <имя> в <папку>", "переместить файл <имя> в <папку>"]},
+        "file_info": {"name": "Информация о файле", "pattern": r"(?:информация|сведения|свойства)\s+(?:о\s+)?(?:файле\s+)?(.+)", "display": ["информация о файле <имя>", "сведения о файле <имя>", "свойства файла <имя>"]},
+        "find_application": {"name": "Найти приложение", "pattern": r"(?:найди|найти)\s+(?:приложение|приложения|программу|программа)\s+(.+)", "display": ["найди приложение <имя>", "найти приложение <имя>"]},
+        "open_url": {"name": "Открыть URL", "pattern": r"(?:открой|открыть)\s+(https?://\S+)", "display": ["открой <http://...>", "открыть <https://...>"]},
         "ollama_status": {"name": "Статус Ollama", "display": ["статус ollama", "состояние ollama"]},
         "ollama_start": {"name": "Запустить Ollama", "display": ["запусти ollama", "запустить ollama", "запусти сервер ollama", "запустить сервер ollama"]},
         "ollama_stop": {"name": "Остановить Ollama", "display": ["останови ollama", "остановить ollama", "останови сервер ollama", "остановить сервер ollama"]},
@@ -176,7 +176,7 @@ class CommandRouter:
         executor = self._executor()
 
         # Создание файла/папки.
-        match = re.fullmatch(r"(?:создай|создать)\s+(?:новый\s+)?файл\s+(.+?)(?:\s+с\s+(?:содержимым|текстом))?\s*", text, re.IGNORECASE)
+        match = self._match_definition("create_file", text)
         if match and executor._is_enabled("create_file"):
             path = match.group(1).strip().strip("\"'")
             return self._direct_tool("create_file", {"path": path, "content": ""}, confirmation_callback)
@@ -203,35 +203,35 @@ class CommandRouter:
             return self._direct_tool("write_file", {"path": path.strip().strip("\"'"), "content": content.strip()}, confirmation_callback)
 
         # Переименование/копирование/перемещение.
-        match = re.fullmatch(r"(?:переименуй|переименовать)\s+(?:файл\s+)?(.+?)\s+(?:в|на)\s+(.+)", text, re.IGNORECASE)
+        match = self._match_definition("rename_file", text)
         if match and executor._is_enabled("rename_file"):
             path, new_name = match.groups()
             return self._direct_tool("rename_file", {"path": path.strip().strip("\"'"), "new_name": new_name.strip().strip("\"'")}, confirmation_callback)
 
-        match = re.fullmatch(r"(?:скопируй|скопировать)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", text, re.IGNORECASE)
+        match = self._match_definition("copy_file", text)
         if match and executor._is_enabled("copy_file"):
             path, destination = match.groups()
             return self._direct_tool("copy_file", {"path": path.strip().strip("\"'"), "destination": destination.strip().strip("\"'")}, confirmation_callback)
 
-        match = re.fullmatch(r"(?:перемести|переместить)\s+(?:файл\s+)?(.+?)\s+(?:в|в папку|на)\s+(.+)", text, re.IGNORECASE)
+        match = self._match_definition("move_file", text)
         if match and executor._is_enabled("move_file"):
             path, destination = match.groups()
             return self._direct_tool("move_file", {"path": path.strip().strip("\"'"), "destination": destination.strip().strip("\"'")}, confirmation_callback)
 
         # Информация о файле.
-        match = re.fullmatch(r"(?:информация|сведения|свойства)\s+(?:о\s+)?(?:файле\s+)?(.+)", text, re.IGNORECASE)
+        match = self._match_definition("file_info", text)
         if match and executor._is_enabled("file_info"):
             path = match.group(1).strip().strip("\"'")
             return self._direct_tool("file_info", {"path": path}, confirmation_callback)
 
         # Поиск приложения.
-        match = re.fullmatch(r"(?:найди|найти)\s+(?:приложение|приложения|программу|программа)\s+(.+)", text, re.IGNORECASE)
+        match = self._match_definition("find_application", text)
         if match and executor._is_enabled("find_application"):
             name = match.group(1).strip()
             return self._direct_tool("find_application", {"name": name}, confirmation_callback)
 
         # Открытие URL.
-        match = re.fullmatch(r"(?:открой|открыть)\s+(https?://\S+)", text, re.IGNORECASE)
+        match = self._match_definition("open_url", text)
         if match and executor._is_enabled("open_url"):
             return self._direct_tool("open_url", {"url": match.group(1)}, confirmation_callback)
 
@@ -422,7 +422,6 @@ class CommandRouter:
         logger.info("router_tool_scope text=%r tools=%s reason=keywords_or_chat", text, sorted(result))
         return result
 
-    @staticmethod
     def _normalize_command_text(self, text: str) -> str:
         return self.alias_manager.normalize_command_text(text)
 
