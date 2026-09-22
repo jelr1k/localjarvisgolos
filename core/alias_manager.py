@@ -308,7 +308,7 @@ class AliasManager:
         """Подменяет пользовательское название на каноническое только при exact-match."""
         mapped = dict(arguments)
         queries = []
-        if tool_name in {"find_application", "get_process_status", "close_application"} and "name" in mapped:
+        if tool_name in {"find_application", "get_process_status", "close_application", "minimize_application"} and "name" in mapped:
             queries = [("name", ("applications",))]
         elif tool_name == "launch_application" and "target" in mapped:
             queries = [("target", ("applications", "files", "folders"))]
