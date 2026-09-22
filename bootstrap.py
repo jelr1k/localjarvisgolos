@@ -9,11 +9,23 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-APP_ROOT = Path(__file__).resolve().parent
-LOG_DIR = APP_ROOT / "logs"
+APP_DIR = Path(__file__).resolve().parent
+
+
+def _find_project_root() -> Path:
+    """Find the Jarvis project root without relying on the current working directory."""
+    for candidate in (APP_DIR, APP_DIR.parent):
+        if (candidate / "core").is_dir():
+            return candidate
+    # During unusual/partial layouts, keep the current file's directory as the
+    # safest fallback. The normal project layout is covered above.
+    return APP_DIR
+
+
+PROJECT_ROOT = _find_project_root()
+LOG_DIR = PROJECT_ROOT / "logs"
 STARTUP_LOG = LOG_DIR / "startup.log"
 FATAL_LOG = LOG_DIR / "fatal.log"
-
 
 # Держим файл открытым всё время работы процесса: faulthandler требует,
 # чтобы переданный ему файловый дескриптор не закрывался до отключения handler.
@@ -71,13 +83,20 @@ def _enable_fatal_error_logging():
 
 def main() -> int:
     logger = _setup_bootstrap_logging()
+
+    # bootstrap.py may live in the repository root or in start/.
+    # Make the project root importable instead of depending on cwd/sys.path.
+    project_root = str(PROJECT_ROOT)
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
     _install_exception_hooks(logger)
     _enable_fatal_error_logging()
 
     logger.info("Starting Jarvis bootstrap")
 
     try:
-        runpy.run_path(str(APP_ROOT / "main.py"), run_name="__main__")
+        runpy.run_path(str(APP_DIR / "main.py"), run_name="__main__")
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else 1
         if code != 0:
