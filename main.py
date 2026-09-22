@@ -1,5 +1,26 @@
+from __future__ import annotations
+
 import logging
 import sys
+from pathlib import Path
+
+
+APP_DIR = Path(__file__).resolve().parent
+
+
+def _find_project_root() -> Path:
+    """Find the Jarvis project root without relying on the current working directory."""
+    for candidate in (APP_DIR, APP_DIR.parent):
+        if (candidate / "core").is_dir():
+            return candidate
+    return APP_DIR
+
+
+PROJECT_ROOT = _find_project_root()
+project_root = str(PROJECT_ROOT)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
