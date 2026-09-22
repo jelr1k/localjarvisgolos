@@ -171,21 +171,25 @@ def _vocabulary_path(model_dir: Path) -> Path:
 
 
 def _word_in_vocabulary(model_dir: Path, word: str) -> bool:
-    """Check whether the exact normalized word is present in Vosk's graph."""
+    """Check whether any configured wake-word variant is in Vosk's graph."""
     vocabulary_path = _vocabulary_path(model_dir)
     if not vocabulary_path.is_file():
         logger.warning("wake_word_vocabulary_missing path=%s", vocabulary_path)
         return False
 
-    target = _normalize(word)
-    if not target:
+    targets = {
+        _normalize(variant)
+        for variant in _wake_word_variants(word)
+        if _normalize(variant)
+    }
+    if not targets:
         return False
 
     try:
         with vocabulary_path.open("r", encoding="utf-8", errors="replace") as file:
             for line in file:
                 parts = line.split()
-                if parts and _normalize(parts[0]) == target:
+                if parts and _normalize(parts[0]) in targets:
                     return True
     except OSError:
         logger.exception("wake_word_vocabulary_read_failed path=%s", vocabulary_path)
