@@ -213,9 +213,26 @@ class CommandRouter:
 
         # Специальные команды Jarvis/окна. Они намеренно НЕ являются LLM tools.
         if self.ui_controller is not None:
-            if lower in {"закрой себя", "закрой джарвис", "закрой jarvis", "выключись", "закройся", "заверши работу"}:
-                self.ui_controller.close()
-                return "Закрываю Jarvis."
+            assistant_name = str(self.config.get("assistant_name", "JARVIS")).strip().casefold()
+            shutdown_commands = {
+                "закрой себя",
+                "закрой джарвис",
+                "закрой jarvis",
+                "выключись",
+                "закройся",
+                "заверши работу",
+            }
+            if assistant_name:
+                shutdown_commands.add(f"закрой {assistant_name}")
+
+            if lower in shutdown_commands:
+                shutdown = getattr(self.ui_controller, "shutdown", None)
+                if callable(shutdown):
+                    shutdown()
+                else:
+                    # Запасной вариант для старых UI-контроллеров.
+                    self.ui_controller.close()
+                return "Полностью закрываю Jarvis."
 
             if lower in {"свернись", "сверни окно", "свернись в трей", "сверни jarvis"}:
                 self.ui_controller.showMinimized()
