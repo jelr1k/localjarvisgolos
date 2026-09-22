@@ -211,6 +211,21 @@ class CommandRouter:
         if match and executor._is_enabled("open_url"):
             return self._direct_tool("open_url", {"url": match.group(1)}, confirmation_callback)
 
+        # Управление окнами обычных приложений. Алиасы приложения разрешаются
+        # тем же TargetResolver, что и для запуска/закрытия.
+        action = self._resolve_action(lower)
+        if action and action[0] == "minimize" and executor._is_enabled("minimize_application"):
+            target = action[1]
+            if target.strip().casefold() in self._GENERIC_APPLICATION_TARGETS:
+                return "Какое приложение свернуть?"
+            resolved, error = self._resolve_target(target, ("applications",), alias_confirmation_callback)
+            if error:
+                return f"Не выполнено: {error}"
+            result = executor.execute("minimize_application", {"name": resolved}, confirmation_callback=confirmation_callback)
+            if result.get("success"):
+                return f"{target} свернут."
+            return f"Не удалось свернуть {target}: {result.get('error', 'неизвестная ошибка')}"
+
         # Специальные команды Jarvis/окна. Они намеренно НЕ являются LLM tools.
         if self.ui_controller is not None:
             assistant_name = str(self.config.get("assistant_name", "JARVIS")).strip().casefold()
@@ -235,26 +250,63 @@ class CommandRouter:
                 return "Полностью закрываю Jarvis."
 
             if lower in {"свернись", "сверни окно", "свернись в трей", "сверни jarvis"}:
-                self.ui_controller.showMinimized()
+                minimize = getattr(self.ui_controller, "minimize_window", None)
+                if callable(minimize):
+                    minimize()
+                else:
+                    self.ui_controller.showMinimized()
                 return "Сворачиваю окно."
 
             if lower in {"развернись", "разверни окно", "разверни jarvis", "на весь экран", "сделай окно на весь экран"}:
-                self.ui_controller.showMaximized()
+                maximize = getattr(self.ui_controller, "maximize_window", None)
+                if callable(maximize):
+                    maximize()
+                else:
+                    self.ui_controller.showMaximized()
                 return "Разворачиваю окно."
 
             if lower in {"восстанови окно", "верни обычный размер", "сделай окно обычным", "верни окно"}:
-                self.ui_controller.showNormal()
+                restore = getattr(self.ui_controller, "restore_window", None)
+                if callable(restore):
+                    restore()
+                else:
+                    self.ui_controller.showNormal()
                 return "Восстанавливаю обычный размер окна."
 
-        # Ollama и модель.
-        if lower in {"выгрузи модель", "выгрузить модель", "выгрузи текущую модель", "освободи модель", "освободи память от модели"}:
-            model = self.config.get("model")
-            result = self.ollama_manager.unload_model(model)
-            return f"Модель {model} выгружена." if result.get("success") else f"Не удалось выгрузить модель: {result.get('error', 'неизвестная ошибка')}"
+        # Ollama и модель. Русские варианты намеренно широкие: Vosk часто
+        # искажает «Ollama» и название Qwen.
+        model = str(self.config.get("model", "")).strip()
+        model_aliases = {
+            "модель", "модел", "квен", "квен 3", "квен3", "qwen", "qwen 3", "qwen3",
+            "ллм", "ллмку", "llm", "qwen3 1.7b",
+        }
+        model_action = re.fullmatch(
+            r"(?:выгрузи|выгрузить|освободи|освободить|закрой|закрыть|останови|остановить|выключи|выключить)"
+            r"\s+(?:текущую\s+)?(.+)",
+            lower,
+        )
+        if model_action:
+            target = model_action.group(1).strip()
+            if target in model_aliases or any(alias in target for alias in model_aliases if alias not in {"модель"}):
+                result = self.ollama_manager.unload_model(model)
+                return f"Модель {model} выгружена." if result.get("success") else f"Не удалось выгрузить модель: {result.get('error', 'неизвестная ошибка')}"
 
-        if lower in {"закрой ламу", "закрой ollama", "останови ламу", "останови ollama", "выключи ollama", "останови сервер ollama"}:
+        ollama_aliases = {
+            "оллама", "олламу", "олламы", "оллам", "оллама", "ollama",
+            "сервер оллама", "сервер ollama", "сервер ламы", "сервер лам",
+        }
+        server_action = re.fullmatch(
+            r"(?:закрой|закрыть|останови|остановить|выключи|выключить|заверши|завершить)"
+            r"\s+(.+)",
+            lower,
+        )
+        if server_action and server_action.group(1).strip() in ollama_aliases:
             result = self.ollama_manager.stop_server()
             return "Ollama Server остановлен." if result.get("success") else f"Не удалось остановить Ollama: {result.get('error', 'неизвестная ошибка')}"
+
+        if lower in {"выгрузи модель", "выгрузить модель", "выгрузи текущую модель", "освободи модель", "освободи память от модели"}:
+            result = self.ollama_manager.unload_model(model)
+            return f"Модель {model} выгружена." if result.get("success") else f"Не удалось выгрузить модель: {result.get('error', 'неизвестная ошибка')}"
 
         return None
 
@@ -268,6 +320,7 @@ class CommandRouter:
         action_tools = {
             "launch": {"launch_application", "get_process_status"},
             "close": {"close_application", "get_process_status"},
+            "minimize": {"minimize_application", "get_process_status"},
             "status": {"get_process_status"},
             "search": {"search_files"},
             "read": {"read_file"},
