@@ -368,7 +368,7 @@ class CommandRouter:
 
     def tools_for_message(self, text: str) -> set[str]:
         """Определяет набор LLM-инструментов для текущего сообщения."""
-        lower = " ".join(text.lower().split())
+        lower = self._normalize_command_text(text).casefold()
         action = self._resolve_action(lower)
         executor = self._executor()
         enabled = {name for name in TOOLS if executor._is_enabled(name)}
@@ -423,11 +423,8 @@ class CommandRouter:
         return result
 
     @staticmethod
-    def _normalize_command_text(text: str) -> str:
-        normalized = " ".join(str(text).strip().split())
-        # Vosk/Whisper иногда добавляют точку/знак вопроса к короткой команде.
-        # Убираем только конечную пунктуацию, не трогая содержимое цели.
-        return normalized.rstrip(" 	.,!?;:")
+    def _normalize_command_text(self, text: str) -> str:
+        return self.alias_manager.normalize_command_text(text)
 
     def route(self, text: str, confirmation_callback=None, alias_confirmation_callback=None) -> str | None:
         started = time.perf_counter()
