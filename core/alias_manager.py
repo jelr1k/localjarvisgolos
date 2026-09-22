@@ -86,6 +86,18 @@ class AliasManager:
         except (IndexError, AttributeError, ValueError):
             return word
 
+    @staticmethod
+    def normalize_command_text(value: str) -> str:
+        """Нормализует текст голосовой команды перед маршрутизацией.
+
+        Схлопывает пробелы и убирает только конечную пунктуацию, которую
+        Vosk/Whisper часто добавляют к коротким фразам. Пунктуация внутри
+        цели (пути, URL, имени файла и т. п.) не изменяется.
+        """
+        text = unicodedata.normalize("NFKC", str(value))
+        text = " ".join(text.strip().split())
+        return text.rstrip(" 	.,!?;:")
+
     @classmethod
     def _normalize_alias(cls, value: str) -> str:
         text = unicodedata.normalize("NFKC", str(value)).strip().casefold()
@@ -413,7 +425,7 @@ class AliasManager:
         return " ".join(words).strip()
 
     def resolve_action(self, text: str) -> tuple[str, str] | None:
-        normalized = " ".join(str(text).strip().split())
+        normalized = self.normalize_command_text(text)
         if not normalized:
             return None
         aliases = []
