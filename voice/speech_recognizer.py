@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 from faster_whisper import WhisperModel
@@ -29,18 +30,27 @@ class SpeechRecognizer:
 
     def _get_model(self) -> WhisperModel:
         if self._model is None:
+            model_source = self.model_name
+            local_path = Path(model_source).expanduser()
+            if local_path.is_dir():
+                model_source = str(local_path.resolve())
+                logger.info(
+                    "whisper_local_model_detected path=%s",
+                    model_source,
+                )
+
             logger.info(
                 "whisper_model_loading model=%s device=%s compute_type=%s",
-                self.model_name,
+                model_source,
                 self.device,
                 self.compute_type,
             )
             self._model = WhisperModel(
-                self.model_name,
+                model_source,
                 device=self.device,
                 compute_type=self.compute_type,
             )
-            logger.info("whisper_model_loaded model=%s", self.model_name)
+            logger.info("whisper_model_loaded model=%s", model_source)
         return self._model
 
     @staticmethod

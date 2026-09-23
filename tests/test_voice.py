@@ -34,9 +34,31 @@ def test_speech_recognizer_loads_model_lazily(monkeypatch):
 
     assert text == "Привет, Джарвис!"
     assert len(created) == 1
-    assert created[0][0] == ("base",)
+    assert created[0][0] == ("small",)
     assert created[0][1]["device"] == "cpu"
     assert created[0][1]["compute_type"] == "int8"
+
+
+def test_speech_recognizer_uses_existing_local_model_path(monkeypatch, tmp_path):
+    created = []
+
+    class FakeModel:
+        def __init__(self, *args, **kwargs):
+            created.append((args, kwargs))
+
+        def transcribe(self, audio, **kwargs):
+            class Segment:
+                text = " локальная модель "
+
+            return [Segment()], object()
+
+    monkeypatch.setattr("voice.speech_recognizer.WhisperModel", FakeModel)
+    model_dir = tmp_path / "faster-whisper-large-v3"
+    model_dir.mkdir()
+
+    recognizer = SpeechRecognizer(model_name=str(model_dir))
+    assert recognizer.transcribe(np.ones(1600, dtype=np.float32)) == "локальная модель"
+    assert created[0][0] == (str(model_dir.resolve()),)
 
 
 def test_speech_recognizer_ignores_empty_audio(monkeypatch):
@@ -53,6 +75,7 @@ def test_default_voice_configuration_is_complete():
     assert DEFAULTS["voice"]["sample_rate"] == 16000
     assert DEFAULTS["voice"]["channels"] == 1
     assert DEFAULTS["voice"]["input_device"] is None
+    assert DEFAULTS["voice"]["model"] == "small"
 
 
 def test_find_supported_sample_rate_prefers_requested_rate(monkeypatch):
@@ -89,8 +112,10 @@ def test_speech_recognizer_resamples_to_whisper_rate(monkeypatch):
     class FakeModel:
         def transcribe(self, audio, **kwargs):
             captured.append(audio)
+
             class Segment:
                 text = " тест "
+
             return [Segment()], object()
 
     monkeypatch.setattr("voice.speech_recognizer.WhisperModel", lambda *args, **kwargs: FakeModel())

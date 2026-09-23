@@ -80,7 +80,7 @@ class VoiceController(QObject):
                     configured_device,
                 )
 
-        self.model_name = voice_config.get("model", "base")
+        self.model_name = voice_config.get("model", "small")
         self.device_type = voice_config.get("device", "cpu")
         self.compute_type = voice_config.get("compute_type", "int8")
         self.language = voice_config.get("language", "ru")
@@ -119,12 +119,13 @@ class VoiceController(QObject):
             language=self.language,
         )
         logger.info(
-            "voice_config_applied input_device=%r configured_sample_rate=%s recording_sample_rate=%s microphone_available=%s silence_duration=%.2fs",
+            "voice_config_applied input_device=%r configured_sample_rate=%s recording_sample_rate=%s microphone_available=%s silence_duration=%.2fs whisper_model=%r",
             self.device,
             self.sample_rate,
             self.recording_sample_rate,
             self.recorder is not None,
             self.silence_duration,
+            self.model_name,
         )
 
     @property

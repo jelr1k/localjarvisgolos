@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QApplication,
@@ -12,12 +14,21 @@ from PySide6.QtWidgets import (
     QPushButton,
     QMessageBox,
     QGroupBox,
+    QHBoxLayout,
+    QFileDialog,
 )
 
 
 class SettingsPage(QWidget):
 
     settings_changed = Signal(str, str)
+
+    _WHISPER_PRESETS = (
+        ("Small", "small"),
+        ("Medium", "medium"),
+        ("Large-v3", "large-v3"),
+        ("Локальная модель", None),
+    )
 
     def __init__(self, config, model_service):
         super().__init__()
@@ -52,10 +63,41 @@ class SettingsPage(QWidget):
         self.allow_outside_workspace = QCheckBox("Работа вне Workspace")
         self.allow_outside_workspace.setChecked(bool(config.get("allow_outside_workspace", False)))
         self.allow_outside_workspace.setToolTip("Разрешает запускать приложения и файлы, расположенные вне рабочей папки Jarvis. По умолчанию доступ запрещён.")
+
+        voice_config = config.get("voice", {})
         self.microphone = QComboBox()
+        self.whisper_model = QComboBox()
+        for label, value in self._WHISPER_PRESETS:
+            self.whisper_model.addItem(label, value)
+
+        current_whisper = str(voice_config.get("model", "small") or "small")
+        preset_index = self.whisper_model.findData(current_whisper)
+        self.whisper_local_path = QLineEdit()
+        self.whisper_local_path.setPlaceholderText("Путь к папке модели faster-whisper")
+        self.whisper_local_path.setToolTip(
+            "Выберите папку с уже скачанной faster-whisper моделью. "
+            "Например: C:\\Users\\Jelr1k1\\Models\\faster-whisper-large-v3"
+        )
+        self.whisper_browse = QPushButton("Выбрать")
+        self.whisper_browse.clicked.connect(self._choose_whisper_model)
+        self._whisper_path_row = QWidget()
+        whisper_path_layout = QHBoxLayout(self._whisper_path_row)
+        whisper_path_layout.setContentsMargins(0, 0, 0, 0)
+        whisper_path_layout.addWidget(self.whisper_local_path)
+        whisper_path_layout.addWidget(self.whisper_browse)
+
+        if preset_index >= 0:
+            self.whisper_model.setCurrentIndex(preset_index)
+        else:
+            self.whisper_model.setCurrentIndex(self.whisper_model.findData(None))
+            self.whisper_local_path.setText(current_whisper)
+
+        self.whisper_model.currentIndexChanged.connect(self._update_whisper_local_controls)
+        self._update_whisper_local_controls()
+
         self.wake_word_enabled = QCheckBox("Включить wake word")
-        self.wake_word_enabled.setChecked(bool(config.get("voice", {}).get("wake_word_enabled", True)))
-        self.wake_word = QLineEdit(config.get("voice", {}).get("wake_word", "Jarvis"))
+        self.wake_word_enabled.setChecked(bool(voice_config.get("wake_word_enabled", True)))
+        self.wake_word = QLineEdit(voice_config.get("wake_word", "Jarvis"))
         self.wake_word.setPlaceholderText("Например: Jarvis или Компьютер")
         self.wake_word.setToolTip("Фраза, которой активируется голосовой режим вне приложения.")
         self.silence_duration = QDoubleSpinBox()
@@ -63,13 +105,15 @@ class SettingsPage(QWidget):
         self.silence_duration.setSingleStep(0.1)
         self.silence_duration.setDecimals(1)
         self.silence_duration.setSuffix(" с")
-        self.silence_duration.setValue(float(config.get("voice", {}).get("silence_duration", 2.0)))
+        self.silence_duration.setValue(float(voice_config.get("silence_duration", 2.0)))
         self.silence_duration.setToolTip("Сколько секунд тишины после речи нужно для автоматической остановки записи и отправки команды.")
         self._load_microphones()
 
         form = QFormLayout()
         form.addRow("Имя ассистента:", self.assistant_name)
         form.addRow("Модель:", self.model)
+        form.addRow("Whisper:", self.whisper_model)
+        form.addRow("Локальная модель:", self._whisper_path_row)
         form.addRow("Температура:", self.temperature)
         form.addRow("Контекст:", self.context)
         form.addRow("Максимум ответа:", self.max_tokens)
@@ -95,6 +139,26 @@ class SettingsPage(QWidget):
         layout.addWidget(box)
         layout.addWidget(refresh)
         layout.addWidget(save)
+
+    def _update_whisper_local_controls(self):
+        is_local = self.whisper_model.currentData() is None
+        self.whisper_local_path.setEnabled(is_local)
+        self.whisper_browse.setEnabled(is_local)
+
+    def _choose_whisper_model(self):
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Выберите папку локальной Whisper-модели",
+            self.whisper_local_path.text().strip() or str(Path.home()),
+        )
+        if directory:
+            self.whisper_local_path.setText(directory)
+
+    def _selected_whisper_model(self) -> str:
+        preset = self.whisper_model.currentData()
+        if preset is not None:
+            return str(preset)
+        return self.whisper_local_path.text().strip()
 
     def _load_microphones(self):
         try:
@@ -226,7 +290,7 @@ class SettingsPage(QWidget):
             QMessageBox.warning(
                 self,
                 "Обновление данных",
-                "Не всё удалось обновить.\\n\\n" + "\\n".join(errors),
+                "Не всё удалось обновить.\n\n" + "\n".join(errors),
             )
         else:
             QMessageBox.information(
@@ -246,6 +310,26 @@ class SettingsPage(QWidget):
         self.config.data["allow_outside_workspace"] = self.allow_outside_workspace.isChecked()
 
         voice_config = self.config.data.setdefault("voice", {})
+        whisper_model = self._selected_whisper_model()
+        if not whisper_model:
+            QMessageBox.warning(
+                self,
+                "Настройки Whisper",
+                "Для локальной модели нужно указать папку с моделью.",
+            )
+            return
+
+        if self.whisper_model.currentData() is None:
+            local_path = Path(whisper_model).expanduser()
+            if not local_path.is_dir():
+                QMessageBox.warning(
+                    self,
+                    "Настройки Whisper",
+                    f"Папка локальной модели не найдена:\n{local_path}",
+                )
+                return
+
+        voice_config["model"] = whisper_model
         selected_device = self.microphone.currentData()
         voice_config["input_device"] = selected_device
         voice_config["input_device_name"] = (
