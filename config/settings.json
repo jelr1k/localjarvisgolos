@@ -12,7 +12,7 @@
     "sample_rate": 16000,
     "channels": 1,
     "input_device": null,
-    "model": "small",
+    "model": "medium",
     "device": "cpu",
     "compute_type": "int8",
     "language": "ru",
