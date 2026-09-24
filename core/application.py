@@ -45,7 +45,7 @@ class JarvisApplication(QMainWindow):
         self.setWindowTitle(self.config.get("assistant_name", "JARVIS"))
         self.resize(1100, 750)
         logger.info("application_init_finish title=%r size=%sx%s model=%s", self.windowTitle(), self.width(), self.height(), self.config.get("model"))
-        self._shutdown_started = False
+        self._shutdown_started = False\n        self._close_cleanup_started = False
 
     def shutdown(self) -> None:
         """Полностью завершает Jarvis, включая его главное окно и Qt event loop."""
