@@ -5,7 +5,7 @@ import logging
 import runpy
 import sys
 import threading
-from logging.handlers import RotatingFileHandler
+from logging import FileHandler
 from pathlib import Path
 
 
@@ -32,6 +32,20 @@ FATAL_LOG = LOG_DIR / "fatal.log"
 _fatal_log_file = None
 
 
+def _clear_previous_logs() -> None:
+    """Start every Jarvis run with a clean set of diagnostic logs."""
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    for path in LOG_DIR.glob("*.log*"):
+        try:
+            if path.is_file():
+                path.unlink()
+        except OSError:
+            # A stale log may be temporarily locked by another process.
+            # Do not prevent Jarvis from starting because of that.
+            pass
+
+
 def _setup_bootstrap_logging() -> logging.Logger:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -40,12 +54,7 @@ def _setup_bootstrap_logging() -> logging.Logger:
     logger.propagate = False
 
     if not logger.handlers:
-        handler = RotatingFileHandler(
-            STARTUP_LOG,
-            maxBytes=2_000_000,
-            backupCount=3,
-            encoding="utf-8",
-        )
+        handler = FileHandler(STARTUP_LOG, encoding="utf-8")
         handler.setFormatter(
             logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
         )
@@ -82,6 +91,7 @@ def _enable_fatal_error_logging():
 
 
 def main() -> int:
+    _clear_previous_logs()
     logger = _setup_bootstrap_logging()
 
     # bootstrap.py may live in the repository root or in start/.
