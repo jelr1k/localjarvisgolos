@@ -5,24 +5,17 @@ import logging
 import os
 import platform
 import sys
-from logging.handlers import RotatingFileHandler
+from logging import FileHandler
 
 from core.app_paths import LOG_DIR, ensure_application_dirs
 
 
 _FORMAT = "%(asctime)s | %(levelname)s | %(name)s | %(module)s:%(lineno)d | %(message)s"
 _EVENT_FORMAT = "%(message)s"
-_MAX_BYTES = 10_000_000
-_BACKUP_COUNT = 10
 
 
 def _handler(path, level):
-    handler = RotatingFileHandler(
-        path,
-        maxBytes=_MAX_BYTES,
-        backupCount=_BACKUP_COUNT,
-        encoding="utf-8",
-    )
+    handler = FileHandler(path, encoding="utf-8")
     handler.setLevel(level)
     handler.setFormatter(logging.Formatter(_FORMAT))
     return handler
@@ -75,10 +68,8 @@ def setup_logging() -> logging.Logger:
     events_logger.setLevel(logging.INFO)
     events_logger.propagate = False
     if not events_logger.handlers:
-        events_handler = RotatingFileHandler(
+        events_handler = FileHandler(
             LOG_DIR / "events.log",
-            maxBytes=_MAX_BYTES,
-            backupCount=_BACKUP_COUNT,
             encoding="utf-8",
         )
         events_handler.setFormatter(logging.Formatter(_EVENT_FORMAT))
