@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, QTimer
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot, QTimer
 from PySide6.QtWidgets import QGroupBox, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget
 
 
@@ -106,6 +106,7 @@ class OllamaPage(QWidget):
         worker.signals.finished.connect(self._finished)
         self.pool.start(worker)
 
+    @Slot(object)
     def _finished(self, result):
         self._set_busy(False)
         if result.get("success"):
@@ -124,6 +125,7 @@ class OllamaPage(QWidget):
         worker.signals.finished.connect(self._status_finished)
         self.pool.start(worker)
 
+    @Slot(object)
     def _status_finished(self, result):
         self.status_busy = False
         running = bool(result.get("running")) if result.get("success") else False
