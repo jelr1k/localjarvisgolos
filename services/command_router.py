@@ -135,6 +135,8 @@ class CommandRouter:
 
     @staticmethod
     def _reply(result: dict, include_path: bool = True) -> str:
+        if result.get("pending_confirmation"):
+            return "Ожидаю подтверждение действия."
         if not result.get("success"):
             matches = result.get("matches") or []
             if result.get("ambiguous") and matches:
