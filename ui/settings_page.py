@@ -2,7 +2,7 @@ from pathlib import Path
 
 from core.background_task import BackgroundTask
 
-from PySide6.QtCore import Signal, QThreadPool
+from PySide6.QtCore import Signal, Slot, QThreadPool
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
@@ -297,6 +297,7 @@ class SettingsPage(QWidget):
         task.signals.finished.connect(self._on_models_refreshed)
         self._task_pool.start(task)
 
+    @Slot(object)
     def _on_models_refreshed(self, result):
         self._refresh_running = False
         self.refresh_button.setEnabled(True)
