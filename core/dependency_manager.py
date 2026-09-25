@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import logging
 import threading
-import time
-from pathlib import Path
 from typing import Callable
 
 from PySide6.QtCore import QObject, Signal
+
+from core.logging_config import log_event
 from tqdm.auto import tqdm
 
 try:
     from huggingface_hub import snapshot_download
 except ImportError:  # pragma: no cover - dependency is required by faster-whisper
     snapshot_download = None
+
+
+logger = logging.getLogger("jarvis.dependencies")
 
 
 class ModelDownloadCancelled(Exception):
@@ -83,8 +87,10 @@ class DependencyManager(QObject):
     def whisper_status(self, model_name: str) -> str:
         model_name = str(model_name).strip()
         if not self.is_managed_whisper_model(model_name):
+            logger.debug("Whisper model is not managed model=%s", model_name)
             return "unknown"
         if snapshot_download is None:
+            logger.error("huggingface_hub is unavailable while checking model=%s", model_name)
             return "missing"
         try:
             snapshot_download(
@@ -92,8 +98,10 @@ class DependencyManager(QObject):
                 allow_patterns=list(self.WHISPER_PATTERNS),
                 local_files_only=True,
             )
+            logger.debug("Whisper model cache status model=%s status=installed", model_name)
             return "installed"
         except Exception:
+            logger.debug("Whisper model cache status model=%s status=missing", model_name, exc_info=True)
             return "missing"
 
     def whisper_download_size(self, model_name: str) -> int:
@@ -108,7 +116,9 @@ class DependencyManager(QObject):
             allow_patterns=list(self.WHISPER_PATTERNS),
             dry_run=True,
         )
-        return sum(int(getattr(item, "file_size", 0) or 0) for item in files)
+        size = sum(int(getattr(item, "file_size", 0) or 0) for item in files)
+        logger.debug("Whisper download size model=%s bytes=%s", model_name, size)
+        return size
 
     def cancel(self):
         self._cancel_event.set()
@@ -119,6 +129,7 @@ class DependencyManager(QObject):
             return model_name
 
         if self.whisper_status(model_name) == "installed":
+            logger.debug("Whisper model already installed model=%s", model_name)
             return model_name
 
         with self._condition:
@@ -133,6 +144,8 @@ class DependencyManager(QObject):
             self._active_model = model_name
             self._cancel_event.clear()
 
+        logger.info("Whisper model download started model=%s repo=%s", model_name, self.WHISPER_REPOS[model_name])
+        log_event("dependency_download_started", dependency="whisper", model=model_name, repo=self.WHISPER_REPOS[model_name])
         self.state_changed.emit(model_name, "downloading")
         _ProgressTqdm.callback = lambda current, total, rate: self.progress.emit(
             model_name, current, total, rate
@@ -141,6 +154,7 @@ class DependencyManager(QObject):
 
         try:
             if snapshot_download is None:
+                logger.error("Cannot download Whisper model because huggingface_hub is unavailable model=%s", model_name)
                 raise RuntimeError("huggingface_hub недоступен")
 
             snapshot_download(
@@ -153,15 +167,21 @@ class DependencyManager(QObject):
             if self.whisper_status(model_name) != "installed":
                 raise RuntimeError("Модель скачалась не полностью или повреждена")
 
+            logger.info("Whisper model download completed model=%s", model_name)
+            log_event("dependency_download_completed", dependency="whisper", model=model_name)
             self.progress.emit(model_name, 1, 1, 0.0)
             self.state_changed.emit(model_name, "installed")
             self.finished.emit(model_name, True, "")
             return model_name
         except ModelDownloadCancelled:
+            logger.warning("Whisper model download cancelled model=%s", model_name)
+            log_event("dependency_download_cancelled", dependency="whisper", model=model_name)
             self.state_changed.emit(model_name, "cancelled")
             self.finished.emit(model_name, False, "Загрузка отменена")
             raise
         except Exception as exc:
+            logger.exception("Whisper model download failed model=%s", model_name)
+            log_event("dependency_download_failed", dependency="whisper", model=model_name, error=str(exc))
             self.state_changed.emit(model_name, "error")
             self.finished.emit(model_name, False, str(exc))
             raise
