@@ -45,7 +45,8 @@ class JarvisApplication(QMainWindow):
         self.setWindowTitle(self.config.get("assistant_name", "JARVIS"))
         self.resize(1100, 750)
         logger.info("application_init_finish title=%r size=%sx%s model=%s", self.windowTitle(), self.width(), self.height(), self.config.get("model"))
-        self._shutdown_started = False\n        self._close_cleanup_started = False
+        self._shutdown_started = False
+        self._close_cleanup_started = False
         QTimer.singleShot(0, self._start_ollama_in_background)
 
     def _start_ollama_in_background(self) -> None:
