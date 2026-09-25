@@ -96,6 +96,7 @@ class OllamaPage(QWidget):
         self.start_button.setEnabled(not busy and not self.status_busy and self.server_label.text().endswith("остановлен"))
         self.stop_button.setEnabled(not busy and not self.status_busy and self.manager.started_by_jarvis and self.server_label.text().endswith("запущен"))
         self.load_button.setEnabled(not busy and not self.status_busy and self.server_label.text().endswith("запущен"))
+        self.unload_button.setEnabled(not busy and not self.status_busy and self.server_label.text().endswith("запущен"))
 
     def _run(self, action, model=None):
         if self.busy:
