@@ -6,7 +6,7 @@ import time
 from collections import deque
 from threading import Event
 
-from PySide6.QtCore import QObject, Signal, QThread, QTimer, QThreadPool
+from PySide6.QtCore import QObject, Signal, Slot, QThread, QTimer, QThreadPool
 
 from chat.conversation import Conversation
 from core.alias_manager import AliasManager
@@ -227,17 +227,20 @@ class ChatService(QObject):
         self._thread.start()
         logger.debug("generation_thread_started")
 
+    @Slot(object)
     def _on_chunk(self, chunk):
         if chunk.text:
             self._current_answer += chunk.text
         self.chunk_received.emit(chunk)
 
+    @Slot(object)
     def _on_finished(self, stats):
         logger.info("generation_finished stats=%r answer=%r", stats, self._current_answer)
         if self._current_answer.strip():
             self.conversation.add("assistant", self._current_answer)
         self.generation_finished.emit(stats)
 
+    @Slot(str)
     def _on_failed(self, error):
         logger.error("generation_error error=%r", error)
         self.error.emit(error)
@@ -315,6 +318,7 @@ class ChatService(QObject):
         task.signals.finished.connect(self._on_background_router_finished)
         self._task_pool.start(task)
 
+    @Slot(object)
     def _on_background_router_finished(self, result):
         self._ollama_task_running = False
         if isinstance(result, dict) and not result.get("success", True) and result.get("error"):
@@ -324,6 +328,7 @@ class ChatService(QObject):
         self.conversation.add("assistant", direct)
         self.direct_response.emit(direct)
 
+    @Slot(str, object, object)
     def _on_confirmation_requested(self, tool_name, arguments, payload):
         event, result = payload
         self._pending_confirmation = {
