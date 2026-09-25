@@ -159,6 +159,14 @@ class ChatService(QObject):
             logger.debug("send_ignored empty_text")
             return
 
+        if self._pending_confirmation is not None:
+            if self._handle_pending_confirmation(text):
+                return
+            direct = "У меня есть ожидающее подтверждение. Ответь «да» или «нет»."
+            self.conversation.add("assistant", direct)
+            self.direct_response.emit(direct)
+            return
+
         if self._thread and self._thread.isRunning():
             self._pending_messages.append((text, bool(thinking)))
             logger.info("message_queued generation_already_running queue_size=%d text=%r thinking=%s", len(self._pending_messages), text, bool(thinking))
@@ -169,29 +177,6 @@ class ChatService(QObject):
     def _process_message(self, text: str, thinking: bool = False):
         logger.info("user_message text=%r", text)
         self.conversation.add("user", text)
-
-        if self._pending_confirmation is not None:
-            confirmation = self._parse_confirmation(text)
-            if confirmation is not None:
-                if confirmation:
-                    pending = self._pending_confirmation
-                    self._pending_confirmation = None
-                    direct = self.router.execute_confirmed(
-                        pending["tool_name"],
-                        pending["arguments"],
-                    )
-                    self.conversation.add("assistant", direct)
-                    self.direct_response.emit(direct)
-                else:
-                    self._pending_confirmation = None
-                    direct = "Действие отменено."
-                    self.conversation.add("assistant", direct)
-                    self.direct_response.emit(direct)
-                return
-            direct = "У меня есть ожидающее подтверждение. Ответь «да» или «нет»."
-            self.conversation.add("assistant", direct)
-            self.direct_response.emit(direct)
-            return
 
         if self.router:
             if self._is_background_router_command(text):
@@ -257,9 +242,34 @@ class ChatService(QObject):
         logger.error("generation_error error=%r", error)
         self.error.emit(error)
 
+    def _handle_pending_confirmation(self, text):
+        confirmation = self._parse_confirmation(text)
+        if confirmation is None:
+            return False
+
+        pending = self._pending_confirmation
+        self._pending_confirmation = None
+        if pending.get("mode") == "llm":
+            pending["result"][0] = confirmation
+            pending["event"].set()
+            direct = "Подтверждение получено." if confirmation else "Действие отменено."
+            self.conversation.add("assistant", direct)
+            self.direct_response.emit(direct)
+            return True
+
+        direct = (
+            self.router.execute_confirmed(pending["tool_name"], pending["arguments"])
+            if confirmation
+            else "Действие отменено."
+        )
+        self.conversation.add("assistant", direct)
+        self.direct_response.emit(direct)
+        return True
+
     def _confirm_direct(self, tool_name, arguments):
         logger.info("confirmation_requested source=router tool=%s arguments=%r", tool_name, arguments)
         self._pending_confirmation = {
+            "mode": "router",
             "tool_name": tool_name,
             "arguments": dict(arguments),
         }
@@ -316,8 +326,24 @@ class ChatService(QObject):
 
     def _on_confirmation_requested(self, tool_name, arguments, payload):
         event, result = payload
-        result[0] = False
-        event.set()
+        self._pending_confirmation = {
+            "mode": "llm",
+            "tool_name": tool_name,
+            "arguments": dict(arguments),
+            "event": event,
+            "result": result,
+        }
+        labels = {
+            "delete_file": "удаление файла",
+            "write_file": "перезапись файла",
+            "rename_file": "переименование файла",
+            "copy_file": "копирование файла",
+            "move_file": "перемещение файла",
+            "close_application": "закрытие приложения",
+        }
+        prompt = f"⚠️ Подтвердить {labels.get(tool_name, tool_name)}? Ответь «да» или «нет»."
+        self.conversation.add("assistant", prompt)
+        self.direct_response.emit(prompt)
 
     def _cleanup(self):
         logger.debug("generation_thread_cleanup")
