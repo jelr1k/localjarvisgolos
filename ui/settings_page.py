@@ -104,7 +104,6 @@ class SettingsPage(QWidget):
         self._dependency_manager = get_dependency_manager()
         self._dependency_manager.progress.connect(self._on_whisper_progress)
         self._dependency_manager.state_changed.connect(self._on_whisper_state_changed)
-        self._update_whisper_local_controls()
 
         self.whisper_status = QLabel()
         self.whisper_status.setWordWrap(True)
