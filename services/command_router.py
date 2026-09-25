@@ -136,7 +136,16 @@ class CommandRouter:
     @staticmethod
     def _reply(result: dict, include_path: bool = True) -> str:
         if result.get("pending_confirmation"):
-            return "Ожидаю подтверждение действия."
+            tool_name = result.get("confirmation_tool", "действие")
+            labels = {
+                "delete_file": "удаление файла",
+                "write_file": "перезапись файла",
+                "rename_file": "переименование файла",
+                "copy_file": "копирование файла",
+                "move_file": "перемещение файла",
+                "close_application": "закрытие приложения",
+            }
+            return f"⚠️ Подтвердить {labels.get(tool_name, tool_name)}? Ответь «да» или «нет»."
         if not result.get("success"):
             matches = result.get("matches") or []
             if result.get("ambiguous") and matches:
@@ -179,6 +188,18 @@ class CommandRouter:
             alias_confirmation_callback=alias_confirmation_callback,
             use_workspace_index=use_workspace_index,
         )
+
+    def execute_confirmed(self, tool_name: str, arguments: dict) -> str:
+        """Исполняет ранее подтверждённое действие без повторной маршрутизации."""
+        result = self._executor().execute(
+            tool_name,
+            dict(arguments),
+            confirmation_callback=lambda *_args: True,
+        )
+        if tool_name == "close_application":
+            target = str(arguments.get("name") or arguments.get("target") or "приложение")
+            return self._close_reply(target, result)
+        return self._reply(result)
 
     def _direct_tool(self, tool_name: str, arguments: dict, confirmation_callback=None) -> str:
         result = self._executor().execute(
