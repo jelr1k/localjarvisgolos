@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 from faster_whisper import WhisperModel
 
+from core.dependency_manager import get_dependency_manager
+
 
 logger = logging.getLogger("jarvis.voice.whisper")
 
@@ -38,6 +40,9 @@ class SpeechRecognizer:
                     "whisper_local_model_detected path=%s",
                     model_source,
                 )
+
+            if not local_path.is_dir():
+                get_dependency_manager().ensure_whisper_model(model_source)
 
             logger.info(
                 "whisper_model_loading model=%s device=%s compute_type=%s",
