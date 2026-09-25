@@ -6,11 +6,11 @@ import time
 from collections import deque
 from threading import Event
 
-from PySide6.QtCore import QObject, Signal, QThread, QTimer
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtCore import QObject, Signal, QThread, QTimer, QThreadPool
 
 from chat.conversation import Conversation
 from core.alias_manager import AliasManager
+from core.background_task import BackgroundTask
 from llm.request import ChatRequest
 from services.command_router import CommandRouter
 from tools.executor import ToolExecutor
@@ -122,6 +122,7 @@ class ChatService(QObject):
     generation_finished = Signal(object)
     direct_response = Signal(str)
     error = Signal(str)
+    confirmation_requested = Signal(str, object)
 
     def __init__(self, provider, config, ollama_manager=None, alias_manager: AliasManager | None = None):
         super().__init__()
@@ -136,6 +137,9 @@ class ChatService(QObject):
         self._worker = None
         self._current_answer = ""
         self._pending_messages = deque()
+        self._pending_confirmation = None
+        self._task_pool = QThreadPool(self)
+        self._ollama_task_running = False
         logger.info("chat_service_created model=%s", self.config.get("model"))
 
     def set_ui_controller(self, controller) -> None:
@@ -166,7 +170,33 @@ class ChatService(QObject):
         logger.info("user_message text=%r", text)
         self.conversation.add("user", text)
 
+        if self._pending_confirmation is not None:
+            confirmation = self._parse_confirmation(text)
+            if confirmation is not None:
+                if confirmation:
+                    pending = self._pending_confirmation
+                    self._pending_confirmation = None
+                    direct = self.router.execute_confirmed(
+                        pending["tool_name"],
+                        pending["arguments"],
+                    )
+                    self.conversation.add("assistant", direct)
+                    self.direct_response.emit(direct)
+                else:
+                    self._pending_confirmation = None
+                    direct = "Действие отменено."
+                    self.conversation.add("assistant", direct)
+                    self.direct_response.emit(direct)
+                return
+            direct = "У меня есть ожидающее подтверждение. Ответь «да» или «нет»."
+            self.conversation.add("assistant", direct)
+            self.direct_response.emit(direct)
+            return
+
         if self.router:
+            if self._is_background_router_command(text):
+                self._start_background_router(text)
+                return
             try:
                 direct = self.router.route(text, self._confirm_direct, self._confirm_alias)
                 logger.info("router_result direct=%s response=%r", direct is not None, direct)
@@ -229,31 +259,65 @@ class ChatService(QObject):
 
     def _confirm_direct(self, tool_name, arguments):
         logger.info("confirmation_requested source=router tool=%s arguments=%r", tool_name, arguments)
-        return self._show_confirmation(tool_name, arguments)
+        self._pending_confirmation = {
+            "tool_name": tool_name,
+            "arguments": dict(arguments),
+        }
+        self.confirmation_requested.emit(tool_name, dict(arguments))
+        return None
 
     @staticmethod
     def _confirm_alias(query, target, category):
-        logger.info("alias_confirmation_requested query=%r target=%r category=%s", query, target, category)
-        label = {"applications": "приложению", "files": "файлу", "folders": "папке", "actions": "действию"}.get(category, "объекту")
-        answer = QMessageBox.question(None, "Сохранить алиас", f"Я нашёл «{target}». Сохранить «{query}» как дополнительное название этому {label}?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-        accepted = answer == QMessageBox.StandardButton.Yes
-        logger.info("alias_confirmation_result accepted=%s", accepted)
-        return accepted
+        # Алиасы не должны останавливать основной поток модальным окном.
+        # Сейчас это автоматически отклоняется, пока отдельный чат-механизм
+        # подтверждения алиасов не будет подключён.
+        logger.info("alias_confirmation_skipped query=%r target=%r category=%s", query, target, category)
+        return False
+
+    @staticmethod
+    def _parse_confirmation(text):
+        normalized = " ".join(str(text).casefold().replace(".", " ").split())
+        if normalized in {"да", "ага", "подтверждаю", "подтвердить", "выполняй", "делай", "ок", "ok"}:
+            return True
+        if normalized in {"нет", "не", "отмена", "отменить", "отменяй", "не надо"}:
+            return False
+        return None
+
+    def _is_background_router_command(self, text):
+        normalized = self.router._normalize_command_text(text).casefold()
+        model_unload = {item.casefold() for item in self.router._definition_display("model_unload")}
+        ollama_start = {item.casefold() for item in self.router._definition_display("ollama_start")}
+        ollama_stop = {item.casefold() for item in self.router._definition_display("ollama_stop")}
+        return normalized in model_unload | ollama_start | ollama_stop
+
+    def _start_background_router(self, text):
+        if self._ollama_task_running:
+            direct = "Операция с Ollama уже выполняется."
+            self.conversation.add("assistant", direct)
+            self.direct_response.emit(direct)
+            return
+
+        self._ollama_task_running = True
+        self.direct_response.emit("Выполняю операцию с Ollama в фоне…")
+        task = BackgroundTask(
+            lambda: self.router.route(text, self._confirm_direct, self._confirm_alias)
+        )
+        task.signals.finished.connect(self._on_background_router_finished)
+        self._task_pool.start(task)
+
+    def _on_background_router_finished(self, result):
+        self._ollama_task_running = False
+        if isinstance(result, dict) and not result.get("success", True) and result.get("error"):
+            direct = f"Не удалось выполнить команду: {result['error']}"
+        else:
+            direct = str(result)
+        self.conversation.add("assistant", direct)
+        self.direct_response.emit(direct)
 
     def _on_confirmation_requested(self, tool_name, arguments, payload):
         event, result = payload
-        result[0] = self._show_confirmation(tool_name, arguments)
+        result[0] = False
         event.set()
-
-    @staticmethod
-    def _show_confirmation(tool_name, arguments):
-        labels = {"delete_file": "Подтверждение удаления", "write_file": "Подтверждение перезаписи", "rename_file": "Подтверждение переименования", "copy_file": "Подтверждение копирования", "move_file": "Подтверждение перемещения", "close_application": "Подтверждение закрытия приложения"}
-        title = labels.get(tool_name, "Подтверждение действия")
-        description = json.dumps(arguments, ensure_ascii=False, indent=2)
-        answer = QMessageBox.question(None, title, description, QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-        accepted = answer == QMessageBox.StandardButton.Yes
-        logger.info("confirmation_dialog tool=%s accepted=%s arguments=%r", tool_name, accepted, arguments)
-        return accepted
 
     def _cleanup(self):
         logger.debug("generation_thread_cleanup")
