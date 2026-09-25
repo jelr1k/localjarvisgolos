@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from PySide6.QtCore import Signal
+from core.background_task import BackgroundTask
+
+from PySide6.QtCore import Signal, QThreadPool
 from PySide6.QtWidgets import (
     QApplication,
     QWidget,
@@ -16,6 +18,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QFileDialog,
+    QLabel,
 )
 
 
@@ -35,6 +38,8 @@ class SettingsPage(QWidget):
 
         self.config = config
         self.model_service = model_service
+        self._task_pool = QThreadPool(self)
+        self._refresh_running = False
 
         self.assistant_name = QLineEdit(config.get("assistant_name", "JARVIS"))
         self.model = QComboBox()
@@ -128,6 +133,11 @@ class SettingsPage(QWidget):
         box = QGroupBox("Параметры")
         box.setLayout(form)
 
+        self.status_label = QLabel()
+        self.status_label.setWordWrap(True)
+        self.status_label.setMinimumHeight(24)
+        self._set_status("Готово", False)
+
         refresh = QPushButton("Обновить данные")
         refresh.setToolTip("Обновить список моделей Ollama и список доступных микрофонов.")
         refresh.clicked.connect(self.refresh_data)
@@ -136,6 +146,7 @@ class SettingsPage(QWidget):
         save.clicked.connect(self.save)
 
         layout = QVBoxLayout(self)
+        layout.addWidget(self.status_label)
         layout.addWidget(box)
         layout.addWidget(refresh)
         layout.addWidget(save)
@@ -267,19 +278,36 @@ class SettingsPage(QWidget):
             self.test_microphone.setText("Проверить выбранный микрофон")
             self.test_microphone.setEnabled(True)
 
-    def refresh_data(self):
-        """Refresh external device/model lists without changing saved settings."""
-        errors = []
+    def _set_status(self, text: str, error: bool):
+        self.status_label.setText(text)
+        self.status_label.setProperty("status_error", bool(error))
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
 
-        try:
-            models = self.model_service.get_models()
+    def refresh_data(self):
+        """Refresh external data without blocking the GUI thread."""
+        if self._refresh_running:
+            return
+        self._refresh_running = True
+        self.refresh_button = getattr(self, "refresh_button", None)
+        self._set_status("⟳ Обновляю данные…", False)
+
+        task = BackgroundTask(self.model_service.get_models)
+        task.signals.finished.connect(self._on_models_refreshed)
+        self._task_pool.start(task)
+
+    def _on_models_refreshed(self, result):
+        self._refresh_running = False
+        errors = []
+        if isinstance(result, dict) and result.get("success") is False:
+            errors.append(f"Модели Ollama: {result.get('error', 'неизвестная ошибка')}")
+        else:
+            models = result if isinstance(result, list) else []
             current = self.model.currentText()
             self.model.clear()
             self.model.addItems(models)
             if current:
                 self.model.setCurrentText(current)
-        except Exception as exc:
-            errors.append(f"Модели Ollama: {exc}")
 
         try:
             self._load_microphones()
@@ -287,17 +315,9 @@ class SettingsPage(QWidget):
             errors.append(f"Микрофоны: {exc}")
 
         if errors:
-            QMessageBox.warning(
-                self,
-                "Обновление данных",
-                "Не всё удалось обновить.\n\n" + "\n".join(errors),
-            )
+            self._set_status("⚠ " + " | ".join(errors), True)
         else:
-            QMessageBox.information(
-                self,
-                "Обновление данных",
-                "Списки моделей и микрофонов обновлены.",
-            )
+            self._set_status("✓ Данные обновлены", False)
 
     def save(self):
         self.config.data["assistant_name"] = self.assistant_name.text().strip() or "JARVIS"
@@ -348,4 +368,4 @@ class SettingsPage(QWidget):
             self.config.get("model"),
             self.config.get("assistant_name", "JARVIS"),
         )
-        QMessageBox.information(self, "Настройки", "Настройки сохранены.")
+        self._set_status("✓ Настройки сохранены", False)
