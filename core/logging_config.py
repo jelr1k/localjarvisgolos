@@ -63,6 +63,7 @@ def setup_logging() -> logging.Logger:
     _configure_logger("jarvis.tools", "commands.log")
     _configure_logger("jarvis.process", "commands.log")
     _configure_logger("jarvis.target_resolver", "commands.log")
+    _configure_logger("jarvis.dependencies", "dependencies.log")
 
     events_logger = logging.getLogger("jarvis.events")
     events_logger.setLevel(logging.INFO)
