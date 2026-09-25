@@ -139,6 +139,7 @@ class SettingsPage(QWidget):
         self._set_status("Готово", False)
 
         refresh = QPushButton("Обновить данные")
+        self.refresh_button = refresh
         refresh.setToolTip("Обновить список моделей Ollama и список доступных микрофонов.")
         refresh.clicked.connect(self.refresh_data)
 
@@ -289,7 +290,7 @@ class SettingsPage(QWidget):
         if self._refresh_running:
             return
         self._refresh_running = True
-        self.refresh_button = getattr(self, "refresh_button", None)
+        self.refresh_button.setEnabled(False)
         self._set_status("⟳ Обновляю данные…", False)
 
         task = BackgroundTask(self.model_service.get_models)
@@ -298,6 +299,7 @@ class SettingsPage(QWidget):
 
     def _on_models_refreshed(self, result):
         self._refresh_running = False
+        self.refresh_button.setEnabled(True)
         errors = []
         if isinstance(result, dict) and result.get("success") is False:
             errors.append(f"Модели Ollama: {result.get('error', 'неизвестная ошибка')}")
