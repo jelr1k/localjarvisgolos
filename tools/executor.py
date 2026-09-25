@@ -73,6 +73,13 @@ class ToolExecutor:
                     return {"success": False, "error": "Для этого действия требуется подтверждение пользователя."}
                 accepted = confirmation_callback(tool_name, arguments)
                 logger.info("tool_confirmation_result name=%s accepted=%s", tool_name, accepted)
+                if accepted is None:
+                    return {
+                        "success": False,
+                        "pending_confirmation": True,
+                        "confirmation_tool": tool_name,
+                        "confirmation_arguments": arguments,
+                    }
                 if not accepted:
                     return {"success": False, "error": "Пользователь отменил действие."}
 
