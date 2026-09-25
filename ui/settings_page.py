@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from core.background_task import BackgroundTask
+from core.dependency_manager import get_dependency_manager
 
 from PySide6.QtCore import Signal, Slot, QThreadPool
 from PySide6.QtWidgets import (
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QFileDialog,
     QLabel,
+    QProgressBar,
 )
 
 
@@ -40,6 +42,7 @@ class SettingsPage(QWidget):
         self.model_service = model_service
         self._task_pool = QThreadPool(self)
         self._refresh_running = False
+        self._whisper_download_running = False
 
         self.assistant_name = QLineEdit(config.get("assistant_name", "JARVIS"))
         self.model = QComboBox()
@@ -98,7 +101,24 @@ class SettingsPage(QWidget):
             self.whisper_local_path.setText(current_whisper)
 
         self.whisper_model.currentIndexChanged.connect(self._update_whisper_local_controls)
+        self._dependency_manager = get_dependency_manager()
+        self._dependency_manager.progress.connect(self._on_whisper_progress)
+        self._dependency_manager.state_changed.connect(self._on_whisper_state_changed)
         self._update_whisper_local_controls()
+
+        self.whisper_status = QLabel()
+        self.whisper_status.setWordWrap(True)
+        self.whisper_status.setMinimumHeight(36)
+        self.whisper_download = QPushButton("Скачать модель")
+        self.whisper_download.clicked.connect(self._download_selected_whisper)
+        self.whisper_progress = QProgressBar()
+        self.whisper_progress.setRange(0, 100)
+        self.whisper_progress.setValue(0)
+        self.whisper_progress.hide()
+        self.whisper_progress_label = QLabel()
+        self.whisper_progress_label.setWordWrap(True)
+        self.whisper_progress_label.hide()
+        self._refresh_whisper_statuses()
 
         self.wake_word_enabled = QCheckBox("Включить wake word")
         self.wake_word_enabled.setChecked(bool(voice_config.get("wake_word_enabled", True)))
@@ -118,6 +138,10 @@ class SettingsPage(QWidget):
         form.addRow("Имя ассистента:", self.assistant_name)
         form.addRow("Модель:", self.model)
         form.addRow("Whisper:", self.whisper_model)
+        form.addRow("", self.whisper_status)
+        form.addRow("", self.whisper_download)
+        form.addRow("", self.whisper_progress)
+        form.addRow("", self.whisper_progress_label)
         form.addRow("Локальная модель:", self._whisper_path_row)
         form.addRow("Температура:", self.temperature)
         form.addRow("Контекст:", self.context)
@@ -152,10 +176,128 @@ class SettingsPage(QWidget):
         layout.addWidget(refresh)
         layout.addWidget(save)
 
+    def _refresh_whisper_statuses(self):
+        for index in range(self.whisper_model.count()):
+            model_name = self.whisper_model.itemData(index)
+            if model_name is None:
+                self.whisper_model.setItemText(index, "Локальная модель")
+                continue
+            status = self._dependency_manager.whisper_status(str(model_name))
+            base_label = self._WHISPER_PRESETS[index][0]
+            suffix = " ✓ установлена" if status == "installed" else " • не установлена"
+            self.whisper_model.setItemText(index, base_label + suffix)
+        self._update_whisper_local_controls()
+
     def _update_whisper_local_controls(self):
         is_local = self.whisper_model.currentData() is None
         self.whisper_local_path.setEnabled(is_local)
         self.whisper_browse.setEnabled(is_local)
+        if is_local:
+            self.whisper_status.setText("Локальная модель: путь выбирается вручную.")
+            self.whisper_download.setEnabled(False)
+            self.whisper_progress.hide()
+            self.whisper_progress_label.hide()
+            return
+
+        model_name = str(self.whisper_model.currentData())
+        status = self._dependency_manager.whisper_status(model_name)
+        if status == "installed":
+            self.whisper_status.setText("✓ Эта модель уже установлена.")
+            self.whisper_download.setText("Модель установлена ✓")
+            self.whisper_download.setEnabled(False)
+        else:
+            self.whisper_status.setText(
+                "Эта модель не установлена. При первом использовании она будет "
+                "загружена на ваш ПК. Также её можно скачать сейчас."
+            )
+            self.whisper_download.setText("Скачать модель")
+            self.whisper_download.setEnabled(not self._whisper_download_running)
+
+    @staticmethod
+    def _format_bytes(value):
+        value = float(max(0, value))
+        for unit in ("Б", "КБ", "МБ", "ГБ", "ТБ"):
+            if value < 1024 or unit == "ТБ":
+                return f"{value:.1f} {unit}" if unit != "Б" else f"{int(value)} Б"
+            value /= 1024
+        return f"{value:.1f} ТБ"
+
+    @staticmethod
+    def _format_eta(seconds):
+        if seconds <= 0:
+            return "—"
+        seconds = int(seconds)
+        if seconds < 60:
+            return f"{seconds} с"
+        minutes, seconds = divmod(seconds, 60)
+        if minutes < 60:
+            return f"{minutes} мин {seconds:02d} с"
+        hours, minutes = divmod(minutes, 60)
+        return f"{hours} ч {minutes:02d} мин"
+
+    def _download_selected_whisper(self):
+        if self._whisper_download_running:
+            return
+        model_name = self.whisper_model.currentData()
+        if model_name is None:
+            return
+        model_name = str(model_name)
+        self._whisper_download_running = True
+        self.whisper_download.setEnabled(False)
+        self.whisper_download.setText("Загрузка…")
+        self.whisper_progress.setValue(0)
+        self.whisper_progress.show()
+        self.whisper_progress_label.setText("Подготавливаю загрузку…")
+        self.whisper_progress_label.show()
+        self._set_status(f"⟳ Загружаю Whisper {model_name}…", False)
+        task = BackgroundTask(lambda: self._dependency_manager.ensure_whisper_model(model_name))
+        task.signals.finished.connect(self._on_whisper_download_finished)
+        self._task_pool.start(task)
+
+    @Slot(str, int, int, float)
+    def _on_whisper_progress(self, model_name, current, total, speed):
+        selected = self.whisper_model.currentData()
+        if selected is None or str(selected) != str(model_name):
+            return
+        if total > 0:
+            percent = min(100, max(0, round(current * 100 / total)))
+            self.whisper_progress.setValue(percent)
+            eta = (total - current) / speed if speed > 0 else 0
+            self.whisper_progress_label.setText(
+                f"{percent}% • {self._format_bytes(current)} / {self._format_bytes(total)}\n"
+                f"Скорость: {self._format_bytes(speed)}/с • Осталось примерно: {self._format_eta(eta)}"
+            )
+        else:
+            self.whisper_progress_label.setText(
+                f"{self._format_bytes(current)} скачано • определяю размер…"
+            )
+
+    @Slot(str, str)
+    def _on_whisper_state_changed(self, model_name, state):
+        selected = self.whisper_model.currentData()
+        if selected is None or str(selected) != str(model_name):
+            return
+        if state == "installed":
+            self._refresh_whisper_statuses()
+            self._set_status(f"✓ Whisper {model_name} установлена", False)
+        elif state == "cancelled":
+            self._set_status("Загрузка Whisper отменена", False)
+        elif state == "error":
+            self._set_status("⚠ Не удалось загрузить Whisper", True)
+
+    @Slot(object)
+    def _on_whisper_download_finished(self, result):
+        self._whisper_download_running = False
+        success = not (isinstance(result, dict) and result.get("success") is False)
+        if success:
+            self.whisper_progress.setValue(100)
+            self.whisper_progress_label.setText("100% • модель полностью загружена")
+        else:
+            self.whisper_progress_label.setText(
+                f"Ошибка: {result.get('error', 'неизвестная ошибка')}"
+            )
+        self._refresh_whisper_statuses()
+        self._update_whisper_local_controls()
 
     def _choose_whisper_model(self):
         directory = QFileDialog.getExistingDirectory(
