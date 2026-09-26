@@ -9,10 +9,11 @@ from core.dependency_manager import get_dependency_manager
 from core.events import EventBus
 from core.ollama_manager import OllamaManager
 from core.task_runner import TaskRunner
+from security.permissions import PermissionManager
 from llm.ollama import OllamaProvider
 from services.chat_service import ChatService
 from tools.paths import prepare_tool_workspace
-from voice.controller import VoiceController
+from voice.controller import VoiceService
 from voice.wake_word import WakeWordDetector
 
 
@@ -38,15 +39,17 @@ class JarvisApplication:
         self.ollama_manager = OllamaManager(self.config.ollama_url)
         self.provider = OllamaProvider(self.config.ollama_url)
         self.dependency_manager = get_dependency_manager(self.events)
+        self.permission_manager = PermissionManager(self.config)
         self.chat_service = ChatService(
             self.provider,
             self.config,
             self.ollama_manager,
             self.alias_manager,
+            permission_manager=self.permission_manager,
             event_bus=self.events,
             task_runner=self.tasks,
         )
-        self.voice_controller = VoiceController(
+        self.voice_service = VoiceService(
             self.config,
             event_bus=self.events,
             task_runner=self.tasks,
@@ -91,7 +94,7 @@ class JarvisApplication:
         """Apply persisted settings to backend services."""
         self.provider.set_base_url(self.config.ollama_url)
         self.ollama_manager.set_base_url(self.config.ollama_url)
-        self.voice_controller.apply_config(self.config)
+        self.voice_service.apply_config(self.config)
         self.wake_word_detector.apply_config(self.config)
         self.ollama_manager.register_model(self.config.get("model"))
         if self.config.get("voice", {}).get("wake_word_enabled", True):
@@ -115,7 +118,7 @@ class JarvisApplication:
         except Exception:
             logger.exception("wake_word_close_failed")
         try:
-            self.voice_controller.close()
+            self.voice_service.close()
         except Exception:
             logger.exception("voice_close_failed")
         try:
