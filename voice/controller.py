@@ -3,8 +3,11 @@ from __future__ import annotations
 import logging
 import threading
 
+import numpy as np
+import sounddevice as sd
+
 from voice.command_normalizer import normalize_voice_command
-from voice.devices import find_input_device_by_name, find_supported_sample_rate
+from voice.devices import find_input_device_by_name, find_supported_sample_rate, list_input_devices, _normalize_name
 from voice.microphone import MicrophoneRecorder
 from voice.speech_recognizer import SpeechRecognizer
 from core.task_runner import TaskRunner
@@ -37,6 +40,8 @@ class VoiceService:
         self.silence_duration = max(0.5, float(voice_config.get("silence_duration", 2.0)))
         configured_device = voice_config.get("input_device")
         configured_name = voice_config.get("input_device_name")
+        self._configured_device = configured_device
+        self._configured_device_name = configured_name
 
         self.device = configured_device
         if configured_name:
@@ -77,6 +82,59 @@ class VoiceService:
             compute_type=self.compute_type,
             language=self.language,
         )
+
+    def list_microphones(self):
+        """Return available input devices and the currently selected device."""
+        try:
+            devices = list(sd.query_devices())
+            hostapis = list(sd.query_hostapis())
+            current_name = self._configured_device_name
+            current_index = self._configured_device
+            result = [{
+                "index": None,
+                "name": "Системный микрофон по умолчанию",
+                "hostapi_name": "",
+                "selected": current_index is None and not current_name,
+            }]
+            normalized = _normalize_name(current_name or "")
+            for device in list_input_devices(devices, hostapis):
+                index = int(device["index"])
+                name = str(device.get("name", f"Микрофон {index}"))
+                selected = (
+                    bool(normalized and _normalize_name(name) == normalized)
+                    or (not current_name and current_index == index)
+                )
+                result.append({
+                    "index": index,
+                    "name": name,
+                    "hostapi_name": str(device.get("hostapi_name", "")),
+                    "selected": selected,
+                })
+            if not any(item["selected"] for item in result):
+                result[0]["selected"] = True
+            return {"success": True, "devices": result}
+        except Exception as exc:
+            return {"success": False, "error": str(exc), "devices": []}
+
+    def test_microphone(self, device):
+        """Record a short sample from a device and return basic signal metrics."""
+        rate = find_supported_sample_rate(
+            device=device,
+            channels=self.channels,
+            preferred=self.sample_rate,
+        )
+        audio = sd.rec(
+            int(rate * 1.5),
+            samplerate=rate,
+            channels=self.channels,
+            dtype="float32",
+            device=device,
+            blocking=True,
+        )
+        audio = np.asarray(audio, dtype=np.float32)
+        peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+        rms = float(np.sqrt(np.mean(np.square(audio)))) if audio.size else 0.0
+        return {"success": True, "rate": rate, "peak": peak, "rms": rms}
 
     @property
     def is_recording(self) -> bool:
