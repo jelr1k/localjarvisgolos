@@ -4,14 +4,12 @@ import logging
 import threading
 from typing import Callable
 
-from PySide6.QtCore import QObject, Signal
-
 from core.logging_config import log_event
 from tqdm.auto import tqdm
 
 try:
     from huggingface_hub import snapshot_download
-except ImportError:  # pragma: no cover - dependency is required by faster-whisper
+except ImportError:  # pragma: no cover
     snapshot_download = None
 
 
@@ -23,8 +21,6 @@ class ModelDownloadCancelled(Exception):
 
 
 class _ProgressTqdm(tqdm):
-    """Bridge Hugging Face/tqdm progress into Qt signals."""
-
     callback: Callable[[int, int, float], None] | None = None
     cancel_event: threading.Event | None = None
 
@@ -35,12 +31,8 @@ class _ProgressTqdm(tqdm):
     def _report(self):
         if self.cancel_event is not None and self.cancel_event.is_set():
             raise ModelDownloadCancelled()
-        if self.callback is None:
-            return
-        total = int(self.total or 0)
-        current = int(self.n or 0)
-        rate = float(self.format_dict.get("rate") or 0.0)
-        self.callback(current, total, rate)
+        if self.callback is not None:
+            self.callback(int(self.n or 0), int(self.total or 0), float(self.format_dict.get("rate") or 0.0))
 
     def update(self, n=1):
         result = super().update(n)
@@ -48,64 +40,54 @@ class _ProgressTqdm(tqdm):
         return result
 
     def update_transfer(self, n=1):
-        result = super().update(n)
+        result = super().update_transfer(n)
         self._report()
         return result
 
 
-class DependencyManager(QObject):
-    """Manages large optional runtime resources without replacing their native caches."""
-
-    progress = Signal(str, int, int, float)
-    state_changed = Signal(str, str)
-    finished = Signal(str, bool, str)
+class DependencyManager:
+    """Manages optional runtime resources without GUI dependencies."""
 
     WHISPER_REPOS = {
         "small": "Systran/faster-whisper-small",
         "medium": "Systran/faster-whisper-medium",
         "large-v3": "Systran/faster-whisper-large-v3",
     }
-
     WHISPER_PATTERNS = (
-        "config.json",
-        "preprocessor_config.json",
-        "model.bin",
-        "tokenizer.json",
-        "vocabulary.*",
+        "config.json", "preprocessor_config.json", "model.bin",
+        "tokenizer.json", "vocabulary.*",
     )
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, event_bus=None):
+        self.events = event_bus
         self._lock = threading.RLock()
         self._condition = threading.Condition(self._lock)
         self._active_model: str | None = None
         self._cancel_event = threading.Event()
+
+    def _emit(self, event: str, *args):
+        if self.events is not None:
+            self.events.emit(event, *args)
 
     def is_managed_whisper_model(self, model_name: str) -> bool:
         return str(model_name).strip() in self.WHISPER_REPOS
 
     def whisper_status(self, model_name: str) -> str:
         model_name = str(model_name).strip()
-        if not self.is_managed_whisper_model(model_name):
-            logger.debug("Whisper model is not managed model=%s", model_name)
-            return "unknown"
-        if snapshot_download is None:
-            logger.error("huggingface_hub is unavailable while checking model=%s", model_name)
-            return "missing"
+        if not self.is_managed_whisper_model(model_name) or snapshot_download is None:
+            return "unknown" if not self.is_managed_whisper_model(model_name) else "missing"
         try:
             snapshot_download(
                 self.WHISPER_REPOS[model_name],
                 allow_patterns=list(self.WHISPER_PATTERNS),
                 local_files_only=True,
             )
-            logger.debug("Whisper model cache status model=%s status=installed", model_name)
             return "installed"
         except Exception:
-            logger.debug("Whisper model cache status model=%s status=missing", model_name, exc_info=True)
+            logger.debug("whisper_model_missing model=%s", model_name, exc_info=True)
             return "missing"
 
     def whisper_download_size(self, model_name: str) -> int:
-        """Return bytes that would be downloaded now, without downloading them."""
         model_name = str(model_name).strip()
         if not self.is_managed_whisper_model(model_name):
             return 0
@@ -116,9 +98,7 @@ class DependencyManager(QObject):
             allow_patterns=list(self.WHISPER_PATTERNS),
             dry_run=True,
         )
-        size = sum(int(getattr(item, "file_size", 0) or 0) for item in files)
-        logger.debug("Whisper download size model=%s bytes=%s", model_name, size)
-        return size
+        return sum(int(getattr(item, "file_size", 0) or 0) for item in files)
 
     def cancel(self):
         self._cancel_event.set()
@@ -127,9 +107,7 @@ class DependencyManager(QObject):
         model_name = str(model_name).strip()
         if not self.is_managed_whisper_model(model_name):
             return model_name
-
         if self.whisper_status(model_name) == "installed":
-            logger.debug("Whisper model already installed model=%s", model_name)
             return model_name
 
         with self._condition:
@@ -140,50 +118,39 @@ class DependencyManager(QObject):
                     self._condition.wait()
                 if self.whisper_status(model_name) == "installed":
                     return model_name
-
             self._active_model = model_name
             self._cancel_event.clear()
 
-        logger.info("Whisper model download started model=%s repo=%s", model_name, self.WHISPER_REPOS[model_name])
-        log_event("dependency_download_started", dependency="whisper", model=model_name, repo=self.WHISPER_REPOS[model_name])
-        self.state_changed.emit(model_name, "downloading")
-        _ProgressTqdm.callback = lambda current, total, rate: self.progress.emit(
-            model_name, current, total, rate
+        repo = self.WHISPER_REPOS[model_name]
+        self._emit("dependency.state_changed", model_name, "downloading")
+        _ProgressTqdm.callback = lambda current, total, rate: self._emit(
+            "dependency.progress", model_name, current, total, rate
         )
         _ProgressTqdm.cancel_event = self._cancel_event
-
         try:
             if snapshot_download is None:
-                logger.error("Cannot download Whisper model because huggingface_hub is unavailable model=%s", model_name)
                 raise RuntimeError("huggingface_hub недоступен")
-
             snapshot_download(
-                self.WHISPER_REPOS[model_name],
+                repo,
                 allow_patterns=list(self.WHISPER_PATTERNS),
                 max_workers=1,
                 tqdm_class=_ProgressTqdm,
             )
-
             if self.whisper_status(model_name) != "installed":
                 raise RuntimeError("Модель скачалась не полностью или повреждена")
-
-            logger.info("Whisper model download completed model=%s", model_name)
+            self._emit("dependency.progress", model_name, 1, 1, 0.0)
+            self._emit("dependency.state_changed", model_name, "installed")
+            self._emit("dependency.finished", model_name, True, "")
             log_event("dependency_download_completed", dependency="whisper", model=model_name)
-            self.progress.emit(model_name, 1, 1, 0.0)
-            self.state_changed.emit(model_name, "installed")
-            self.finished.emit(model_name, True, "")
             return model_name
         except ModelDownloadCancelled:
-            logger.warning("Whisper model download cancelled model=%s", model_name)
-            log_event("dependency_download_cancelled", dependency="whisper", model=model_name)
-            self.state_changed.emit(model_name, "cancelled")
-            self.finished.emit(model_name, False, "Загрузка отменена")
+            self._emit("dependency.state_changed", model_name, "cancelled")
+            self._emit("dependency.finished", model_name, False, "Загрузка отменена")
             raise
         except Exception as exc:
-            logger.exception("Whisper model download failed model=%s", model_name)
-            log_event("dependency_download_failed", dependency="whisper", model=model_name, error=str(exc))
-            self.state_changed.emit(model_name, "error")
-            self.finished.emit(model_name, False, str(exc))
+            logger.exception("whisper_download_failed model=%s", model_name)
+            self._emit("dependency.state_changed", model_name, "error")
+            self._emit("dependency.finished", model_name, False, str(exc))
             raise
         finally:
             _ProgressTqdm.callback = None
@@ -197,9 +164,11 @@ _manager: DependencyManager | None = None
 _manager_lock = threading.Lock()
 
 
-def get_dependency_manager() -> DependencyManager:
+def get_dependency_manager(event_bus=None) -> DependencyManager:
     global _manager
     with _manager_lock:
         if _manager is None:
-            _manager = DependencyManager()
+            _manager = DependencyManager(event_bus)
+        elif event_bus is not None:
+            _manager.events = event_bus
         return _manager
