@@ -70,13 +70,12 @@ class CommandRouter:
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
         self.target_resolver = TargetResolver(self.alias_manager, get_workspace_index)
-        self.ui_controller = None
+        self.ui_actions = {}
         logger.debug("router_created")
 
-    def set_ui_controller(self, controller) -> None:
-        """Подключает UI для команд, которые относятся к самому Jarvis и его окну."""
-        self.ui_controller = controller
-        logger.debug("router_ui_controller_set controller=%s", type(controller).__name__)
+    def set_ui_actions(self, actions: dict[str, callable] | None) -> None:
+        """Registers abstract application-window actions, without knowing the UI framework."""
+        self.ui_actions = dict(actions or {})
 
     def _executor(self) -> ToolExecutor:
         return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
@@ -285,52 +284,37 @@ class CommandRouter:
                 return f"{target} свернут."
             return f"Не удалось свернуть {target}: {result.get('error', 'неизвестная ошибка')}"
 
-        # Специальные команды Jarvis/окна. Они намеренно НЕ являются LLM tools.
-        if self.ui_controller is not None:
-            assistant_name = str(self.config.get("assistant_name", "JARVIS")).strip().casefold()
-            shutdown_commands = {
-                "закрой себя",
-                "закрой джарвис",
-                "закрой jarvis",
-                "выключись",
-                "закройся",
-                "заверши работу",
-            }
-            if assistant_name:
-                shutdown_commands.add(f"закрой {assistant_name}")
+        # Специальные команды Jarvis/окна. Backend знает только абстрактные
+        # действия. Конкретный UI предоставляет их через ui_actions.
+        ui_actions = self.ui_actions
+        assistant_name = str(self.config.get("assistant_name", "JARVIS")).strip().casefold()
+        shutdown_commands = {"закрой себя", "закрой джарвис", "закрой jarvis", "выключись", "закройся", "заверши работу"}
+        if assistant_name:
+            shutdown_commands.add(f"закрой {assistant_name}")
 
-            if lower in shutdown_commands:
-                shutdown = getattr(self.ui_controller, "shutdown", None)
-                if callable(shutdown):
-                    shutdown()
-                else:
-                    # Запасной вариант для старых UI-контроллеров.
-                    self.ui_controller.close()
-                return "Полностью закрываю Jarvis."
+        if lower in shutdown_commands:
+            action = ui_actions.get("shutdown")
+            if action:
+                action()
+            return "Полностью закрываю Jarvis."
 
-            if lower in {item.casefold() for item in self._definition_display("jarvis_minimize")}:
-                minimize = getattr(self.ui_controller, "minimize_window", None)
-                if callable(minimize):
-                    minimize()
-                else:
-                    self.ui_controller.showMinimized()
-                return "Сворачиваю окно."
+        if lower in {item.casefold() for item in self._definition_display("jarvis_minimize")}:
+            action = ui_actions.get("minimize")
+            if action:
+                action()
+            return "Сворачиваю окно."
 
-            if lower in {item.casefold() for item in self._definition_display("jarvis_maximize")}:
-                maximize = getattr(self.ui_controller, "maximize_window", None)
-                if callable(maximize):
-                    maximize()
-                else:
-                    self.ui_controller.showMaximized()
-                return "Разворачиваю окно."
+        if lower in {item.casefold() for item in self._definition_display("jarvis_maximize")}:
+            action = ui_actions.get("maximize")
+            if action:
+                action()
+            return "Разворачиваю окно."
 
-            if lower in {item.casefold() for item in self._definition_display("jarvis_restore")}:
-                restore = getattr(self.ui_controller, "restore_window", None)
-                if callable(restore):
-                    restore()
-                else:
-                    self.ui_controller.showNormal()
-                return "Восстанавливаю обычный размер окна."
+        if lower in {item.casefold() for item in self._definition_display("jarvis_restore")}:
+            action = ui_actions.get("restore")
+            if action:
+                action()
+            return "Восстанавливаю обычный размер окна."
 
         # Ollama и модель. Русские варианты намеренно широкие: Vosk часто
         # искажает «Ollama» и название Qwen.
