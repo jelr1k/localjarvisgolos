@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from core.background_task import BackgroundTask
+from ui.background_task import BackgroundTask
 from core.dependency_manager import get_dependency_manager
 
 from PySide6.QtCore import Signal, Slot, QThreadPool
@@ -35,11 +35,12 @@ class SettingsPage(QWidget):
         ("Локальная модель", None),
     )
 
-    def __init__(self, config, model_service):
+    def __init__(self, config, model_service, dependency_manager=None):
         super().__init__()
 
         self.config = config
         self.model_service = model_service
+        self._dependency_manager = dependency_manager or get_dependency_manager()
         self._task_pool = QThreadPool(self)
         self._refresh_running = False
         self._whisper_download_running = False
@@ -101,9 +102,9 @@ class SettingsPage(QWidget):
             self.whisper_local_path.setText(current_whisper)
 
         self.whisper_model.currentIndexChanged.connect(self._update_whisper_local_controls)
-        self._dependency_manager = get_dependency_manager()
-        self._dependency_manager.progress.connect(self._on_whisper_progress)
-        self._dependency_manager.state_changed.connect(self._on_whisper_state_changed)
+        if hasattr(self._dependency_manager, "progress"):
+            self._dependency_manager.progress.connect(self._on_whisper_progress)
+            self._dependency_manager.state_changed.connect(self._on_whisper_state_changed)
 
         self.whisper_status = QLabel()
         self.whisper_status.setWordWrap(True)
