@@ -235,6 +235,13 @@ class ChatService:
     def _confirm_tool(self, tool_name, arguments):
         event = Event()
         result = [False]
+        self._pending_confirmation = {
+            "mode": "llm",
+            "tool_name": tool_name,
+            "arguments": dict(arguments),
+            "event": event,
+            "result": result,
+        }
         self._emit("chat.tool_confirmation_requested", tool_name, arguments, (event, result))
         event.wait()
         return result[0]
