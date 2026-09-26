@@ -19,8 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core.alias_manager import AliasManager
-from core.workspace_view_model import WorkspaceObject, WorkspaceViewModel
+
 
 
 class AliasDialog(QDialog):
@@ -86,18 +85,17 @@ class WorkspaceTab(QWidget):
 
     def __init__(
         self,
-        workspace: Path,
-        alias_manager: AliasManager | None = None,
+        controller,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
-        self.model = WorkspaceViewModel(workspace, alias_manager)
+        self.controller = controller
         self.objects: list[WorkspaceObject] = []
         self.setAcceptDrops(True)
 
         root = QVBoxLayout(self)
         header = QHBoxLayout()
-        header.addWidget(QLabel(f"Workspace: {self.model.index.workspace}"))
+        header.addWidget(QLabel(f"Workspace: {self.controller.workspace}"))
         header.addStretch()
 
         add = QPushButton("Добавить файл")
@@ -178,7 +176,7 @@ class WorkspaceTab(QWidget):
 
     def _import_file(self, source: Path):
         try:
-            target = self.model.add_file(source)
+            target = self.controller.add_file(source)
         except FileExistsError as exc:
             QMessageBox.information(self, "Workspace", str(exc))
             self.refresh()
@@ -194,7 +192,7 @@ class WorkspaceTab(QWidget):
                 break
 
     def refresh(self):
-        self.objects = self.model.refresh()
+        self.objects = self.controller.refresh()
         self.list_widget.clear()
         for obj in self.objects:
             item = QListWidgetItem(obj.entry.relative_path)
@@ -226,7 +224,7 @@ class WorkspaceTab(QWidget):
         obj = self.objects[row]
         if obj.entry.category not in {"applications", "files"}:
             return
-        dialog = AliasDialog(self, obj, lambda aliases: self.model.set_aliases(obj.entry, aliases))
+        dialog = AliasDialog(self, obj, lambda aliases: self.controller.set_aliases(obj.entry, aliases)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
             self.list_widget.setCurrentRow(row)
