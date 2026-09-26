@@ -1,6 +1,0 @@
-{
-  "preferred_models": [
-    "qwen3-1.7b-no-think:latest",
-    "qwen3:8b"
-  ]
-}
