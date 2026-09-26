@@ -26,11 +26,12 @@ class ChatService:
     """
 
     def __init__(self, provider, config, ollama_manager=None, alias_manager: AliasManager | None = None,
-                 event_bus=None, task_runner: TaskRunner | None = None):
+                 permission_manager=None, event_bus=None, task_runner: TaskRunner | None = None):
         self.provider = provider
         self.config = config
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
+        self.permission_manager = permission_manager
         self.events = event_bus
         self.tasks = task_runner or TaskRunner(max_workers=4)
         self.conversation = Conversation()
@@ -127,6 +128,7 @@ class ChatService:
             self.config,
             enabled_tools=allowed_tools,
             alias_manager=self.alias_manager,
+            permission_manager=self.permission_manager,
         )
         messages = list(request.messages)
         stats = None
