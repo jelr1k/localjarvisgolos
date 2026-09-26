@@ -13,7 +13,7 @@ from core.task_runner import TaskRunner
 logger = logging.getLogger("jarvis.voice")
 
 
-class VoiceController:
+class VoiceService:
     """Backend voice controller. GUI/framework code is intentionally absent."""
 
     def __init__(self, config: dict, event_bus=None, task_runner: TaskRunner | None = None):
