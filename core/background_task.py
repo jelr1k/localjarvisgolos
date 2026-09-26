@@ -1,23 +1,13 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, QRunnable, Signal
+from core.task_runner import TaskRunner
 
 
-class BackgroundTaskSignals(QObject):
-    finished = Signal(object)
-
-
-class BackgroundTask(QRunnable):
-    """Runs a blocking callable outside the GUI thread and returns its result."""
+class BackgroundTask:
+    """Compatibility wrapper for code that submits a blocking callable."""
 
     def __init__(self, function):
-        super().__init__()
         self.function = function
-        self.signals = BackgroundTaskSignals()
 
-    def run(self):
-        try:
-            result = self.function()
-        except Exception as exc:
-            result = {"success": False, "error": str(exc)}
-        self.signals.finished.emit(result)
+    def submit(self, runner: TaskRunner):
+        return runner.submit(self.function)
