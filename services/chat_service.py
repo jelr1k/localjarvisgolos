@@ -6,11 +6,9 @@ import time
 from collections import deque
 from threading import Event
 
-from PySide6.QtCore import QObject, Signal, Slot, QThread, QTimer, QThreadPool
-
 from chat.conversation import Conversation
 from core.alias_manager import AliasManager
-from core.background_task import BackgroundTask
+from core.task_runner import TaskRunner
 from llm.request import ChatRequest
 from services.command_router import CommandRouter
 from tools.executor import ToolExecutor
@@ -20,143 +18,47 @@ from tools.registry import ollama_tools
 logger = logging.getLogger("jarvis.chat")
 
 
-class GenerationWorker(QObject):
-    chunk = Signal(object)
-    finished = Signal(object)
-    failed = Signal(str)
-    confirmation_requested = Signal(str, object, object)
+class ChatService:
+    """Framework-independent chat/application service.
 
-    def __init__(self, provider, request, config, alias_manager: AliasManager, ollama_manager=None):
-        super().__init__()
-        self.provider = provider
-        self.request = request
-        self.ollama_manager = ollama_manager
-        self.config = config
-        self.alias_manager = alias_manager
-        allowed_tools = {
-            tool.get("function", {}).get("name")
-            for tool in request.tools or []
-            if tool.get("function", {}).get("name")
-        }
-        self.executor = ToolExecutor(config, enabled_tools=allowed_tools, alias_manager=alias_manager)
-        self.max_tool_rounds = 5
-        logger.debug("generation_worker_created allowed_tools=%s", sorted(allowed_tools))
+    Presentation layers subscribe to EventBus events instead of being called
+    directly by this service.
+    """
 
-    def _confirm_tool(self, tool_name, arguments):
-        logger.info("confirmation_requested source=llm tool=%s arguments=%r", tool_name, arguments)
-        event = Event()
-        result = [False]
-        self.confirmation_requested.emit(tool_name, arguments, (event, result))
-        event.wait()
-        logger.info("confirmation_result source=llm tool=%s accepted=%s", tool_name, result[0])
-        return result[0]
-
-    @staticmethod
-    def _normalize_arguments(arguments):
-        if isinstance(arguments, dict):
-            return arguments
-        if isinstance(arguments, str):
-            try:
-                return json.loads(arguments)
-            except json.JSONDecodeError:
-                logger.warning("invalid_tool_arguments_json value=%r", arguments)
-                return {}
-        return {}
-
-    def run(self):
-        started = time.perf_counter()
-        logger.info("generation_start model=%s message_count=%d thinking=%s temperature=%s context=%s max_tokens=%s tools=%s", self.request.model, len(self.request.messages), self.request.thinking, self.request.temperature, self.request.context_length, self.request.max_tokens, [tool.get("function", {}).get("name") for tool in self.request.tools or []])
-        try:
-            if self.ollama_manager is not None and not self.ollama_manager.is_running():
-                logger.info("generation_ollama_not_running starting_on_worker=True")
-                self.ollama_manager.start()
-            messages = list(self.request.messages)
-            stats = None
-            for round_number in range(1, self.max_tool_rounds + 1):
-                logger.debug("generation_round start=%d messages=%r", round_number, messages)
-                self.request.messages = messages
-                tool_calls = []
-                assistant_message = None
-                for item in self.provider.stream_chat(self.request):
-                    if not item.done:
-                        if item.tool_calls:
-                            tool_calls.extend(item.tool_calls)
-                            assistant_message = item.raw.get("message") or assistant_message
-                            logger.info("llm_tool_calls round=%d calls=%r", round_number, item.tool_calls)
-                        self.chunk.emit(item)
-                        continue
-                    stats = item.stats
-                    logger.info("generation_done_chunk stats=%r raw=%r", item.stats, item.raw)
-                    if item.raw.get("message"):
-                        assistant_message = item.raw["message"]
-
-                if not tool_calls:
-                    logger.info("generation_finish success=True elapsed=%.4fs stats=%r", time.perf_counter() - started, stats)
-                    self.finished.emit(stats)
-                    return
-
-                assistant_message = dict(assistant_message or {"role": "assistant", "content": ""})
-                assistant_message["role"] = "assistant"
-                assistant_message["tool_calls"] = tool_calls
-                messages.append(assistant_message)
-
-                for tool_call in tool_calls:
-                    function = tool_call.get("function") or {}
-                    tool_name = function.get("name")
-                    arguments = self._normalize_arguments(function.get("arguments", {}))
-                    if not tool_name:
-                        logger.warning("llm_tool_call_without_name call=%r", tool_call)
-                        continue
-                    result = self.executor.execute(tool_name, arguments, self._confirm_tool)
-                    logger.info("llm_tool_result name=%s result=%r", tool_name, result)
-                    messages.append({"role": "tool", "content": json.dumps(result, ensure_ascii=False)})
-
-            raise RuntimeError("Слишком много последовательных вызовов инструментов.")
-        except Exception as exc:
-            logger.exception("generation_failed elapsed=%.4fs error=%s", time.perf_counter() - started, exc)
-            self.failed.emit(str(exc))
-
-
-class ChatService(QObject):
-    chunk_received = Signal(object)
-    generation_finished = Signal(object)
-    direct_response = Signal(str)
-    error = Signal(str)
-    confirmation_requested = Signal(str, object)
-
-    def __init__(self, provider, config, ollama_manager=None, alias_manager: AliasManager | None = None):
-        super().__init__()
+    def __init__(self, provider, config, ollama_manager=None, alias_manager: AliasManager | None = None,
+                 event_bus=None, task_runner: TaskRunner | None = None):
         self.provider = provider
         self.config = config
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
+        self.events = event_bus
+        self.tasks = task_runner or TaskRunner(max_workers=4)
         self.conversation = Conversation()
         self.router = CommandRouter(config, ollama_manager, self.alias_manager)
-        self._ui_controller = None
-        self._thread = None
-        self._worker = None
         self._current_answer = ""
         self._pending_messages = deque()
         self._pending_confirmation = None
-        self._task_pool = QThreadPool(self)
+        self._generation_future = None
         self._ollama_task_running = False
+        self._ui_actions = {}
         logger.info("chat_service_created model=%s", self.config.get("model"))
 
-    def set_ui_controller(self, controller) -> None:
-        self._ui_controller = controller
-        self.router.set_ui_controller(controller)
-        logger.debug("chat_ui_controller_set controller=%s", type(controller).__name__)
+    def _emit(self, event: str, *args):
+        if self.events is not None:
+            self.events.emit(event, *args)
+
+    def set_ui_actions(self, actions: dict | None) -> None:
+        self._ui_actions = dict(actions or {})
+        self.router.set_ui_actions(self._ui_actions)
 
     def refresh_tools(self):
         logger.info("refresh_tools")
         self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager)
-        if self._ui_controller is not None:
-            self.router.set_ui_controller(self._ui_controller)
+        self.router.set_ui_actions(self._ui_actions)
 
     def send(self, text, thinking=False):
-        text = text.strip()
+        text = str(text).strip()
         if not text:
-            logger.debug("send_ignored empty_text")
             return
 
         if self._pending_confirmation is not None:
@@ -164,12 +66,12 @@ class ChatService(QObject):
                 return
             direct = "У меня есть ожидающее подтверждение. Ответь «да» или «нет»."
             self.conversation.add("assistant", direct)
-            self.direct_response.emit(direct)
+            self._emit("chat.direct_response", direct)
             return
 
-        if self._thread and self._thread.isRunning():
+        if self._generation_future is not None and not self._generation_future.done():
             self._pending_messages.append((text, bool(thinking)))
-            logger.info("message_queued generation_already_running queue_size=%d text=%r thinking=%s", len(self._pending_messages), text, bool(thinking))
+            logger.info("message_queued queue_size=%d text=%r", len(self._pending_messages), text)
             return
 
         self._process_message(text, bool(thinking))
@@ -184,20 +86,18 @@ class ChatService(QObject):
                 return
             try:
                 direct = self.router.route(text, self._confirm_direct, self._confirm_alias)
-                logger.info("router_result direct=%s response=%r", direct is not None, direct)
             except Exception as exc:
                 logger.exception("router_failed text=%r", text)
                 direct = f"Не удалось выполнить прямую команду: {exc}"
             if direct is not None:
                 self.conversation.add("assistant", direct)
-                self.direct_response.emit(direct)
+                self._emit("chat.direct_response", direct)
                 return
 
         if self.config.get("router_only_mode", False):
             direct = "Роутер не распознал команду. LLM отключён в тестовом режиме."
-            logger.info("router_only_unrecognized text=%r", text)
             self.conversation.add("assistant", direct)
-            self.direct_response.emit(direct)
+            self._emit("chat.direct_response", direct)
             return
 
         self._current_answer = ""
@@ -211,39 +111,94 @@ class ChatService(QObject):
             max_tokens=int(self.config.get("max_tokens")),
             tools=ollama_tools(tools_for_message),
         )
-        logger.info("llm_request_prepared model=%s messages=%r tools=%s", request.model, request.messages, sorted(tools_for_message))
+        logger.info("llm_request_prepared model=%s tools=%s", request.model, sorted(tools_for_message))
+        self._generation_future = self.tasks.submit(self._run_generation, request)
+        self._generation_future.add_done_callback(self._generation_done)
+        self._emit("chat.generation_started", request)
 
-        self._thread = QThread()
-        self._worker = GenerationWorker(self.provider, request, self.config, self.alias_manager, self.ollama_manager)
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.run)
-        self._worker.chunk.connect(self._on_chunk)
-        self._worker.finished.connect(self._on_finished)
-        self._worker.failed.connect(self._on_failed)
-        self._worker.confirmation_requested.connect(self._on_confirmation_requested)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.failed.connect(self._thread.quit)
-        self._thread.finished.connect(self._cleanup)
-        self._thread.start()
-        logger.debug("generation_thread_started")
+    def _run_generation(self, request):
+        started = time.perf_counter()
+        allowed_tools = {
+            tool.get("function", {}).get("name")
+            for tool in request.tools or []
+            if tool.get("function", {}).get("name")
+        }
+        executor = ToolExecutor(
+            self.config,
+            enabled_tools=allowed_tools,
+            alias_manager=self.alias_manager,
+        )
+        messages = list(request.messages)
+        stats = None
 
-    @Slot(object)
-    def _on_chunk(self, chunk):
-        if chunk.text:
-            self._current_answer += chunk.text
-        self.chunk_received.emit(chunk)
+        try:
+            if self.ollama_manager is not None and not self.ollama_manager.is_running():
+                self.ollama_manager.start()
 
-    @Slot(object)
-    def _on_finished(self, stats):
-        logger.info("generation_finished stats=%r answer=%r", stats, self._current_answer)
-        if self._current_answer.strip():
-            self.conversation.add("assistant", self._current_answer)
-        self.generation_finished.emit(stats)
+            for round_number in range(1, 6):
+                request.messages = messages
+                tool_calls = []
+                assistant_message = None
 
-    @Slot(str)
-    def _on_failed(self, error):
-        logger.error("generation_error error=%r", error)
-        self.error.emit(error)
+                for item in self.provider.stream_chat(request):
+                    if not item.done:
+                        if item.tool_calls:
+                            tool_calls.extend(item.tool_calls)
+                            assistant_message = item.raw.get("message") or assistant_message
+                        self._emit("chat.chunk", item)
+                        continue
+
+                    stats = item.stats
+                    if item.raw.get("message"):
+                        assistant_message = item.raw["message"]
+
+                if not tool_calls:
+                    if self._current_answer.strip():
+                        self.conversation.add("assistant", self._current_answer)
+                    return stats
+
+                assistant_message = dict(assistant_message or {"role": "assistant", "content": ""})
+                assistant_message["role"] = "assistant"
+                assistant_message["tool_calls"] = tool_calls
+                messages.append(assistant_message)
+
+                for tool_call in tool_calls:
+                    function = tool_call.get("function") or {}
+                    tool_name = function.get("name")
+                    arguments = self._normalize_arguments(function.get("arguments", {}))
+                    if not tool_name:
+                        continue
+                    result = executor.execute(tool_name, arguments, self._confirm_tool)
+                    messages.append({"role": "tool", "content": json.dumps(result, ensure_ascii=False)})
+
+            raise RuntimeError("Слишком много последовательных вызовов инструментов.")
+        except Exception as exc:
+            logger.exception("generation_failed elapsed=%.4fs error=%s", time.perf_counter() - started, exc)
+            raise
+
+    @staticmethod
+    def _normalize_arguments(arguments):
+        if isinstance(arguments, dict):
+            return arguments
+        if isinstance(arguments, str):
+            try:
+                return json.loads(arguments)
+            except json.JSONDecodeError:
+                return {}
+        return {}
+
+    def _generation_done(self, future):
+        try:
+            stats = future.result()
+        except Exception as exc:
+            self._emit("chat.error", str(exc))
+        else:
+            self._emit("chat.generation_finished", stats)
+        finally:
+            self._generation_future = None
+            if self._pending_messages:
+                next_text, next_thinking = self._pending_messages.popleft()
+                self._process_message(next_text, next_thinking)
 
     def _handle_pending_confirmation(self, text):
         confirmation = self._parse_confirmation(text)
@@ -252,39 +207,38 @@ class ChatService(QObject):
 
         pending = self._pending_confirmation
         self._pending_confirmation = None
+
         if pending.get("mode") == "llm":
             pending["result"][0] = confirmation
             pending["event"].set()
             direct = "Подтверждение получено." if confirmation else "Действие отменено."
-            self.conversation.add("assistant", direct)
-            self.direct_response.emit(direct)
-            return True
-
-        direct = (
-            self.router.execute_confirmed(pending["tool_name"], pending["arguments"])
-            if confirmation
-            else "Действие отменено."
-        )
+        else:
+            direct = (
+                self.router.execute_confirmed(pending["tool_name"], pending["arguments"])
+                if confirmation else "Действие отменено."
+            )
         self.conversation.add("assistant", direct)
-        self.direct_response.emit(direct)
+        self._emit("chat.direct_response", direct)
         return True
 
     def _confirm_direct(self, tool_name, arguments):
-        logger.info("confirmation_requested source=router tool=%s arguments=%r", tool_name, arguments)
         self._pending_confirmation = {
             "mode": "router",
             "tool_name": tool_name,
             "arguments": dict(arguments),
         }
-        self.confirmation_requested.emit(tool_name, dict(arguments))
+        self._emit("chat.confirmation_requested", tool_name, dict(arguments))
         return None
+
+    def _confirm_tool(self, tool_name, arguments):
+        event = Event()
+        result = [False]
+        self._emit("chat.tool_confirmation_requested", tool_name, arguments, (event, result))
+        event.wait()
+        return result[0]
 
     @staticmethod
     def _confirm_alias(query, target, category):
-        # Алиасы не должны останавливать основной поток модальным окном.
-        # Сейчас это автоматически отклоняется, пока отдельный чат-механизм
-        # подтверждения алиасов не будет подключён.
-        logger.info("alias_confirmation_skipped query=%r target=%r category=%s", query, target, category)
         return False
 
     @staticmethod
@@ -298,72 +252,43 @@ class ChatService(QObject):
 
     def _is_background_router_command(self, text):
         normalized = self.router._normalize_command_text(text).casefold()
-        model_unload = {item.casefold() for item in self.router._definition_display("model_unload")}
-        ollama_start = {item.casefold() for item in self.router._definition_display("ollama_start")}
-        ollama_stop = {item.casefold() for item in self.router._definition_display("ollama_stop")}
-        return normalized in model_unload | ollama_start | ollama_stop
+        commands = set()
+        for command_id in ("model_unload", "ollama_start", "ollama_stop"):
+            commands.update(item.casefold() for item in self.router._definition_display(command_id))
+        return normalized in commands
 
     def _start_background_router(self, text):
         if self._ollama_task_running:
             direct = "Операция с Ollama уже выполняется."
             self.conversation.add("assistant", direct)
-            self.direct_response.emit(direct)
+            self._emit("chat.direct_response", direct)
             return
 
         self._ollama_task_running = True
-        self.direct_response.emit("Выполняю операцию с Ollama в фоне…")
-        task = BackgroundTask(
+        self._emit("chat.direct_response", "Выполняю операцию с Ollama в фоне…")
+        future = self.tasks.submit(
             lambda: self.router.route(text, self._confirm_direct, self._confirm_alias)
         )
-        task.signals.finished.connect(self._on_background_router_finished)
-        self._task_pool.start(task)
+        future.add_done_callback(self._background_router_done)
 
-    @Slot(object)
-    def _on_background_router_finished(self, result):
+    def _background_router_done(self, future):
         self._ollama_task_running = False
-        if isinstance(result, dict) and not result.get("success", True) and result.get("error"):
-            direct = f"Не удалось выполнить команду: {result['error']}"
-        else:
+        try:
+            result = future.result()
             direct = str(result)
+        except Exception as exc:
+            direct = f"Не удалось выполнить команду: {exc}"
         self.conversation.add("assistant", direct)
-        self.direct_response.emit(direct)
+        self._emit("chat.direct_response", direct)
 
-    @Slot(str, object, object)
-    def _on_confirmation_requested(self, tool_name, arguments, payload):
-        event, result = payload
-        self._pending_confirmation = {
-            "mode": "llm",
-            "tool_name": tool_name,
-            "arguments": dict(arguments),
-            "event": event,
-            "result": result,
-        }
-        labels = {
-            "delete_file": "удаление файла",
-            "write_file": "перезапись файла",
-            "rename_file": "переименование файла",
-            "copy_file": "копирование файла",
-            "move_file": "перемещение файла",
-            "close_application": "закрытие приложения",
-        }
-        prompt = f"⚠️ Подтвердить {labels.get(tool_name, tool_name)}? Ответь «да» или «нет»."
-        self.conversation.add("assistant", prompt)
-        self.direct_response.emit(prompt)
-
-    def _cleanup(self):
-        logger.debug("generation_thread_cleanup")
-        if self._worker:
-            self._worker.deleteLater()
-        if self._thread:
-            self._thread.deleteLater()
-        self._worker = None
-        self._thread = None
-        if self._pending_messages:
-            next_text, next_thinking = self._pending_messages.popleft()
-            logger.info("message_dequeued queue_size=%d text=%r thinking=%s", len(self._pending_messages), next_text, next_thinking)
-            QTimer.singleShot(0, lambda text=next_text, think=next_thinking: self._process_message(text, think))
+    def _on_chunk(self, chunk):
+        if chunk.text:
+            self._current_answer += chunk.text
 
     def add_assistant_message(self, text):
-        logger.info("assistant_message_added text=%r", text)
-        if text and text.strip():
+        if text and str(text).strip():
             self.conversation.add("assistant", text)
+
+    def shutdown(self):
+        self._pending_messages.clear()
+        self._pending_confirmation = None
