@@ -8,9 +8,8 @@ class ChatPage(QWidget):
     send_requested = Signal(str, bool)
     voice_recording_requested = Signal()
 
-    def __init__(self, chat_service, config):
+    def __init__(self, config):
         super().__init__()
-        self.chat_service = chat_service
         self.config = config
         self.answer = ""
         self.thinking = ""
