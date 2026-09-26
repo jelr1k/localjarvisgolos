@@ -1,7 +1,6 @@
 from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QCheckBox,QGroupBox,QLabel,QVBoxLayout,QWidget
-from tools.paths import TOOL_WORKSPACE
 
 class ToolsPage(QWidget):
     tools_changed=Signal()
@@ -13,5 +12,5 @@ class ToolsPage(QWidget):
         for name,tool in controller.tools().items():
             cb=QCheckBox(names.get(name,name));cb.setChecked(controller.is_enabled(name));cb.setToolTip(tool.get("description",""));cb.toggled.connect(lambda value,n=name:self._set_tool(n,value));self.checkboxes[name]=cb;layout.addWidget(cb)
         hint=QLabel("Отключённый инструмент одновременно убирается из доступных модели и блокируется повторной проверкой при выполнении. Все файловые инструменты ограничены workspace.");hint.setWordWrap(True)
-        root=QVBoxLayout(self);root.addWidget(title);root.addWidget(QLabel(f"Рабочая папка: {TOOL_WORKSPACE}"));root.addWidget(box);root.addWidget(hint);root.addStretch()
+        root=QVBoxLayout(self);root.addWidget(title);root.addWidget(QLabel(f"Рабочая папка: {controller.workspace}"));root.addWidget(box);root.addWidget(hint);root.addStretch()
     def _set_tool(self,name,enabled):self.controller.set_enabled(name,enabled);self.tools_changed.emit()
