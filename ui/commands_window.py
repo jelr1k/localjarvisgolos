@@ -7,9 +7,9 @@ from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QTableW
 class CommandsWindow(QDialog):
     """Простое окно со справочником команд текущего Command Router."""
 
-    def __init__(self, router, parent=None):
+    def __init__(self, controller, parent=None):
         super().__init__(parent)
-        self.router = router
+        self.controller = controller
         self.setWindowTitle("Команды Command Router")
         self.resize(760, 620)
 
@@ -45,7 +45,7 @@ class CommandsWindow(QDialog):
 
     def refresh(self):
         self.table.setRowCount(0)
-        for item in self.router.command_catalog():
+        for item in self.controller.command_catalog():
             row = self.table.rowCount()
             self.table.insertRow(row)
 
