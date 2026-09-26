@@ -41,6 +41,12 @@ class ChatController(QObject):
     def refresh_tools(self):
         self.service.refresh_tools()
 
+    def command_catalog(self):
+        return self.service.router.command_catalog()
+
+    def set_ui_actions(self, actions):
+        self.service.set_ui_actions(actions)
+
     def shutdown(self):
         self.service.shutdown()
 
