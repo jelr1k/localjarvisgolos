@@ -2,104 +2,131 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QThreadPool, QTimer
-from PySide6.QtWidgets import QApplication, QMainWindow
-
 from core.alias_manager import AliasManager
-from core.background_task import BackgroundTask
-from core.config_manager import ConfigManager
-from core.ollama_manager import OllamaManager
 from core.app_paths import ensure_application_dirs
+from core.config_manager import ConfigManager
+from core.dependency_manager import get_dependency_manager
+from core.events import EventBus
+from core.ollama_manager import OllamaManager
+from core.task_runner import TaskRunner
 from llm.ollama import OllamaProvider
 from services.chat_service import ChatService
 from tools.paths import prepare_tool_workspace
-from ui.main_window import MainWindow
+from voice.controller import VoiceController
+from voice.wake_word import WakeWordDetector
 
 
 logger = logging.getLogger("jarvis.application")
 
 
-class JarvisApplication(QMainWindow):
+class JarvisApplication:
+    """Framework-independent Jarvis backend.
+
+    It owns application services and lifecycle. A frontend creates the visual
+    shell and connects to EventBus through a presentation adapter.
+    """
+
     def __init__(self):
-        super().__init__()
-        logger.info("application_init_start")
+        logger.info("backend_application_init_start")
         ensure_application_dirs()
         prepare_tool_workspace()
 
+        self.events = EventBus()
+        self.tasks = TaskRunner(max_workers=4)
         self.config = ConfigManager()
-        logger.debug("config_loaded settings=%r", getattr(self.config, "settings", None))
         self.alias_manager = AliasManager()
-        logger.debug("alias_manager_created")
         self.ollama_manager = OllamaManager(self.config.ollama_url)
-        # Ollama startup is deferred until the window exists so slow server
-        # startup cannot block the GUI constructor.
-        self._background_pool = QThreadPool(self)
-        self._ollama_start_task = None
-
         self.provider = OllamaProvider(self.config.ollama_url)
-        self.chat_service = ChatService(self.provider, self.config, self.ollama_manager, self.alias_manager)
+        self.dependency_manager = get_dependency_manager(self.events)
+        self.chat_service = ChatService(
+            self.provider,
+            self.config,
+            self.ollama_manager,
+            self.alias_manager,
+            event_bus=self.events,
+            task_runner=self.tasks,
+        )
+        self.voice_controller = VoiceController(
+            self.config,
+            event_bus=self.events,
+            task_runner=self.tasks,
+        )
+        self.wake_word_detector = WakeWordDetector(
+            self.config,
+            event_bus=self.events,
+        )
         self.ollama_manager.register_model(self.config.get("model"))
-
-        self.window = MainWindow(self.chat_service, self.config, self.ollama_manager, self.alias_manager)
-        self.setCentralWidget(self.window)
-        self.setWindowTitle(self.config.get("assistant_name", "JARVIS"))
-        self.resize(1100, 750)
-        logger.info("application_init_finish title=%r size=%sx%s model=%s", self.windowTitle(), self.width(), self.height(), self.config.get("model"))
+        self._started = False
         self._shutdown_started = False
-        self._close_cleanup_started = False
-        QTimer.singleShot(0, self._start_ollama_in_background)
+        logger.info("backend_application_init_finish model=%s", self.config.get("model"))
 
-    def _start_ollama_in_background(self) -> None:
-        if self._shutdown_started:
+    def set_ui_actions(self, actions: dict | None):
+        """Register abstract window actions supplied by the active frontend."""
+        self.chat_service.set_ui_actions(actions)
+
+    def start(self):
+        if self._started or self._shutdown_started:
             return
-        task = BackgroundTask(self.ollama_manager.start)
-        task.signals.finished.connect(self._on_ollama_start_finished)
-        self._ollama_start_task = task
-        self._background_pool.start(task)
-        logger.info("ollama_boot_start_background")
+        self._started = True
 
-    def _on_ollama_start_finished(self, result) -> None:
-        self._ollama_start_task = None
-        if isinstance(result, dict) and result.get("success") is False:
-            logger.warning("ollama_start_at_boot_failed error=%s", result.get("error"))
+        def start_ollama():
+            try:
+                return self.ollama_manager.start()
+            except Exception as exc:
+                logger.warning("ollama_start_at_boot_failed error=%s", exc)
+                return {"success": False, "error": str(exc)}
+
+        future = self.tasks.submit(start_ollama)
+        future.add_done_callback(lambda f: self.events.emit(
+            "application.ollama_start_finished",
+            f.result() if not f.exception() else {"success": False, "error": str(f.exception())},
+        ))
+
+        if self.config.get("voice", {}).get("wake_word_enabled", True):
+            self.wake_word_detector.start()
+
+        self.events.emit("application.started")
+
+    def apply_settings(self):
+        """Apply persisted settings to backend services."""
+        self.provider.set_base_url(self.config.ollama_url)
+        self.ollama_manager.set_base_url(self.config.ollama_url)
+        self.voice_controller.apply_config(self.config)
+        self.wake_word_detector.apply_config(self.config)
+        self.ollama_manager.register_model(self.config.get("model"))
+        if self.config.get("voice", {}).get("wake_word_enabled", True):
+            self.wake_word_detector.restart()
         else:
-            logger.info("ollama_start_at_boot_finished result=%r", result)
+            self.wake_word_detector.stop()
+        self.events.emit(
+            "application.settings_applied",
+            self.config.get("model"),
+            self.config.get("assistant_name", "JARVIS"),
+        )
 
-    def shutdown(self) -> None:
-        """Полностью завершает Jarvis, включая его главное окно и Qt event loop."""
+    def shutdown(self):
         if self._shutdown_started:
             return
-
         self._shutdown_started = True
-        logger.info("application_shutdown_requested")
+        logger.info("backend_application_shutdown_start")
 
         try:
-            # MainWindow владеет голосовыми компонентами. Его closeEvent
-            # останавливает Wake Word и VoiceController.
-            self.window.close()
-            logger.info("application_main_window_closed")
+            self.wake_word_detector.close()
         except Exception:
-            logger.exception("application_main_window_close_failed")
-
+            logger.exception("wake_word_close_failed")
         try:
-            # Закрываем само верхнеуровневое окно. Это также запускает
-            # application-level cleanup в closeEvent().
-            self.close()
-            logger.info("application_top_level_window_closed")
+            self.voice_controller.close()
         except Exception:
-            logger.exception("application_top_level_window_close_failed")
-
-        app = QApplication.instance()
-        if app is not None:
-            logger.info("application_qt_quit_requested")
-            app.quit()
-
-    def closeEvent(self, event):
-        logger.info("application_close_start")
+            logger.exception("voice_close_failed")
+        try:
+            self.chat_service.shutdown()
+        except Exception:
+            logger.exception("chat_shutdown_failed")
         try:
             self.ollama_manager.shutdown_for_app()
-            logger.info("application_close_cleanup_finish")
         except Exception:
-            logger.exception("application_close_cleanup_failed")
-        event.accept()
-        logger.info("application_close_finish")
+            logger.exception("ollama_shutdown_failed")
+
+        self.events.emit("application.stopped")
+        self.tasks.shutdown(wait=False, cancel_futures=True)
+        logger.info("backend_application_shutdown_finish")
