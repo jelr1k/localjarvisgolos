@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from services.chat_service import GenerationWorker
+from services.chat_service import ChatService
 
 
 class FakeProvider:
@@ -47,31 +47,33 @@ class FakeProvider:
         )
 
 
-def test_generation_worker_executes_tool_then_continues(monkeypatch):
+def test_chat_service_executes_tool_then_continues(monkeypatch):
     provider = FakeProvider()
-    request = SimpleNamespace(
-        model="test-model",
-        messages=[{"role": "user", "content": "Найди файл tool_test.txt"}],
-        thinking=False,
-        temperature=0.7,
-        context_length=4096,
-        max_tokens=512,
-        tools=[{"function": {"name": "search_files"}}],
-    )
-    config = {"tools": {"search_files": True}}
-    worker = GenerationWorker(provider, request, config, alias_manager=None)
+    config = {
+        "model": "test-model",
+        "temperature": 0.7,
+        "context_length": 4096,
+        "max_tokens": 512,
+        "tools": {"search_files": True},
+        "router_only_mode": False,
+    }
+    service = ChatService(provider, config)
+    service.router.tools_for_message = lambda _text: {"search_files"}
+
     tool_result = {"success": True, "matches": ["tool_test.txt"]}
-    monkeypatch.setattr(worker.executor, "execute", lambda *args, **kwargs: tool_result)
+    monkeypatch.setattr(
+        "tools.executor.ToolExecutor.execute",
+        lambda self, *args, **kwargs: tool_result,
+    )
 
-    finished = []
-    failed = []
-    worker.finished.connect(lambda stats: finished.append(stats))
-    worker.failed.connect(lambda error: failed.append(error))
+    service.send("Найди файл tool_test.txt")
+    future = service._generation_future
+    assert future is not None
+    stats = future.result(timeout=5)
+    service._generation_done(future)
 
-    worker.run()
-
-    assert not failed
-    assert finished == [{"eval_count": 2}]
+    assert stats == {"eval_count": 2}
     assert len(provider.calls) == 2
     assert provider.calls[1][-1]["role"] == "tool"
     assert "tool_test.txt" in provider.calls[1][-1]["content"]
+    service.tasks.shutdown()
