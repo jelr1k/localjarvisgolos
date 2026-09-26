@@ -21,8 +21,7 @@ class SettingsController(QObject):
         self._events = event_bus
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
-        self._events.subscribe("dependency.finished", self.whisper_finished.emit)
-
+        
     def get(self, key, default=None):
         return self._config.get(key, default)
 
@@ -127,5 +126,5 @@ class SettingsController(QObject):
         return self._config.get("model"), self._config.get("assistant_name", "JARVIS")
 
     def close(self):
-        for name, handler in (("dependency.progress", self.whisper_progress.emit), ("dependency.state_changed", self.whisper_state_changed.emit), ("dependency.finished", self.whisper_finished.emit)):
+        for name, handler in (("dependency.progress", self.whisper_progress.emit), ("dependency.state_changed", self.whisper_state_changed.emit)):
             self._events.unsubscribe(name, handler)
