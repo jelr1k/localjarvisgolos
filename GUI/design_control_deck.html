@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jarvis / Control Deck</title>
+<style>
+:root{--bg:#0b0d0f;--panel:#12161a;--panel2:#171c21;--line:#2a3138;--text:#e8ecef;--muted:#89939d;--accent:#b7ff3c;--warn:#ffb84d}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font:14px/1.45 Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input,textarea{font:inherit;color:inherit}button{cursor:pointer}
+.app{height:100%;display:grid;grid-template-columns:248px minmax(420px,1fr);grid-template-rows:58px 1fr}
+header{grid-column:1/-1;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#0d1013}
+.brand{display:flex;gap:12px;align-items:center;font-weight:800;letter-spacing:.12em}.mark{width:24px;height:24px;border:2px solid var(--accent);display:grid;place-items:center;font-size:10px;color:var(--accent)}
+.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}.dot{width:7px;height:7px;background:var(--accent);border-radius:50%}
+aside{border-right:1px solid var(--line);padding:16px 10px;background:#0f1215;min-height:0;display:flex;flex-direction:column}
+.nav-label{padding:7px 10px;color:#5f6972;font-size:10px;text-transform:uppercase;letter-spacing:.15em}
+nav{display:grid;gap:3px}.nav{border:0;background:transparent;text-align:left;padding:10px;color:#aeb7be;display:flex;justify-content:space-between;align-items:center}.nav:hover,.nav.active{background:var(--panel2);color:var(--text);border-left:2px solid var(--accent);padding-left:8px}.key{font-size:10px;color:#56616b}
+.sidebar-foot{margin-top:auto;border-top:1px solid var(--line);padding:14px 10px;color:var(--muted);font-size:12px}
+main{min-width:0;min-height:0;display:grid;grid-template-rows:auto 1fr}
+.toolbar{border-bottom:1px solid var(--line);padding:16px 22px;display:flex;justify-content:space-between;align-items:center;gap:16px}.title{font-size:20px;font-weight:750}.sub{color:var(--muted);font-size:12px;margin-top:2px}.actions{display:flex;gap:8px}.btn{border:1px solid var(--line);background:var(--panel);padding:8px 12px}.btn:hover{border-color:#56616b}.btn.primary{background:var(--accent);color:#10150b;border-color:var(--accent);font-weight:700}
+.content{min-height:0;overflow:auto;padding:22px}
+.page{display:none;max-width:1180px;margin:0 auto}.page.active{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,.7fr);gap:14px}.card{background:var(--panel);border:1px solid var(--line);padding:16px;min-width:0}.card h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.08em}.metric{font-size:30px;font-weight:800}.muted{color:var(--muted)}
+.chat{height:calc(100vh - 170px);min-height:360px;display:grid;grid-template-rows:1fr auto;border:1px solid var(--line);background:#0e1114}.messages{padding:18px;overflow:auto}.msg{max-width:760px;border-left:2px solid var(--line);padding:9px 12px;margin-bottom:12px}.msg.user{margin-left:auto;border-left:0;border-right:2px solid var(--accent);text-align:right}.msg small{display:block;color:var(--muted);font-size:10px;margin-bottom:4px}.composer{border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:8px;padding:10px}.composer input{background:#0a0c0f;border:1px solid var(--line);padding:11px;outline:none}.composer input:focus{border-color:#68737d}
+.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}.table th{color:var(--muted);font-size:11px;text-transform:uppercase}
+.field{display:grid;gap:6px;margin-bottom:14px}.field label{color:var(--muted);font-size:12px}.field input,.field select,.field textarea{background:#0b0e11;border:1px solid var(--line);padding:10px;outline:none}.split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.alias-row,.tool-row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}.tag{border:1px solid #3b444d;padding:2px 7px;color:#aeb7be;font-size:11px}
+.workspace{display:grid;grid-template-columns:280px 1fr;min-height:520px;border:1px solid var(--line)}.tree{border-right:1px solid var(--line);padding:12px;background:#0d1013}.tree div{padding:7px 8px}.tree .sel{background:#1a2025;color:var(--accent)}.editor{padding:16px;background:#101419;font-family:Consolas,monospace;color:#b9c4cd;white-space:pre;overflow:auto}
+@media(max-width:760px){.app{grid-template-columns:64px 1fr}.brand span,.nav-label,.key,.sidebar-foot{display:none}aside{padding:10px 6px}.nav{justify-content:center;font-size:0}.nav::first-letter{font-size:18px}.grid,.workspace{grid-template-columns:1fr}.toolbar{padding:12px}.content{padding:12px}.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div class="brand"><div class="mark">J</div><span>JARVIS</span></div><div class="status"><span class="dot"></span> LOCAL / READY</div></header>
+<aside><div class="nav-label">Workspace</div><nav id="nav">
+<button class="nav active" data-page="chat">Chat <span class="key">01</span></button>
+<button class="nav" data-page="workspace">Workspace <span class="key">02</span></button>
+<button class="nav" data-page="aliases">Aliases <span class="key">03</span></button>
+<button class="nav" data-page="ollama">Ollama <span class="key">04</span></button>
+<button class="nav" data-page="tools">Tools <span class="key">05</span></button>
+<button class="nav" data-page="stats">Statistics <span class="key">06</span></button>
+<button class="nav" data-page="settings">Settings <span class="key">07</span></button>
+</nav><div class="sidebar-foot">Offline-first assistant<br>Prototype interface</div></aside>
+<main><div class="toolbar"><div><div class="title" id="title">Chat</div><div class="sub" id="sub">Talk to Jarvis and inspect local activity.</div></div><div class="actions"><button class="btn" onclick="toggleSidebar()">☰</button><button class="btn primary" onclick="fakeAction()">Run</button></div></div>
+<div class="content">
+<section class="page active" id="chat"><div class="chat"><div class="messages" id="messages"><div class="msg"><small>JARVIS · 09:41</small>Local interface loaded. Backend is not connected.</div><div class="msg user"><small>YOU · 09:42</small>Show me what is running.</div><div class="msg"><small>JARVIS · 09:42</small>Prototype mode: 6 tools available, Ollama disconnected, microphone idle.</div></div><form class="composer" onsubmit="send(event)"><input id="input" placeholder="Type a command..."><button class="btn primary">Send</button></form></div></section>
+<section class="page" id="workspace"><div class="workspace"><div class="tree"><div class="muted">WORKSPACE</div><div class="sel">▸ project</div><div>　▸ config</div><div>　▸ docs</div><div>　▸ modules</div><div>　▸ tests</div><div>　▸ voice</div></div><div class="editor">Jarvis workspace
+
+Select a file from the tree.
+The final version can expose
+open / create / rename / delete
+actions without changing this layout.</div></div></section>
+<section class="page" id="aliases"><div class="card"><h3>Alias registry</h3><div class="alias-row"><div><b>лама</b><br><span class="muted">Ollama control</span></div><span class="tag">active</span></div><div class="alias-row"><div><b>дискорд</b><br><span class="muted">Discord application</span></div><span class="tag">active</span></div><div class="alias-row"><div><b>свернись</b><br><span class="muted">Minimize Jarvis</span></div><span class="tag">active</span></div></div></section>
+<section class="page" id="ollama"><div class="grid"><div class="card"><h3>Model</h3><div class="metric">qwen3:1.7b</div><p class="muted">Thinking disabled · local runtime</p><button class="btn primary">Load model</button></div><div class="card"><h3>Runtime</h3><p>Server <b>localhost:11434</b></p><p class="muted">Status: disconnected in prototype</p><button class="btn">Unload</button></div></div></section>
+<section class="page" id="tools"><div class="card"><h3>Command tools</h3><div class="tool-row"><span>Open application</span><span class="tag">local</span></div><div class="tool-row"><span>Read file</span><span class="tag">workspace</span></div><div class="tool-row"><span>Create file</span><span class="tag">workspace</span></div><div class="tool-row"><span>Delete file</span><span class="tag">workspace</span></div><div class="tool-row"><span>Close application</span><span class="tag">system</span></div></div></section>
+<section class="page" id="stats"><div class="grid"><div class="card"><h3>Today</h3><div class="metric">128</div><p class="muted">commands processed</p></div><div class="card"><h3>Voice</h3><div class="metric">94%</div><p class="muted">wake word recognition</p></div></div></section>
+<section class="page" id="settings"><div class="card"><h3>Settings</h3><div class="split"><div class="field"><label>Assistant name</label><input value="Джелрик"></div><div class="field"><label>Wake word</label><input value="Джелрик"></div></div><div class="field"><label>Workspace root</label><input value="C:\Users\User\JarvisWorkspace"></div><div class="field"><label>Microphone</label><select><option>Default microphone</option><option>USB Microphone</option></select></div><button class="btn primary">Save all settings</button></div></section>
+</div></main></div>
+<script>
+const meta={chat:["Chat","Talk to Jarvis and inspect local activity."],workspace:["Workspace","Files and project context."],aliases:["Aliases","Voice aliases and learned targets."],ollama:["Ollama","Local model runtime."],tools:["Tools","Available local actions."],stats:["Statistics","Usage and runtime counters."],settings:["Settings","Application and voice configuration."]};
+document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(b.dataset.page).classList.add("active");title.textContent=meta[b.dataset.page][0];sub.textContent=meta[b.dataset.page][1]});
+function send(e){e.preventDefault();let v=input.value.trim();if(!v)return;messages.insertAdjacentHTML("beforeend",'<div class="msg user"><small>YOU · now</small>'+v.replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))+'</div>');input.value="";messages.scrollTop=messages.scrollHeight}
+function fakeAction(){alert("Prototype only: no backend connected.");}
+function toggleSidebar(){document.querySelector("aside").style.display=document.querySelector("aside").style.display==="none"?"flex":"none";}
+</script>
+</body>
+</html>
