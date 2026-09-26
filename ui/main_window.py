@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from PySide6.QtCore import QTimer,Signal
-from PySide6.QtWidgets import QHBoxLayout,QMessageBox,QPushButton,QTabWidget,QVBoxLayout,QWidget
+from PySide6.QtWidgets import QApplication,QHBoxLayout,QMessageBox,QPushButton,QTabWidget,QVBoxLayout,QWidget
 from ui.alias_page import AliasPage
 from ui.chat_page import ChatPage
 from ui.commands_window import CommandsWindow
@@ -56,5 +56,8 @@ class MainWindow(QWidget):
     def minimize_window(self):self.showMinimized()
     def maximize_window(self):self.showMaximized()
     def restore_window(self):self.showNormal()
-    def shutdown(self):self.application_controller.shutdown()
+    def shutdown(self):
+        self.application_controller.shutdown()
+        app=QApplication.instance()
+        if app is not None:app.quit()
     def closeEvent(self,event):self.application_controller.shutdown();super().closeEvent(event)
