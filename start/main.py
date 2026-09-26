@@ -9,7 +9,6 @@ APP_DIR = Path(__file__).resolve().parent
 
 
 def _find_project_root() -> Path:
-    """Find the Jarvis project root without relying on the current working directory."""
     for candidate in (APP_DIR, APP_DIR.parent):
         if (candidate / "core").is_dir():
             return candidate
@@ -26,6 +25,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from core.application import JarvisApplication
 from core.logging_config import setup_logging
+from ui.main_window import MainWindow
 
 
 def main():
@@ -33,13 +33,18 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Jarvis")
 
+    backend = None
     try:
-        jarvis = JarvisApplication()
-        app.setApplicationName(jarvis.config.get("assistant_name", "JARVIS"))
-        jarvis.show()
-        logger.info("Jarvis started")
+        backend = JarvisApplication()
+        window = MainWindow(backend)
+        app.setApplicationName(backend.config.get("assistant_name", "JARVIS"))
+        window.show()
+        backend.start()
+        logger.info("Jarvis frontend/backend started")
     except Exception as exc:
         logger.exception("Jarvis startup failed")
+        if backend is not None:
+            backend.shutdown()
         QMessageBox.critical(None, "Jarvis", str(exc))
         sys.exit(1)
 
