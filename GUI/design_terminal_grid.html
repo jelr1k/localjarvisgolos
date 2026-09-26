@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jarvis / Terminal Grid</title>
+<style>
+:root{--bg:#070909;--fg:#d8e0d8;--dim:#6f786f;--green:#79ff91;--cyan:#6de7ff;--line:#1c2920;--panel:#0c110d}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:13px/1.45 "Cascadia Mono",Consolas,monospace}button,input{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-rows:42px 1fr 28px}.top{border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 14px}.brand{color:var(--green);font-weight:bold}.top span{color:var(--dim);font-size:11px}
+.body{display:grid;grid-template-columns:220px 1fr;min-height:0}.side{border-right:1px solid var(--line);padding:12px;min-height:0}.side h3{font-size:10px;color:var(--dim);font-weight:normal;margin:8px 0}.nav{display:block;width:100%;text-align:left;background:none;border:0;padding:7px 8px;cursor:pointer}.nav:hover{background:#0f1711}.nav.active{color:var(--green);background:#0d160f}.nav.active::before{content:"> ";color:var(--green)}
+.main{min-width:0;min-height:0;display:grid;grid-template-rows:38px 1fr}.bar{border-bottom:1px solid var(--line);padding:9px 14px;display:flex;justify-content:space-between}.bar b{color:var(--cyan)}.view{overflow:auto;padding:14px}
+.page{display:none;max-width:1100px}.page.active{display:block}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box{border:1px solid var(--line);background:var(--panel);padding:13px}.box.full{grid-column:1/-1}.box h2{font-size:12px;color:var(--cyan);font-weight:normal;margin:0 0 12px}.kv{display:grid;grid-template-columns:150px 1fr;gap:5px}.dim{color:var(--dim)}.green{color:var(--green)}.num{font-size:28px;color:var(--green)}
+.chat{height:calc(100vh - 125px);min-height:360px;display:grid;grid-template-rows:1fr 42px;border:1px solid var(--line)}.log{overflow:auto;padding:13px}.line{margin:0 0 11px}.who{color:var(--green)}.you .who{color:var(--cyan)}.compose{display:grid;grid-template-columns:1fr auto;border-top:1px solid var(--line)}.compose input{border:0;background:#080b09;padding:0 10px;outline:none}.compose button{border:0;border-left:1px solid var(--line);background:#0d180f;color:var(--green);padding:0 16px}
+.tree{display:grid;grid-template-columns:240px 1fr;border:1px solid var(--line);min-height:500px}.files{border-right:1px solid var(--line);padding:10px}.files div{padding:6px}.files .sel{background:#0d1a10;color:var(--green)}.preview{padding:14px;white-space:pre-wrap;overflow:auto;color:#aeb8ae}
+.row{display:grid;grid-template-columns:1fr auto;gap:15px;padding:9px 0;border-bottom:1px dashed var(--line)}.tag{color:var(--dim)}.control{border:1px solid var(--line);background:#0b100c;padding:6px 10px}.control:hover{border-color:var(--green);color:var(--green)}input,select{background:#080b09;border:1px solid var(--line);padding:8px;outline:none}.field{display:grid;grid-template-columns:180px 1fr;gap:10px;margin-bottom:9px;align-items:center}
+footer{border-top:1px solid var(--line);padding:6px 14px;color:var(--dim);font-size:10px;display:flex;justify-content:space-between}
+@media(max-width:700px){.body{grid-template-columns:54px 1fr}.side{padding:8px 5px}.side h3,.nav span{display:none}.nav{font-size:0;text-align:center}.nav::first-letter{font-size:16px}.grid{grid-template-columns:1fr}.tree{grid-template-columns:1fr}.files{border-right:0;border-bottom:1px solid var(--line)}.field{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top"><div class="brand">JARVIS // TERMINAL GRID</div><span>PROTO v0.1 · UI ONLY</span></div>
+<div class="body"><aside class="side"><h3>MODULES</h3>
+<button class="nav active" data-page="chat"><span>CHAT</span></button>
+<button class="nav" data-page="workspace"><span>WORKSPACE</span></button>
+<button class="nav" data-page="aliases"><span>ALIASES</span></button>
+<button class="nav" data-page="ollama"><span>OLLAMA</span></button>
+<button class="nav" data-page="tools"><span>TOOLS</span></button>
+<button class="nav" data-page="stats"><span>STATS</span></button>
+<button class="nav" data-page="settings"><span>SETTINGS</span></button>
+<h3>SESSION</h3><div class="dim">MIC: idle</div><div class="dim">WAKE: armed</div><div class="dim">LLM: offline</div>
+</aside>
+<div class="main"><div class="bar"><span>module://<b id="module">chat</b></span><span class="dim">[ local ]</span></div><div class="view">
+<section class="page active" id="chat"><div class="chat"><div class="log" id="log"><div class="line"><span class="who">JARVIS&gt;</span> Interface initialized. No backend attached.</div><div class="line you"><span class="who">YOU&gt;</span> Run a system check.</div><div class="line"><span class="who">JARVIS&gt;</span> [SIM] Router OK / Voice idle / Ollama offline / Workspace ready.</div></div><form class="compose" onsubmit="send(event)"><input id="cmd" autocomplete="off" placeholder="enter command..."><button>EXEC</button></form></div></section>
+<section class="page" id="workspace"><div class="tree"><div class="files"><div class="sel">project/</div><div>├─ config/</div><div>├─ docs/</div><div>├─ modules/</div><div>├─ tests/</div><div>└─ voice/</div></div><div class="preview">WORKSPACE VIEW
+
+A compact file-oriented layout.
+Nothing is forced into a giant card.
+
+Future Electron layer can connect
+this panel to the real filesystem
+and tool executor.</div></div></section>
+<section class="page" id="aliases"><div class="grid"><div class="box"><h2>ALIASES</h2><div class="row"><span>лама</span><span class="tag">ollama</span></div><div class="row"><span>дискорд</span><span class="tag">discord</span></div><div class="row"><span>свернись</span><span class="tag">minimize</span></div></div><div class="box"><h2>ADD</h2><div class="field"><label>phrase</label><input placeholder="новый псевдоним"></div><div class="field"><label>target</label><input placeholder="target"></div><button class="control">ADD ALIAS</button></div></div></section>
+<section class="page" id="ollama"><div class="grid"><div class="box"><h2>MODEL</h2><div class="num">qwen3:1.7b</div><div class="dim">think=false</div><br><button class="control">LOAD</button> <button class="control">UNLOAD</button></div><div class="box"><h2>SERVER</h2><div class="kv"><span class="dim">endpoint</span><span>127.0.0.1:11434</span><span class="dim">state</span><span class="green">READY (SIM)</span></div></div></div></section>
+<section class="page" id="tools"><div class="box"><h2>TOOLS / COMMAND ROUTER</h2><div class="row"><span>open_application</span><span class="tag">system</span></div><div class="row"><span>close_application</span><span class="tag">system</span></div><div class="row"><span>read_file</span><span class="tag">workspace</span></div><div class="row"><span>create_file</span><span class="tag">workspace</span></div><div class="row"><span>delete_file</span><span class="tag">workspace</span></div><div class="row"><span>ollama_control</span><span class="tag">runtime</span></div></div></section>
+<section class="page" id="stats"><div class="grid"><div class="box"><h2>COMMANDS TODAY</h2><div class="num">128</div></div><div class="box"><h2>VOICE RECOGNITION</h2><div class="num">94%</div></div><div class="box full"><h2>EVENT STREAM</h2><div class="row"><span>09:42:18 command_router</span><span class="green">OK</span></div><div class="row"><span>09:42:02 wake_word</span><span class="green">OK</span></div><div class="row"><span>09:41:51 ollama</span><span class="tag">OFFLINE</span></div></div></div></section>
+<section class="page" id="settings"><div class="box"><h2>CONFIG</h2><div class="field"><label>assistant_name</label><input value="Джелрик"></div><div class="field"><label>wake_word</label><input value="Джелрик"></div><div class="field"><label>workspace</label><input value="C:\Users\User\JarvisWorkspace"></div><div class="field"><label>microphone</label><select><option>Default microphone</option><option>USB microphone</option></select></div><button class="control">SAVE ALL</button></div></section>
+</div></div></div>
+<footer><span>JARVIS LOCAL ASSISTANT</span><span>HTML + CSS + JS / no dependencies</span></footer>
+</div>
+<script>
+document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));n.classList.add("active");document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(n.dataset.page).classList.add("active");module.textContent=n.dataset.page});
+function send(e){e.preventDefault();let v=cmd.value.trim();if(!v)return;log.insertAdjacentHTML("beforeend",'<div class="line you"><span class="who">YOU&gt;</span> '+v.replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))+'</div><div class="line"><span class="who">JARVIS&gt;</span> [SIM] Backend not connected.</div>');cmd.value="";log.scrollTop=log.scrollHeight}
+</script>
+</body>
+</html>
