@@ -224,7 +224,11 @@ class WorkspaceTab(QWidget):
         obj = self.objects[row]
         if obj.entry.category not in {"applications", "files"}:
             return
-        dialog = AliasDialog(self, obj, lambda aliases: self.controller.set_aliases(obj.entry, aliases)
+        dialog = AliasDialog(
+            self,
+            obj,
+            lambda aliases: self.controller.set_aliases(obj.entry, aliases),
+        )
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self.refresh()
             self.list_widget.setCurrentRow(row)
