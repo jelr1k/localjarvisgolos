@@ -43,5 +43,8 @@ class OllamaController(QObject):
             self.status_changed.emit(result)
         self.operation_finished.emit(action, result)
 
+    def model_status(self, model):
+        return self._manager.get_model_status(model)
+
     def close(self):
         pass
