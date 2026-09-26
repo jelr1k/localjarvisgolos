@@ -145,6 +145,8 @@ class ChatService:
                         if item.tool_calls:
                             tool_calls.extend(item.tool_calls)
                             assistant_message = item.raw.get("message") or assistant_message
+                        if item.text:
+                            self._current_answer += item.text
                         self._emit("chat.chunk", item)
                         continue
 
