@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jarvis / Field Notes</title>
+<style>
+:root{--paper:#e9e5dc;--ink:#1c1c1a;--muted:#706f68;--rule:#bbb7ad;--red:#a33a2b;--blue:#38556b}
+*{box-sizing:border-box}html,body{margin:0;height:100%;font-family:Georgia,"Times New Roman",serif;background:var(--paper);color:var(--ink)}
+button,input,textarea,select{font:inherit}.shell{height:100%;display:grid;grid-template-columns:190px 1fr;grid-template-rows:72px 1fr}
+header{grid-column:1/-1;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:space-between;padding:0 28px}
+.logo{font-size:27px;letter-spacing:.12em;font-weight:bold}.edition{font:11px/1.3 Arial,sans-serif;text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+aside{border-right:1px solid var(--rule);padding:25px 18px;display:flex;flex-direction:column;min-height:0}nav{display:grid;gap:2px}.nav{border:0;background:transparent;text-align:left;padding:9px 7px;cursor:pointer}.nav.active{font-weight:bold;color:var(--red);border-left:3px solid var(--red);padding-left:4px}.nav:hover{background:#ded9cf}
+.foot{margin-top:auto;color:var(--muted);font:11px/1.4 Arial,sans-serif}
+main{overflow:auto;min-width:0}.mast{padding:35px 6vw 18px;border-bottom:1px solid var(--rule)}.kicker{font:10px Arial,sans-serif;text-transform:uppercase;letter-spacing:.2em;color:var(--red)}h1{font-size:42px;line-height:1;margin:7px 0 10px;font-weight:500}.lead{max-width:700px;color:#4f4e48;font-size:17px}
+.page{display:none;padding:30px 6vw 60px;max-width:1200px}.page.active{display:block}.columns{display:grid;grid-template-columns:1.4fr .8fr;gap:35px}.block{border-top:2px solid var(--ink);padding-top:10px;margin-bottom:28px}.block h2{font-size:17px;margin:0 0 15px}.note{border-left:3px solid var(--blue);padding:10px 14px;background:#dfddd5;margin:12px 0}.chat{display:grid;gap:18px}.entry{padding-bottom:17px;border-bottom:1px solid var(--rule)}.entry .meta{font:10px Arial,sans-serif;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}.entry.user{margin-left:10%;text-align:right}.entry.user p{border-right:3px solid var(--red);padding-right:12px}
+form{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:20px}input,select,textarea{background:transparent;border:1px solid #8d8a82;padding:10px;outline:none}textarea{min-height:100px;resize:vertical}.btn{border:1px solid var(--ink);background:transparent;padding:9px 14px;cursor:pointer}.btn:hover{background:var(--ink);color:var(--paper)}.btn.red{border-color:var(--red);color:var(--red)}
+.list{display:grid}.row{display:grid;grid-template-columns:1fr auto;gap:15px;padding:12px 0;border-bottom:1px solid var(--rule)}.label{font-size:12px;color:var(--muted);font-family:Arial,sans-serif}.big{font-size:34px}.settings{max-width:720px}.field{display:grid;gap:5px;margin:0 0 17px}.field label{font:11px Arial,sans-serif;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.workspace{border:1px solid var(--rule);display:grid;grid-template-columns:220px 1fr;min-height:480px}.tree{border-right:1px solid var(--rule);padding:12px;font:12px Consolas,monospace}.tree div{padding:7px}.tree .on{background:#d9d4c9}.code{padding:18px;font:13px/1.7 Consolas,monospace;white-space:pre-wrap;overflow:auto}
+@media(max-width:720px){.shell{grid-template-columns:1fr}.shell aside{display:none}.columns,.workspace{grid-template-columns:1fr}.workspace .tree{border-right:0;border-bottom:1px solid var(--rule)}h1{font-size:34px}.page{padding-left:25px;padding-right:25px}.mast{padding-left:25px;padding-right:25px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header><div class="logo">JARVIS</div><div class="edition">LOCAL ASSISTANT / FIELD NOTES</div></header>
+<aside><nav>
+<button class="nav active" data-page="chat">01 · Chat</button>
+<button class="nav" data-page="workspace">02 · Workspace</button>
+<button class="nav" data-page="aliases">03 · Aliases</button>
+<button class="nav" data-page="ollama">04 · Ollama</button>
+<button class="nav" data-page="tools">05 · Tools</button>
+<button class="nav" data-page="stats">06 · Statistics</button>
+<button class="nav" data-page="settings">07 · Settings</button>
+</nav><div class="foot">Prototype edition<br>26 September 2026<br>Backend absent by design.</div></aside>
+<main><div class="mast"><div class="kicker">Jarvis interface study</div><h1 id="heading">Chat</h1><div class="lead" id="lead">A quiet, document-like workspace instead of a dashboard full of floating pills.</div></div>
+<section class="page active" id="chat"><div class="columns"><div class="block"><h2>Conversation</h2><div class="chat" id="chatlog"><div class="entry"><div class="meta">Jarvis · system</div><p>The browser prototype is ready. No Python or Electron process is required.</p></div><div class="entry user"><div class="meta">You · command</div><p>Open my workspace and show the current context.</p></div><div class="entry"><div class="meta">Jarvis · prototype</div><p>Workspace is represented visually. Actual file access will be connected later.</p></div></div><form onsubmit="send(event)"><input id="prompt" placeholder="Write a command or question"><button class="btn red">Send</button></form></div><div><div class="block"><h2>At a glance</h2><div class="list"><div class="row"><span>Wake word</span><b>Джелрик</b></div><div class="row"><span>Model</span><b>Qwen 1.7B</b></div><div class="row"><span>Runtime</span><b>Offline</b></div></div></div></div></div></section>
+<section class="page" id="workspace"><div class="block"><h2>Project files</h2><div class="workspace"><div class="tree"><div class="on">project/</div><div>config/</div><div>docs/</div><div>modules/</div><div>tests/</div><div>voice/</div></div><div class="code">WORKSPACE PREVIEW
+
+This panel is deliberately plain.
+The final Electron application can
+replace this text with a real editor,
+file preview, or command history.
+
+No fixed-size floating modal is needed.</div></div></div></section>
+<section class="page" id="aliases"><div class="columns"><div class="block"><h2>Known aliases</h2><div class="list"><div class="row"><span>лама</span><b>Ollama</b></div><div class="row"><span>дискорд</span><b>Discord</b></div><div class="row"><span>свернись</span><b>Minimize</b></div></div></div><div class="block"><h2>New alias</h2><form style="display:grid;grid-template-columns:1fr" onsubmit="return false"><input placeholder="Spoken phrase"><input placeholder="Target"><button class="btn">Add alias</button></form></div></div></section>
+<section class="page" id="ollama"><div class="columns"><div class="block"><h2>Local model</h2><div class="big">qwen3:1.7b</div><p class="label">thinking disabled · localhost:11434</p><button class="btn red">Load</button> <button class="btn">Unload</button></div><div class="block"><h2>Connection</h2><div class="note">Prototype state: disconnected. This is visual only.</div></div></div></section>
+<section class="page" id="tools"><div class="block"><h2>Command catalogue</h2><div class="list"><div class="row"><span>Open application</span><span class="label">SYSTEM</span></div><div class="row"><span>Read / create / delete file</span><span class="label">WORKSPACE</span></div><div class="row"><span>Minimize / restore / close</span><span class="label">WINDOW</span></div><div class="row"><span>Start / stop Ollama</span><span class="label">MODEL</span></div></div></div></section>
+<section class="page" id="stats"><div class="columns"><div class="block"><h2>Usage</h2><div class="big">128</div><p class="label">commands today</p></div><div class="block"><h2>Voice</h2><div class="big">94%</div><p class="label">recognition sample</p></div></div></section>
+<section class="page" id="settings"><div class="settings"><div class="block"><h2>Configuration</h2><div class="field"><label>Assistant name</label><input value="Джелрик"></div><div class="field"><label>Wake word</label><input value="Джелрик"></div><div class="field"><label>Workspace</label><input value="C:\Users\User\JarvisWorkspace"></div><div class="field"><label>Microphone</label><select><option>Default microphone</option><option>USB microphone</option></select></div><button class="btn red">Save settings</button></div></div></section>
+</main></div>
+<script>
+const info={chat:["Chat","A quiet, document-like workspace instead of a dashboard full of floating pills."],workspace:["Workspace","Project files and context."],aliases:["Aliases","Spoken phrases and their targets."],ollama:["Ollama","Local model runtime."],tools:["Tools","Command catalogue."],stats:["Statistics","Usage and voice measurements."],settings:["Settings","Configuration and devices."]};
+document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));n.classList.add("active");document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));document.getElementById(n.dataset.page).classList.add("active");heading.textContent=info[n.dataset.page][0];lead.textContent=info[n.dataset.page][1]});
+function send(e){e.preventDefault();const v=prompt.value.trim();if(!v)return;chatlog.insertAdjacentHTML("beforeend",'<div class="entry user"><div class="meta">You · now</div><p>'+v.replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]))+'</p></div>');prompt.value=""}
+</script>
+</body>
+</html>
