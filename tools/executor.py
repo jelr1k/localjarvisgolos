@@ -14,8 +14,8 @@ logger = logging.getLogger("jarvis.tools")
 class ToolExecutor:
     """Единая точка запуска инструментов с проверкой разрешений."""
 
-    def __init__(self, config=None, enabled_tools=None, alias_manager: AliasManager | None = None):
-        self.permission_manager = PermissionManager(config) if config is not None else None
+    def __init__(self, config=None, enabled_tools=None, alias_manager: AliasManager | None = None, permission_manager: PermissionManager | None = None):
+        self.permission_manager = permission_manager or (PermissionManager(config) if config is not None else None)
         self.enabled_tools = set(enabled_tools) if enabled_tools is not None else set(TOOLS)
         self.alias_manager = alias_manager or AliasManager()
         logger.debug("executor_created enabled_tools=%s", sorted(self.enabled_tools))
