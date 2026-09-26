@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 
 
 class AliasDialog(QDialog):
-    def __init__(self, parent: QWidget, obj: WorkspaceObject, save_callback):
+    def __init__(self, parent: QWidget, obj, save_callback):
         super().__init__(parent)
         self.setWindowTitle(f"Алиасы: {obj.entry.name}")
         self.resize(460, 360)
