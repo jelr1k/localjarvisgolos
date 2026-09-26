@@ -11,6 +11,11 @@ class ToolsController(QObject):
         self._permissions = permission_manager
         self._tools = tool_registry
 
+    @property
+    def workspace(self):
+        from tools.paths import TOOL_WORKSPACE
+        return TOOL_WORKSPACE
+
     def tools(self):
         return self._tools
 
