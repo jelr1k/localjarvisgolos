@@ -12,13 +12,14 @@ class SettingsController(QObject):
     whisper_finished = Signal(str, bool, str)
     refresh_finished = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service):
         super().__init__()
         self._config = config
         self._model_service = model_service
         self._dependency = dependency_controller
         self._tasks = task_runner
         self._events = event_bus
+        self._voice = voice_service
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         
@@ -66,41 +67,10 @@ class SettingsController(QObject):
         self.refresh_finished.emit(result)
 
     def list_microphones(self):
-        try:
-            import sounddevice as sd
-            from voice.devices import list_input_devices, _normalize_name
-            current = self._config.get("voice", {})
-            current_index = current.get("input_device")
-            current_name = current.get("input_device_name")
-            devices = list_input_devices(list(sd.query_devices()), list(sd.query_hostapis()))
-            result = [{"index": None, "name": "Системный микрофон по умолчанию", "hostapi_name": "", "selected": current_index is None and not current_name}]
-            normalized = _normalize_name(current_name or "")
-            for device in devices:
-                index = int(device["index"])
-                name = str(device.get("name", f"Микрофон {index}"))
-                selected = bool(normalized and _normalize_name(name) == normalized) or (not current_name and current_index == index)
-                result.append({"index": index, "name": name, "hostapi_name": str(device.get("hostapi_name", "")), "selected": selected})
-            if not any(item["selected"] for item in result):
-                result[0]["selected"] = True
-            return {"success": True, "devices": result}
-        except Exception as exc:
-            return {"success": False, "error": str(exc), "devices": []}
+        return self._voice.list_microphones()
 
     def test_microphone(self, device):
-        def work():
-            import numpy as np
-            import sounddevice as sd
-            from voice.devices import find_supported_sample_rate
-            voice = self._config.get("voice", {})
-            channels = int(voice.get("channels", 1))
-            preferred = int(voice.get("sample_rate", 16000))
-            rate = find_supported_sample_rate(device=device, channels=channels, preferred=preferred)
-            audio = sd.rec(int(rate * 1.5), samplerate=rate, channels=channels, dtype="float32", device=device, blocking=True)
-            audio = np.asarray(audio, dtype=np.float32)
-            peak = float(np.max(np.abs(audio))) if audio.size else 0.0
-            rms = float(np.sqrt(np.mean(np.square(audio)))) if audio.size else 0.0
-            return {"success": True, "rate": rate, "peak": peak, "rms": rms}
-        future = self._tasks.submit(work)
+        future = self._tasks.submit(self._voice.test_microphone, device)
         future.add_done_callback(self._microphone_test_done)
         return future
 
