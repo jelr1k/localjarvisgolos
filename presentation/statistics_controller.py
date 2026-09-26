@@ -22,7 +22,7 @@ class StatisticsController(QObject):
     def update_system_status(self, model):
         def work():
             try:
-                status = self._ollama._manager.get_model_status(model)
+                status = self._ollama.model_status(model)
                 cpu = psutil.cpu_percent(interval=None)
                 ram = psutil.virtual_memory()
                 return {"status": status, "cpu": cpu, "ram_used": ram.used, "ram_total": ram.total, "ram_percent": ram.percent}
