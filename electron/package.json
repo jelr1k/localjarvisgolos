@@ -1,0 +1,13 @@
+{
+  "name": "jarvis-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jarvis desktop interface",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^38.2.0"
+  }
+}
