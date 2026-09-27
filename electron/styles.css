@@ -18,3 +18,33 @@
 .profile-menu-item{width:100%;border:0;background:transparent;color:#c8cbc3;text-align:left;padding:11px 8px;margin-top:5px;display:flex;align-items:center;gap:10px}
 .profile-menu-item:hover{background:#252721;color:#fff}
 .profile-menu-item span{width:16px;color:#d5c59d}
+
+.setting-select{appearance:auto;min-width:150px;cursor:pointer}
+.setting-select option{background:#252721;color:#eee}
+
+body.theme-light{background:#f1f1ee;color:#20221f}
+body.theme-light .sidebar,body.theme-light .topbar{background:#e5e5e0;border-color:#c9cac3}
+body.theme-light .brand-mark,body.theme-light .nav-item:hover,body.theme-light .nav-item.active,body.theme-light .profile:hover{background:#d9dad4}
+body.theme-light .nav-item{color:#5f625d}
+body.theme-light .panel{background:#f7f7f4;border-color:#c8cac2}
+body.theme-light .hero p,body.theme-light .page-head p,body.theme-light .setting small,body.theme-light .status-card small{color:#666a63}
+body.theme-light .topbar{color:#252721}
+body.theme-light .control,body.theme-light .setting-select{background:#e7e8e2;color:#252721;border-color:#bfc1b8}
+body.theme-light .profile-menu{background:#f7f7f4;border-color:#c8cac2}
+body.theme-light .profile-menu-item{color:#454942}
+body.theme-light .composer input{background:#fff;color:#252721;border-color:#c3c5bd}
+body.theme-light .message p{background:#e5e6e0;color:#252721;border-color:#c8cac2}
+
+body.theme-gradient-amber{background:linear-gradient(135deg,#11120f 0%,#1b1914 48%,#302719 100%)}
+body.theme-gradient-amber .sidebar,body.theme-gradient-amber .topbar{background:linear-gradient(135deg,#151614,#211c15)}
+body.theme-gradient-amber .panel{background:linear-gradient(135deg,#191a18,#211d17);border-color:#514735}
+
+body.theme-gradient-blue{background:linear-gradient(135deg,#0c1014 0%,#111923 48%,#182b3a 100%)}
+body.theme-gradient-blue .sidebar,body.theme-gradient-blue .topbar{background:linear-gradient(135deg,#101418,#14202a)}
+body.theme-gradient-blue .panel{background:linear-gradient(135deg,#151a1f,#19242e);border-color:#354754}
+
+body.theme-gradient-purple{background:linear-gradient(135deg,#110f14 0%,#19131f 48%,#281a31 100%)}
+body.theme-gradient-purple .sidebar,body.theme-gradient-purple .topbar{background:linear-gradient(135deg,#151217,#1c1522)}
+body.theme-gradient-purple .panel{background:linear-gradient(135deg,#19161c,#241927);border-color:#49384f}
+
+body.theme-gradient-amber .setting-select,body.theme-gradient-blue .setting-select,body.theme-gradient-purple .setting-select{background:#252721;color:#eee}
