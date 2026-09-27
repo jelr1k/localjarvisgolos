@@ -16,12 +16,27 @@
         <button class="nav-item" data-page="commands"><span>⌘</span>Команды</button>
         <button class="nav-item" data-page="workspace"><span>▣</span>Рабочая область</button>
         <button class="nav-item" data-page="ai"><span>◇</span>ИИ</button>
-        <button class="nav-item" data-page="settings"><span>⚙</span>Настройки</button>
       </nav>
-      <div class="sidebar-bottom"><div class="status"><i></i><span>Система готова</span></div><div class="profile"><b>Джелрик</b><small>локальный режим</small></div></div>
+      <div class="sidebar-bottom">
+        <div class="status"><i></i><span>Jarvis готов</span></div>
+        <div class="profile-wrap">
+          <button class="profile" id="profileButton" type="button" aria-expanded="false" aria-controls="profileMenu">
+            <span class="avatar">J</span>
+            <span class="profile-name"><b>Джелрик</b></span>
+            <span class="profile-chevron">⌃</span>
+          </button>
+          <div class="profile-menu" id="profileMenu" hidden>
+            <div class="profile-menu-head">
+              <span class="avatar avatar-large">J</span>
+              <div><b>Джелрик</b><small>Профиль</small></div>
+            </div>
+            <button class="profile-menu-item" id="profileSettings" type="button"><span>⚙</span>Настройки</button>
+          </div>
+        </div>
+      </div>
     </aside>
     <main class="main">
-      <header class="topbar"><div><span class="eyebrow">JARVIS</span><span class="crumb">/ <span id="pageName">Главная</span></span></div><div class="top-status">● онлайн</div></header>
+      <header class="topbar"><div><span class="eyebrow">JARVIS</span><span class="crumb">/ <span id="pageName">Главная</span></span></div></header>
       <div id="pageContainer"></div>
     </main>
   </div>
