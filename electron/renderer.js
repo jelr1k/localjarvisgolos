@@ -8,6 +8,21 @@ const pageNames = {
 };
 
 const pageContainer = document.querySelector("#pageContainer");
+const themeClasses = ["theme-light", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple"];
+
+function applyTheme(theme) {
+  document.body.classList.remove(...themeClasses);
+  if (theme === "light") document.body.classList.add("theme-light");
+  if (theme === "gradient-amber") document.body.classList.add("theme-gradient-amber");
+  if (theme === "gradient-blue") document.body.classList.add("theme-gradient-blue");
+  if (theme === "gradient-purple") document.body.classList.add("theme-gradient-purple");
+  localStorage.setItem("jarvis-theme", theme);
+}
+
+function applyLanguage(language) {
+  localStorage.setItem("jarvis-language", language);
+}
+
 
 async function go(page) {
   try {
@@ -27,6 +42,8 @@ function bindPageEvents() {
   const profileButton = document.querySelector("#profileButton");
   const profileMenu = document.querySelector("#profileMenu");
   const profileSettings = document.querySelector("#profileSettings");
+  const themeSelect = document.querySelector("#themeSelect");
+  const languageSelect = document.querySelector("#languageSelect");
 
   if (profileButton && profileMenu) {
     profileButton.addEventListener("click", (event) => {
@@ -40,6 +57,16 @@ function bindPageEvents() {
       profileMenu.hidden = true;
       profileButton.setAttribute("aria-expanded", "false");
     }, { once: true });
+  }
+
+  if (themeSelect) {
+    themeSelect.value = localStorage.getItem("jarvis-theme") || "dark";
+    themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
+  }
+
+  if (languageSelect) {
+    languageSelect.value = localStorage.getItem("jarvis-language") || "ru";
+    languageSelect.addEventListener("change", () => applyLanguage(languageSelect.value));
   }
 
   if (profileSettings) {
@@ -95,4 +122,5 @@ document.querySelectorAll("[data-page]").forEach((button) => {
   button.addEventListener("click", () => go(button.dataset.page));
 });
 
+applyTheme(localStorage.getItem("jarvis-theme") || "dark");
 go("home");
