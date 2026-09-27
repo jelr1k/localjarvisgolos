@@ -1,9 +1,36 @@
 <section class="page active" id="commands">
-  <div class="page-head standalone"><div><span class="eyebrow">Управление системой</span><h2>Команды</h2><p>Действия, которые Jarvis выполняет напрямую, без лишнего вызова модели.</p></div></div>
-  <div class="card-grid">
-    <article class="panel command-card"><span class="icon">⌘</span><h3>Windows</h3><p>Открытие программ, управление окнами и системные действия.</p><button data-go="chat">Открыть чат →</button></article>
-    <article class="panel command-card"><span class="icon">▤</span><h3>Файлы</h3><p>Открытие, поиск и работа с файлами в разрешённой области.</p><button data-go="workspace">Рабочая область →</button></article>
-    <article class="panel command-card"><span class="icon">◈</span><h3>Jarvis</h3><p>Свернуть, восстановить, закрыть и управлять самим приложением.</p><button>Подробнее →</button></article>
-    <article class="panel command-card"><span class="icon">●</span><h3>Приложения</h3><p>Discord, Проводник и другие часто используемые приложения.</p><button>Подробнее →</button></article>
+  <div class="page-head standalone"><div><span class="eyebrow">Командный роутер</span><h2>Команды</h2><p>Команды, которые Jarvis распознаёт напрямую. Карточки теперь объясняют, что именно можно сказать, а не просто существуют ради декоративной геометрии.</p></div></div>
+  <div class="command-groups">
+    <section class="command-group">
+      <div class="group-head"><h3>Окна и интерфейс</h3><span>6 команд</span></div>
+      <div class="command-list">
+        <article class="panel command-item"><b>Свернуть</b><span>«сверни окно», «минимизируй»</span></article>
+        <article class="panel command-item"><b>Восстановить</b><span>«разверни окно», «восстанови»</span></article>
+        <article class="panel command-item"><b>Развернуть</b><span>«на весь экран», «максимизируй»</span></article>
+        <article class="panel command-item"><b>Закрыть Jarvis</b><span>«закройся», «выключись»</span></article>
+      </div>
+    </section>
+    <section class="command-group">
+      <div class="group-head"><h3>Приложения</h3><span>частые действия</span></div>
+      <div class="command-list">
+        <article class="panel command-item"><b>Discord</b><span>«открой Discord», «запусти дискорд»</span></article>
+        <article class="panel command-item"><b>Проводник</b><span>«открой проводник», «открой папку»</span></article>
+      </div>
+    </section>
+    <section class="command-group">
+      <div class="group-head"><h3>Ollama и модель</h3><span>управление локальным ИИ</span></div>
+      <div class="command-list">
+        <article class="panel command-item"><b>Запустить Ollama</b><span>«запусти ламу», «включи Ollama»</span></article>
+        <article class="panel command-item"><b>Остановить Ollama</b><span>«останови ламу», «выключи Ollama»</span></article>
+        <article class="panel command-item"><b>Выгрузить модель</b><span>«выгрузи модель», «освободи память»</span></article>
+      </div>
+    </section>
+    <section class="command-group">
+      <div class="group-head"><h3>Файлы и рабочая область</h3><span>Workspace</span></div>
+      <div class="command-list">
+        <article class="panel command-item"><b>Открыть файл</b><span>«открой файл», «покажи документ»</span></article>
+        <article class="panel command-item"><b>Работать с Workspace</b><span>Команды выполняются в разрешённой области.</span></article>
+      </div>
+    </section>
   </div>
 </section>
