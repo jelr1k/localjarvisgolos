@@ -320,3 +320,112 @@ body.theme-gradient-sunset .primary{background:#e4c19c;color:#25170f;border-colo
   body.interface-atlas .home-grid{grid-template-columns:1fr;grid-template-rows:1fr}
   body.interface-atlas .home-side{display:none}
 }
+
+
+/* Theme selector: closed by default, opens into its own vertically scrollable card list. */
+.theme-switcher{width:100%;max-width:360px;margin:10px 0 8px;border:1px solid #454940;background:#252721;color:#eee;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;text-align:left}
+.theme-switcher:hover{border-color:#d8ceb2;background:#2b2e28}
+.theme-switcher b{font-size:15px;color:#aaa}
+.theme-switcher[aria-expanded="true"]{border-color:#d8ceb2}
+.theme-dropdown{width:min(760px,100%);border:1px solid #454940;background:#151614;padding:8px;box-shadow:0 14px 34px #0008}
+.theme-dropdown[hidden]{display:none}
+.theme-dropdown .theme-grid{display:grid;grid-template-columns:1fr;gap:7px;max-height:330px;overflow-y:auto;padding-right:7px;scrollbar-width:thin;scrollbar-color:#666b63 #20221e}
+.theme-dropdown .theme-grid::-webkit-scrollbar{width:9px}
+.theme-dropdown .theme-grid::-webkit-scrollbar-track{background:#20221e}
+.theme-dropdown .theme-grid::-webkit-scrollbar-thumb{background:#666b63;border:2px solid #20221e}
+.theme-dropdown .theme-option{min-height:74px;width:100%;transform:none!important;box-shadow:none}
+.theme-dropdown .theme-option:hover{border-color:#d8ceb2}
+.theme-dropdown .theme-option.selected{box-shadow:inset 0 0 0 1px #d8ceb2}
+.theme-dropdown .theme-option span{font-size:14px}
+.theme-dropdown .theme-option small{font-size:10px}
+
+/* Journal: editorial workspace, intentionally unlike the console-style Command Room. */
+body.interface-journal .app{grid-template-columns:270px minmax(0,1fr);grid-template-rows:1fr}
+body.interface-journal .sidebar{grid-column:1;grid-row:1;height:100vh;padding:42px 24px 24px;background:#e9e1d2;border-right:1px solid #bdb2a0;border-bottom:0;display:flex;flex-direction:column;align-items:stretch}
+body.interface-journal .brand{padding:0 8px 42px;display:block}
+body.interface-journal .brand-mark{display:none}
+body.interface-journal .brand strong{font:700 30px/1 Georgia,serif;letter-spacing:4px;color:#27231d}
+body.interface-journal .brand small{color:#756d60;margin-top:9px}
+body.interface-journal .nav{display:grid;gap:3px}
+body.interface-journal .nav-item{border:0;border-left:3px solid transparent;padding:13px 12px;color:#71695c;font:15px Georgia,serif;background:transparent}
+body.interface-journal .nav-item span{display:none}
+body.interface-journal .nav-item:hover,body.interface-journal .nav-item.active{background:#ddd3c1;color:#2d2821;border-left-color:#8b7651}
+body.interface-journal .sidebar-bottom{position:static;margin-top:auto;display:block}
+body.interface-journal .status{display:flex;border-color:#c8bdab;color:#756d60}
+body.interface-journal .profile{color:#2d2821;padding:12px 4px}
+body.interface-journal .profile:hover{background:#ddd3c1}
+body.interface-journal .profile-menu{left:8px;right:auto;bottom:56px;top:auto;background:#f1eadf;border-color:#bdb2a0}
+body.interface-journal .main{grid-column:2;grid-row:1;background:#f4eee4;color:#302b24}
+body.interface-journal .topbar{display:flex;height:58px;flex-basis:58px;background:#f4eee4;border-color:#d2c7b6;padding:0 42px}
+body.interface-journal .eyebrow{color:#8a7d6b}
+body.interface-journal .crumb{color:#9b9081}
+body.interface-journal .page{padding:38px 42px;max-width:1320px}
+body.interface-journal .panel{background:#f8f3eb;border-color:#d0c5b4;box-shadow:0 4px 18px #6e5d4212}
+body.interface-journal .hero{padding:48px 54px}
+body.interface-journal .hero h1{font:700 clamp(48px,5vw,76px)/.9 Georgia,serif;color:#29251f;letter-spacing:-2px}
+body.interface-journal .hero p,body.interface-journal .page-head p,body.interface-journal .setting small{color:#756d61}
+body.interface-journal .actions button,body.interface-journal .command-card button,body.interface-journal .control{background:#eee5d7;color:#3b352c;border-color:#c6b9a6}
+body.interface-journal .primary{background:#4a4033;color:#f8f1e7;border-color:#4a4033}
+body.interface-journal .home-grid{height:calc(100vh - 96px);grid-template-columns:minmax(0,1fr) 285px;gap:22px}
+body.interface-journal .home-side{gap:12px}
+body.interface-journal .status-card{padding:24px}
+body.interface-journal .status-card strong{font:700 27px Georgia,serif;color:#312b23}
+body.interface-journal .service-row,body.interface-journal .model-line{border-color:#ddd2c1}
+body.interface-journal .command-card h3,body.interface-journal .model-card h3,body.interface-journal .page-head h2{color:#302a23}
+body.interface-journal .message p{background:#ebe1d2;border-color:#cfc2af;color:#302a23}
+body.interface-journal .message.user p{background:#4a4033;color:#f8f1e7;border-color:#4a4033}
+body.interface-journal .settings-section-head h3{font:700 24px Georgia,serif}
+body.interface-journal .setting{background:#f8f3eb;border-color:#d0c5b4}
+body.interface-journal .theme-switcher{background:#e8dfd1;color:#352f27;border-color:#bfb2a0}
+body.interface-journal .theme-dropdown{background:#eee6da;border-color:#c4b8a6}
+body.interface-journal .theme-dropdown .theme-grid{scrollbar-color:#8c8171 #d8cebf}
+body.interface-journal .theme-dropdown .theme-grid::-webkit-scrollbar-track{background:#d8cebf}
+body.interface-journal .theme-dropdown .theme-grid::-webkit-scrollbar-thumb{background:#8c8171;border-color:#d8cebf}
+
+/* Command Room: operational console with instrument panels, unlike Journal's paper/editorial layout. */
+body.interface-commandroom{background:#080f0d}
+body.interface-commandroom .app{grid-template-columns:1fr;grid-template-rows:68px minmax(0,1fr)}
+body.interface-commandroom .sidebar{grid-row:1;grid-column:1;height:68px;padding:0 18px;background:#09110e;border-right:0;border-bottom:1px solid #28443a;display:flex;flex-direction:row;align-items:center;gap:18px}
+body.interface-commandroom .brand{padding:0 8px;min-width:150px}
+body.interface-commandroom .brand-mark{width:30px;height:30px;border:1px solid #3c7460;background:#10231c;color:#83d0ad;font-family:Inter,Segoe UI,sans-serif}
+body.interface-commandroom .brand>div{display:block}
+body.interface-commandroom .brand strong{color:#b9e6d1;letter-spacing:3px}
+body.interface-commandroom .brand small{color:#638a7a}
+body.interface-commandroom .nav{display:flex;align-self:stretch;gap:1px}
+body.interface-commandroom .nav-item{border:0;border-left:1px solid transparent;border-right:1px solid transparent;border-bottom:2px solid transparent;padding:0 17px;background:transparent;color:#6f9786;font:11px Inter,Segoe UI,sans-serif;text-transform:uppercase;letter-spacing:1px}
+body.interface-commandroom .nav-item span{color:#4e806c}
+body.interface-commandroom .nav-item:hover{background:#0d1b16;color:#b9e6d1;border-color:#23483a}
+body.interface-commandroom .nav-item.active{background:#10221b;color:#d5f1e2;border-bottom-color:#69c49b;border-left-color:#23483a;border-right-color:#23483a}
+body.interface-commandroom .sidebar-bottom{margin-left:auto;display:flex;align-items:center}
+body.interface-commandroom .status{border:1px solid #23483a;background:#0d1b16;padding:8px 11px;color:#77a893}
+body.interface-commandroom .profile{padding:6px 4px 6px 12px}
+body.interface-commandroom .profile-name b{color:#b9e6d1}
+body.interface-commandroom .profile-menu{right:0;left:auto;top:54px;bottom:auto;background:#0d1713;border-color:#315849}
+body.interface-commandroom .main{grid-row:2;grid-column:1;background:#080f0d}
+body.interface-commandroom .topbar{height:52px;flex-basis:52px;background:#09110e;border-color:#203a31;padding:0 22px}
+body.interface-commandroom .page{padding:18px 20px;max-width:none;background:radial-gradient(circle at 80% 10%,#153b2d22 0,#080f0d 35%)}
+body.interface-commandroom .panel{background:#0d1713;border-color:#23483a;box-shadow:inset 0 0 0 1px #10251d}
+body.interface-commandroom .home-grid{height:calc(100vh - 106px);grid-template-columns:minmax(0,1fr) 340px;gap:12px}
+body.interface-commandroom .hero{padding:32px;border-color:#2b5b48;background:linear-gradient(135deg,#0d1713,#0b1411)}
+body.interface-commandroom .hero:before{content:"SYSTEM ONLINE";position:absolute;right:24px;top:20px;color:#4e9475;font:10px/1 Inter,sans-serif;letter-spacing:2px}
+body.interface-commandroom .hero h1{font:700 clamp(46px,5vw,72px)/.9 Inter,Segoe UI,sans-serif;letter-spacing:-2px;color:#d8efe3}
+body.interface-commandroom .hero p{color:#7fa694}
+body.interface-commandroom .actions button,body.interface-commandroom .command-card button,body.interface-commandroom .control{background:#10221b;color:#a9d9c2;border-color:#315849}
+body.interface-commandroom .primary{background:#75cba2;color:#07110d;border-color:#75cba2}
+body.interface-commandroom .home-side{gap:12px}
+body.interface-commandroom .status-card{padding:18px;background:#0d1713;border-color:#23483a}
+body.interface-commandroom .status-card strong{font:700 27px Inter,Segoe UI,sans-serif;color:#d2ede0}
+body.interface-commandroom .status-card small,body.interface-commandroom .page-head p,body.interface-commandroom .setting small{color:#6f9584}
+body.interface-commandroom .service-row,body.interface-commandroom .model-line{border-color:#1e3a30}
+body.interface-commandroom .command-card h3,body.interface-commandroom .model-card h3,body.interface-commandroom .page-head h2{font-family:Inter,Segoe UI,sans-serif;color:#cde9dc}
+body.interface-commandroom .command-card p,body.interface-commandroom .model-card p{color:#739787}
+body.interface-commandroom .message p{background:#10221b;border-color:#2b5b48;color:#b9deca}
+body.interface-commandroom .message.user p{background:#75cba2;color:#07110d;border-color:#75cba2}
+body.interface-commandroom .settings-section-head h3{font:700 20px Inter,Segoe UI,sans-serif;text-transform:uppercase;letter-spacing:1px;color:#a9d9c2}
+body.interface-commandroom .setting{background:#0d1713;border-color:#23483a}
+body.interface-commandroom .theme-switcher{background:#10221b;color:#a9d9c2;border-color:#315849}
+body.interface-commandroom .theme-dropdown{background:#0a130f;border-color:#315849}
+body.interface-commandroom .theme-dropdown .theme-grid{scrollbar-color:#4f8c73 #101f18}
+body.interface-commandroom .theme-dropdown .theme-grid::-webkit-scrollbar-track{background:#101f18}
+body.interface-commandroom .theme-dropdown .theme-grid::-webkit-scrollbar-thumb{background:#4f8c73;border-color:#101f18}
+body.interface-commandroom .page-head{border-color:#23483a}
