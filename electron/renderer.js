@@ -24,6 +24,32 @@ async function go(page) {
 }
 
 function bindPageEvents() {
+  const profileButton = document.querySelector("#profileButton");
+  const profileMenu = document.querySelector("#profileMenu");
+  const profileSettings = document.querySelector("#profileSettings");
+
+  if (profileButton && profileMenu) {
+    profileButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = !profileMenu.hidden;
+      profileMenu.hidden = isOpen;
+      profileButton.setAttribute("aria-expanded", String(!isOpen));
+    });
+
+    document.addEventListener("click", () => {
+      profileMenu.hidden = true;
+      profileButton.setAttribute("aria-expanded", "false");
+    }, { once: true });
+  }
+
+  if (profileSettings) {
+    profileSettings.addEventListener("click", () => {
+      if (profileMenu) profileMenu.hidden = true;
+      if (profileButton) profileButton.setAttribute("aria-expanded", "false");
+      go("settings");
+    });
+  }
+
   document.querySelectorAll("[data-go]").forEach((button) => {
     button.addEventListener("click", () => go(button.dataset.go));
   });
