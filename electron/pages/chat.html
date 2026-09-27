@@ -1,15 +1,24 @@
 <section class="page active" id="chat">
   <div class="chat panel">
     <div class="page-head">
-      <div><span class="eyebrow">Голос и текст</span><h2>Разговор</h2></div>
-      <span class="live">● Vosk слушает</span>
+      <div><span class="eyebrow">Голос и текст</span><h2>Разговор</h2><div class="chat-model">Модель: <b>qwen3:1.7b</b></div></div>
+      <div class="chat-top-right"><span class="wake-chip">Wake word: <b>Jarvis</b></span><span class="live">● Vosk слушает</span></div>
     </div>
     <div class="messages" id="messages">
       <div class="message jarvis"><span>JARVIS</span><p>Привет. Я готов слушать.</p></div>
       <div class="message user"><span>ВЫ</span><p>Открой Discord</p></div>
       <div class="message jarvis"><span>JARVIS</span><p>Discord открыт.</p></div>
     </div>
-    <div class="chat-meta"><span>Wake word <b>Jarvis</b></span><span>Vosk <b>слушает</b></span><span>Whisper <b>готов</b></span></div>
-    <form class="composer" id="chatForm"><input id="chatInput" autocomplete="off" placeholder="Введите команду…"><button class="primary">Отправить</button></form>
+    <div class="chat-meta"><span>Whisper <b>готов</b></span><span>Режим: <b id="thinkingState">размышления выкл.</b></span></div>
+    <form class="composer" id="chatForm">
+      <button type="button" class="icon-button mic-button" id="micButton" title="Голосовой ввод" aria-label="Голосовой ввод">●</button>
+      <input id="chatInput" autocomplete="off" placeholder="Введите команду…">
+      <label class="think-toggle" title="Включить размышления">
+        <input id="thinkingToggle" type="checkbox">
+        <span class="toggle-track"><i></i></span>
+        <span>Размышления</span>
+      </label>
+      <button class="primary send-button" type="submit">Отправить</button>
+    </form>
   </div>
 </section>
