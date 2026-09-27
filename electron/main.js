@@ -1,5 +1,14 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
+const fs = require("fs/promises");
+
+const pagesDir = path.join(__dirname, "pages");
+const allowedPages = new Set(["home", "chat", "commands", "workspace", "ai", "settings"]);
+
+ipcMain.handle("load-page", async (_event, page) => {
+  if (!allowedPages.has(page)) throw new Error("Unknown page");
+  return fs.readFile(path.join(pagesDir, page + ".html"), "utf8");
+});
 
 function createWindow() {
   const win = new BrowserWindow({
