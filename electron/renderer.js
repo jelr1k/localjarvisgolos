@@ -10,12 +10,16 @@ const pageNames = {
 const pageContainer = document.querySelector("#pageContainer");
 const themeClasses = ["theme-light", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple"];
 
-function applyTheme(theme) {
+function setThemeClass(theme) {
   document.body.classList.remove(...themeClasses);
   if (theme === "light") document.body.classList.add("theme-light");
   if (theme === "gradient-amber") document.body.classList.add("theme-gradient-amber");
   if (theme === "gradient-blue") document.body.classList.add("theme-gradient-blue");
   if (theme === "gradient-purple") document.body.classList.add("theme-gradient-purple");
+}
+
+function applyTheme(theme) {
+  setThemeClass(theme);
   localStorage.setItem("jarvis-theme", theme);
 }
 
@@ -44,6 +48,8 @@ function bindPageEvents() {
   const profileSettings = document.querySelector("#profileSettings");
   const themeSelect = document.querySelector("#themeSelect");
   const languageSelect = document.querySelector("#languageSelect");
+  const themePicker = document.querySelector("#themePicker");
+  const interfaceButton = document.querySelector("#interfaceButton");
 
   if (profileButton && profileMenu) {
     profileButton.addEventListener("click", (event) => {
@@ -59,9 +65,24 @@ function bindPageEvents() {
     }, { once: true });
   }
 
-  if (themeSelect) {
-    themeSelect.value = localStorage.getItem("jarvis-theme") || "dark";
-    themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
+  if (themePicker) {
+    const savedTheme = localStorage.getItem("jarvis-theme") || "dark";
+    setThemeClass(savedTheme);
+    themePicker.querySelectorAll("[data-theme]").forEach((option) => {
+      option.classList.toggle("selected", option.dataset.theme === savedTheme);
+      option.addEventListener("mouseenter", () => setThemeClass(option.dataset.theme));
+      option.addEventListener("mouseleave", () => setThemeClass(localStorage.getItem("jarvis-theme") || "dark"));
+      option.addEventListener("click", () => {
+        applyTheme(option.dataset.theme);
+        themePicker.querySelectorAll("[data-theme]").forEach((item) => item.classList.toggle("selected", item === option));
+      });
+    });
+  }
+
+  if (interfaceButton) {
+    interfaceButton.addEventListener("click", () => {
+      document.querySelector("#themePicker")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   }
 
   if (languageSelect) {
