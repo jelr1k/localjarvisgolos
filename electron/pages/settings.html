@@ -36,8 +36,10 @@
       <button class="interface-option interface-option-commandroom" data-interface="commandroom" type="button"><span>Command Room</span><small>Тёмная консоль</small><i></i></button>
     </div>
   </div>
-  <div class="settings-section"><div class="settings-section-head"><h3>Тема</h3><p class="theme-hint">Наведите курсор для предпросмотра. Тема применится окончательно только после выбора.</p></div>
-    <div class="theme-grid" id="themePicker">
+  <div class="settings-section"><div class="settings-section-head"><h3>Тема</h3><p class="theme-hint">Нажмите «Сменить тему», чтобы открыть список вариантов.</p></div>
+    <button class="theme-switcher" id="themeSwitcher" type="button" aria-expanded="false"><span>Сменить тему</span><b>⌄</b></button>
+    <div class="theme-dropdown" id="themeDropdown" hidden>
+      <div class="theme-grid" id="themePicker">
       <button class="theme-option theme-option-dark" data-theme="dark" type="button"><span>Тёмная</span><small>Базовая</small></button>
       <button class="theme-option theme-option-light" data-theme="light" type="button"><span>Светлая</span><small>Светлый интерфейс</small></button>
       <button class="theme-option theme-option-amber" data-theme="gradient-amber" type="button"><span>Янтарный</span><small>Тёплый градиент</small></button>
@@ -51,6 +53,7 @@
       <button class="theme-option theme-option-green" data-theme="gradient-green" type="button"><span>Изумруд</span><small>Градиент</small></button>
       <button class="theme-option theme-option-red" data-theme="gradient-red" type="button"><span>Красный</span><small>Градиент</small></button>
       <button class="theme-option theme-option-sunset" data-theme="gradient-sunset" type="button"><span>Закат</span><small>Градиент</small></button>
+      </div>
     </div>
   </div>
 </section>
