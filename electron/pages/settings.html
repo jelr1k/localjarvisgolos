@@ -23,7 +23,16 @@
   <div class="settings-section"><div class="settings-section-head"><h3>Система</h3></div>
     <div class="settings-list">
       <div class="panel setting"><div><b>Язык</b><small>Язык интерфейса приложения.</small></div><select class="control setting-select" id="languageSelect"><option value="ru" selected>Русский</option><option value="en">English</option></select></div>
-      <div class="panel setting"><div><b>Тема</b><small>Внешний вид приложения.</small></div><select class="control setting-select" id="themeSelect"><option value="dark" selected>Тёмная</option><option value="light">Светлая</option><option value="gradient-amber">Градиент: янтарь</option><option value="gradient-blue">Градиент: синий</option><option value="gradient-purple">Градиент: фиолетовый</option></select></div>
+      <div class="panel setting"><div><b>Интерфейс</b><small>Дополнительные параметры внешнего вида приложения.</small></div><button class="control" id="interfaceButton">Настроить</button></div>
+    </div>
+  </div>
+  <div class="settings-section"><div class="settings-section-head"><h3>Тема</h3><p class="theme-hint">Наведите курсор для предпросмотра. Тема применится окончательно только после выбора.</p></div>
+    <div class="theme-grid" id="themePicker">
+      <button class="theme-option theme-option-dark" data-theme="dark" type="button"><span>Тёмная</span><small>Базовая</small></button>
+      <button class="theme-option theme-option-light" data-theme="light" type="button"><span>Светлая</span><small>Светлый интерфейс</small></button>
+      <button class="theme-option theme-option-amber" data-theme="gradient-amber" type="button"><span>Янтарный</span><small>Тёплый градиент</small></button>
+      <button class="theme-option theme-option-blue" data-theme="gradient-blue" type="button"><span>Синий</span><small>Холодный градиент</small></button>
+      <button class="theme-option theme-option-purple" data-theme="gradient-purple" type="button"><span>Фиолетовый</span><small>Тёмный градиент</small></button>
     </div>
   </div>
 </section>
