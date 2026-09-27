@@ -86,3 +86,77 @@ body.interface-minimal .sidebar{padding:16px 9px}.interface-minimal .brand{justi
 
 body.interface-dashboard{background:#101311}.interface-dashboard .app{grid-template-columns:1fr;grid-template-rows:72px minmax(0,1fr)}.interface-dashboard .sidebar{grid-row:1;grid-column:1;height:72px;width:auto;border-right:0;border-bottom:1px solid #30322e;padding:0 18px;display:flex;flex-direction:row;align-items:center;gap:24px}.interface-dashboard .brand{padding:0;flex:0 0 auto}.interface-dashboard .nav{display:flex;gap:2px;flex:1;height:100%;align-items:stretch}.interface-dashboard .nav-item{border-left:0;border-bottom:2px solid transparent;padding:0 15px;white-space:nowrap}.interface-dashboard .nav-item:hover,.interface-dashboard .nav-item.active{border-left-color:transparent;border-bottom-color:#d5c59d}.interface-dashboard .sidebar-bottom{margin:0;display:flex;align-items:center;gap:14px}.interface-dashboard .status{border:0;padding:0;white-space:nowrap}.interface-dashboard .profile{padding:6px 0}.interface-dashboard .profile-menu{right:0;left:auto;bottom:auto;top:52px}.interface-dashboard .main{grid-row:2;grid-column:1}.interface-dashboard .topbar{height:52px;flex-basis:52px;background:transparent;border-bottom:0;padding:0 30px}.interface-dashboard .page{padding:24px 30px}.interface-dashboard .home-grid{height:calc(100vh - 148px);grid-template-columns:1.8fr 1fr;gap:14px}.interface-dashboard .panel{background:#151916;border-color:#303b32}.interface-dashboard .hero{padding:38px}.interface-dashboard .hero h1{font:700 clamp(48px,5vw,72px)/.9 Inter,Segoe UI,sans-serif;letter-spacing:-2px}.interface-dashboard .status-card strong{font-size:30px}.interface-dashboard .card-grid,.interface-dashboard .ai-grid{gap:14px}.interface-dashboard .command-card{min-height:220px;padding:26px}.interface-dashboard .page-head{padding:8px 0 24px}.interface-dashboard .settings-section{margin-bottom:26px}
 @media(max-width:950px){.interface-grid{grid-template-columns:1fr}.interface-dashboard .sidebar{gap:10px}.interface-dashboard .brand small{display:none}.interface-dashboard .nav-item{padding:0 8px}.interface-dashboard .nav-item span{display:none}.interface-dashboard .profile-name{display:none}.interface-dashboard .status span{display:none}}
+
+/* Interface picker: selection is staged until settings are saved. */
+.interface-option:hover{transform:none;border-color:#454940;box-shadow:none}
+.interface-option.selected{border-color:#d8ceb2;box-shadow:inset 0 0 0 1px #d8ceb2}
+.interface-option.selected:hover{border-color:#d8ceb2;box-shadow:inset 0 0 0 1px #d8ceb2}
+
+/* Keep the profile popup above every interface layout. */
+.sidebar{position:relative;z-index:50}
+.profile-wrap{z-index:60}
+.profile-menu{z-index:100}
+
+/* Minimal: compact command rail, large content canvas, no dashboard-like cards. */
+body.interface-minimal .app{grid-template-columns:82px minmax(0,1fr)}
+body.interface-minimal .sidebar{padding:18px 8px;background:#0d0e0d;border-right:1px solid #272a26}
+body.interface-minimal .brand{padding:0 0 34px;justify-content:center}
+body.interface-minimal .brand-mark{width:42px;height:42px;border-color:#777b73;font-size:22px}
+body.interface-minimal .brand>div{display:none}
+body.interface-minimal .nav{gap:8px}
+body.interface-minimal .nav-item{height:44px;padding:0;justify-content:center;border:0;background:transparent;font-size:0}
+body.interface-minimal .nav-item span{width:auto;font-size:18px;color:#686d65}
+body.interface-minimal .nav-item:hover,body.interface-minimal .nav-item.active{background:#1d201c;border:0}
+body.interface-minimal .nav-item.active span{color:#e1d7bd}
+body.interface-minimal .sidebar-bottom{padding-bottom:4px}
+body.interface-minimal .status{justify-content:center;border:0;padding:12px 0}
+body.interface-minimal .status span{display:none}
+body.interface-minimal .status i{width:6px;height:6px}
+body.interface-minimal .profile{justify-content:center;padding:10px 0}
+body.interface-minimal .profile-name,body.interface-minimal .profile-chevron{display:none}
+body.interface-minimal .profile-menu{left:58px;bottom:4px;width:220px}
+body.interface-minimal .main{background:#111210}
+body.interface-minimal .topbar{height:64px;flex-basis:64px;background:#111210;border-bottom:1px solid #252824;padding:0 34px}
+body.interface-minimal .page{padding:34px;max-width:1400px}
+body.interface-minimal .panel{background:#151715;border-color:#292c28}
+body.interface-minimal .home-grid{height:calc(100vh - 98px);grid-template-columns:minmax(0,1fr) 260px;gap:24px}
+body.interface-minimal .hero{padding:52px;border:0;border-bottom:1px solid #292c28}
+body.interface-minimal .hero h1{font:600 clamp(58px,7vw,94px)/.86 Inter,Segoe UI,sans-serif;letter-spacing:-5px}
+body.interface-minimal .hero p{max-width:460px}
+body.interface-minimal .actions button{border-radius:0;padding:11px 18px}
+body.interface-minimal .black-hole{right:0;opacity:.5}
+body.interface-minimal .status-card{border:0;border-bottom:1px solid #292c28;padding:20px 0}
+body.interface-minimal .card-grid,body.interface-minimal .ai-grid{gap:22px}
+body.interface-minimal .command-card{min-height:240px;padding:30px;border:0;border-top:2px solid #353a33}
+body.interface-minimal .page-head{border-bottom:1px solid #292c28;padding:8px 0 28px}
+body.interface-minimal .settings-section{margin-bottom:34px}
+
+/* Dashboard: application becomes a dense control console with top navigation and metric blocks. */
+body.interface-dashboard .app{grid-template-columns:1fr;grid-template-rows:76px minmax(0,1fr)}
+body.interface-dashboard .sidebar{grid-row:1;grid-column:1;height:76px;padding:0 24px;background:#0b0d0c;border-right:0;border-bottom:1px solid #343a34;display:flex;flex-direction:row;align-items:center;gap:30px}
+body.interface-dashboard .brand{padding:0;min-width:150px}
+body.interface-dashboard .brand-mark{width:30px;height:30px}
+body.interface-dashboard .nav{height:100%;display:flex;align-items:stretch;gap:0;flex:1}
+body.interface-dashboard .nav-item{padding:0 18px;border:0;border-bottom:3px solid transparent;background:transparent;white-space:nowrap}
+body.interface-dashboard .nav-item:hover{background:#151915}
+body.interface-dashboard .nav-item.active{background:#151915;border:0;border-bottom:3px solid #d8ceb2}
+body.interface-dashboard .sidebar-bottom{margin:0;display:flex;align-items:center;gap:18px}
+body.interface-dashboard .status{border:0;padding:0;white-space:nowrap}
+body.interface-dashboard .profile{padding:6px 0}
+body.interface-dashboard .profile-menu{right:0;left:auto;bottom:auto;top:58px}
+body.interface-dashboard .main{grid-row:2;grid-column:1;background:#0f1210}
+body.interface-dashboard .topbar{height:54px;flex-basis:54px;background:#0f1210;border:0;padding:0 32px}
+body.interface-dashboard .page{padding:20px 32px}
+body.interface-dashboard .home-grid{height:calc(100vh - 130px);grid-template-columns:2fr 1fr;gap:16px}
+body.interface-dashboard .hero{padding:40px;border:1px solid #303730;background:#131713}
+body.interface-dashboard .hero h1{font:700 clamp(52px,5vw,76px)/.9 Inter,Segoe UI,sans-serif;letter-spacing:-3px}
+body.interface-dashboard .home-side{grid-template-rows:1fr 1fr 1.4fr;gap:16px}
+body.interface-dashboard .status-card{padding:22px;border:1px solid #303730;background:#131713}
+body.interface-dashboard .status-card strong{font-size:34px}
+body.interface-dashboard .card-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+body.interface-dashboard .command-card{min-height:240px;padding:26px;background:#131713;border:1px solid #303730}
+body.interface-dashboard .workspace-grid{grid-template-columns:2fr 1fr;gap:16px}
+body.interface-dashboard .workspace-main,body.interface-dashboard .info-card,body.interface-dashboard .model-card{background:#131713;border:1px solid #303730}
+body.interface-dashboard .ai-grid{gap:16px}
+body.interface-dashboard .settings-list{gap:12px}
+body.interface-dashboard .setting{padding:20px 22px;background:#131713;border-color:#303730}
