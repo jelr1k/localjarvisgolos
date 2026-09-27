@@ -9,7 +9,10 @@ const pageNames = {
 
 const pageContainer = document.querySelector("#pageContainer");
 const themeClasses = ["theme-light", "theme-mono-slate", "theme-mono-graphite", "theme-mono-silver", "theme-mono-cream", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple", "theme-gradient-cyan", "theme-gradient-green", "theme-gradient-red", "theme-gradient-sunset"];
-const interfaceClasses = ["interface-minimal", "interface-dashboard", "interface-atlas", "interface-journal", "interface-commandroom"];\nconst densityClasses = ["interface-density-comfortable", "interface-density-compact", "interface-density-dense"];\nconst cornerClasses = ["interface-corners-sharp", "interface-corners-soft", "interface-corners-round"];\nconst motionClasses = ["interface-motion-full", "interface-motion-reduced", "interface-motion-off"];
+const interfaceClasses = ["interface-minimal", "interface-dashboard", "interface-atlas", "interface-journal", "interface-commandroom"];
+const densityClasses = ["interface-density-comfortable", "interface-density-compact", "interface-density-dense"];
+const cornerClasses = ["interface-corners-sharp", "interface-corners-soft", "interface-corners-round"];
+const motionClasses = ["interface-motion-full", "interface-motion-reduced", "interface-motion-off"];
 let pendingInterface = localStorage.getItem("jarvis-interface") || "classic";
 
 function setThemeClass(theme) {
@@ -17,7 +20,15 @@ function setThemeClass(theme) {
   if (theme === "light") document.body.classList.add("theme-light");
   if (theme === "gradient-amber") document.body.classList.add("theme-gradient-amber");
   if (theme === "gradient-blue") document.body.classList.add("theme-gradient-blue");
-  if (theme === "gradient-purple") document.body.classList.add("theme-gradient-purple");\n  if (theme === "gradient-cyan") document.body.classList.add("theme-gradient-cyan");\n  if (theme === "gradient-green") document.body.classList.add("theme-gradient-green");\n  if (theme === "gradient-red") document.body.classList.add("theme-gradient-red");\n  if (theme === "gradient-sunset") document.body.classList.add("theme-gradient-sunset");\n  if (theme === "mono-slate") document.body.classList.add("theme-mono-slate");\n  if (theme === "mono-graphite") document.body.classList.add("theme-mono-graphite");\n  if (theme === "mono-silver") document.body.classList.add("theme-mono-silver");\n  if (theme === "mono-cream") document.body.classList.add("theme-mono-cream");
+  if (theme === "gradient-purple") document.body.classList.add("theme-gradient-purple");
+  if (theme === "gradient-cyan") document.body.classList.add("theme-gradient-cyan");
+  if (theme === "gradient-green") document.body.classList.add("theme-gradient-green");
+  if (theme === "gradient-red") document.body.classList.add("theme-gradient-red");
+  if (theme === "gradient-sunset") document.body.classList.add("theme-gradient-sunset");
+  if (theme === "mono-slate") document.body.classList.add("theme-mono-slate");
+  if (theme === "mono-graphite") document.body.classList.add("theme-mono-graphite");
+  if (theme === "mono-silver") document.body.classList.add("theme-mono-silver");
+  if (theme === "mono-cream") document.body.classList.add("theme-mono-cream");
 }
 
 function applyTheme(theme) {
@@ -29,6 +40,9 @@ function setInterfaceClass(name) {
   document.body.classList.remove(...interfaceClasses);
   if (name === "minimal") document.body.classList.add("interface-minimal");
   if (name === "dashboard") document.body.classList.add("interface-dashboard");
+  if (name === "atlas") document.body.classList.add("interface-atlas");
+  if (name === "journal") document.body.classList.add("interface-journal");
+  if (name === "commandroom") document.body.classList.add("interface-commandroom");
 }
 
 function applyInterface(name) {
@@ -63,7 +77,10 @@ function bindPageEvents() {
   const themePicker = document.querySelector("#themePicker");
   const interfaceButton = document.querySelector("#interfaceButton");
   const interfacePicker = document.querySelector("#interfacePicker");
-  const saveAllButton = document.querySelector("#saveAllButton");\n  const interfaceDensity = document.querySelector("#interfaceDensity");\n  const interfaceCorners = document.querySelector("#interfaceCorners");\n  const interfaceMotion = document.querySelector("#interfaceMotion");
+  const saveAllButton = document.querySelector("#saveAllButton");
+  const interfaceDensity = document.querySelector("#interfaceDensity");
+  const interfaceCorners = document.querySelector("#interfaceCorners");
+  const interfaceMotion = document.querySelector("#interfaceMotion");
 
   if (profileButton && profileMenu && profileButton.dataset.bound !== "true") {
     profileButton.dataset.bound = "true";
