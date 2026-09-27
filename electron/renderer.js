@@ -8,7 +8,7 @@ const pageNames = {
 };
 
 const pageContainer = document.querySelector("#pageContainer");
-const themeClasses = ["theme-light", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple"];
+const themeClasses = ["theme-light", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple"];\nconst interfaceClasses = ["interface-minimal", "interface-dashboard"];
 
 function setThemeClass(theme) {
   document.body.classList.remove(...themeClasses);
@@ -49,7 +49,7 @@ function bindPageEvents() {
   const themeSelect = document.querySelector("#themeSelect");
   const languageSelect = document.querySelector("#languageSelect");
   const themePicker = document.querySelector("#themePicker");
-  const interfaceButton = document.querySelector("#interfaceButton");
+  const interfaceButton = document.querySelector("#interfaceButton");\n  const interfacePicker = document.querySelector("#interfacePicker");
 
   if (profileButton && profileMenu) {
     profileButton.addEventListener("click", (event) => {
