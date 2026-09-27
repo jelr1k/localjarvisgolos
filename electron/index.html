@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">J</span>
+        <div><strong>JARVIS</strong><small>локальный ассистент</small></div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-page="home"><span>◉</span>Главная</button>
+        <button class="nav-item" data-page="chat"><span>◌</span>Чат</button>
+        <button class="nav-item" data-page="commands"><span>⌘</span>Команды</button>
+        <button class="nav-item" data-page="workspace"><span>▣</span>Рабочая область</button>
+        <button class="nav-item" data-page="ai"><span>◇</span>ИИ</button>
+        <button class="nav-item" data-page="settings"><span>⚙</span>Настройки</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="status"><i></i><span>Система готова</span></div>
+        <div class="profile"><b>Джелрик</b><small>локальный режим</small></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">JARVIS</span>
+          <span class="crumb">/ <span id="pageName">Главная</span></span>
+        </div>
+        <div class="top-status">● онлайн</div>
+      </header>
+
+      <section class="page active" id="home">
+        <div class="home-grid">
+          <div class="hero panel">
+            <div class="hero-copy">
+              <span class="eyebrow">Личный ассистент</span>
+              <h1>Голос.<br>Действие.<br>Результат.</h1>
+              <p>Jarvis слушает голосовые команды, распознаёт речь и выполняет действия Windows.</p>
+              <div class="actions">
+                <button class="primary" data-go="chat">Начать разговор</button>
+                <button data-go="commands">Посмотреть команды</button>
+              </div>
+            </div>
+            <div class="black-hole" aria-hidden="true"><span></span></div>
+          </div>
+
+          <div class="home-side">
+            <div class="panel status-card">
+              <span class="eyebrow">Состояние</span>
+              <strong>Готов</strong>
+              <small>голосовой контур активен</small>
+            </div>
+            <div class="panel status-card">
+              <span class="eyebrow">Wake word</span>
+              <strong>Jarvis</strong>
+              <small class="ok">активен</small>
+            </div>
+            <div class="panel status-card">
+              <span class="eyebrow">Сервисы</span>
+              <div class="service-row"><span>Vosk</span><b class="ok">слушает</b></div>
+              <div class="service-row"><span>Whisper</span><b class="ok">готов</b></div>
+              <div class="service-row"><span>Ollama</span><b class="ok">OK</b></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="chat">
+        <div class="chat panel">
+          <div class="page-head">
+            <div><span class="eyebrow">Голос и текст</span><h2>Разговор</h2></div>
+            <span class="live">● Vosk слушает</span>
+          </div>
+          <div class="messages" id="messages">
+            <div class="message jarvis"><span>JARVIS</span><p>Привет. Я готов слушать.</p></div>
+            <div class="message user"><span>ВЫ</span><p>Открой Discord</p></div>
+            <div class="message jarvis"><span>JARVIS</span><p>Discord открыт.</p></div>
+          </div>
+          <div class="chat-meta"><span>Wake word <b>Jarvis</b></span><span>Vosk <b>слушает</b></span><span>Whisper <b>готов</b></span></div>
+          <form class="composer" id="chatForm">
+            <input id="chatInput" autocomplete="off" placeholder="Введите команду…">
+            <button class="primary">Отправить</button>
+          </form>
+        </div>
+      </section>
+
+      <section class="page" id="commands">
+        <div class="page-head standalone"><div><span class="eyebrow">Управление системой</span><h2>Команды</h2><p>Действия, которые Jarvis выполняет напрямую, без лишнего вызова модели.</p></div></div>
+        <div class="card-grid">
+          <article class="panel command-card"><span class="icon">⌘</span><h3>Windows</h3><p>Открытие программ, управление окнами и системные действия.</p><button data-go="chat">Открыть чат →</button></article>
+          <article class="panel command-card"><span class="icon">▤</span><h3>Файлы</h3><p>Открытие, поиск и работа с файлами в разрешённой области.</p><button data-go="workspace">Рабочая область →</button></article>
+          <article class="panel command-card"><span class="icon">◈</span><h3>Jarvis</h3><p>Свернуть, восстановить, закрыть и управлять самим приложением.</p><button>Подробнее →</button></article>
+          <article class="panel command-card"><span class="icon">●</span><h3>Приложения</h3><p>Discord, Проводник и другие часто используемые приложения.</p><button>Подробнее →</button></article>
+        </div>
+      </section>
+
+      <section class="page" id="workspace">
+        <div class="page-head standalone"><div><span class="eyebrow">Файлы и алиасы</span><h2>Рабочая область</h2><p>Место, где Jarvis знает файлы, папки и короткие имена для них.</p></div><button class="primary">Добавить</button></div>
+        <div class="workspace-grid">
+          <div class="panel workspace-main">
+            <div class="section-title"><b>Известные ресурсы</b><span>2 элемента</span></div>
+            <div class="resource"><div><b>проект</b><small>Workspace / project</small></div><span>Папка</span></div>
+            <div class="resource"><div><b>документы</b><small>Workspace / docs</small></div><span>Папка</span></div>
+          </div>
+          <div class="panel info-card"><span class="eyebrow">Режим доступа</span><strong>Только Workspace</strong><p>Файловые операции ограничены рабочей областью.</p><button>Изменить в настройках</button></div>
+        </div>
+      </section>
+
+      <section class="page" id="ai">
+        <div class="page-head standalone"><div><span class="eyebrow">Локальный интеллект</span><h2>ИИ</h2><p>Отдельное место для модели и Ollama. Никакой магии, только та самая локальная магия.</p></div></div>
+        <div class="ai-grid">
+          <div class="panel model-card"><span class="eyebrow">Текущая модель</span><h3>Qwen 1.7B</h3><span class="ok">подключена</span><div class="model-line"><span>Thinking</span><b>выключен</b></div><div class="model-line"><span>Ollama</span><b class="ok">OK</b></div><div class="actions"><button class="primary">Управлять моделью</button><button>Выгрузить</button></div></div>
+          <div class="panel model-card"><span class="eyebrow">Роль ИИ</span><h3>Сложные задачи</h3><p>Модель подключается там, где обычной команде недостаточно прямого действия.</p><div class="tool-tags"><span>диалог</span><span>анализ</span><span>инструменты</span></div></div>
+        </div>
+      </section>
+
+      <section class="page" id="settings">
+        <div class="page-head standalone"><div><span class="eyebrow">Конфигурация</span><h2>Настройки</h2><p>Редкие настройки живут здесь. Главный экран от этого только выигрывает.</p></div><button class="primary">Сохранить всё</button></div>
+        <div class="settings-list">
+          <div class="panel setting"><div><b>Имя помощника</b><small>Используется интерфейсом и обращением к ассистенту.</small></div><span class="control">Jarvis</span></div>
+          <div class="panel setting"><div><b>Wake word</b><small>Слово, после которого Jarvis принимает команду.</small></div><span class="control">Jarvis</span></div>
+          <div class="panel setting"><div><b>Микрофон</b><small>Устройство для голосового контура.</small></div><span class="control">Системный</span></div>
+          <div class="panel setting"><div><b>Рабочая область</b><small>Разрешённая область для файловых операций.</small></div><span class="control">Только Workspace</span></div>
+          <div class="panel setting"><div><b>Тема</b><small>Внешний вид приложения.</small></div><span class="control">Тёмная</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>
