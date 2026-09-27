@@ -429,3 +429,77 @@ body.interface-commandroom .theme-dropdown .theme-grid{scrollbar-color:#4f8c73 #
 body.interface-commandroom .theme-dropdown .theme-grid::-webkit-scrollbar-track{background:#101f18}
 body.interface-commandroom .theme-dropdown .theme-grid::-webkit-scrollbar-thumb{background:#4f8c73;border-color:#101f18}
 body.interface-commandroom .page-head{border-color:#23483a}
+
+
+/* Theme layer comes last so themes remain independent from interface presets. */
+body.theme-light .main{background:#f1f1ee;color:#20221f}
+body.theme-light .page{background:transparent}
+body.theme-light .setting{background:#f7f7f4;border-color:#c8cac2;color:#20221f}
+body.theme-light .panel{background:#f7f7f4;border-color:#c8cac2}
+body.theme-light .theme-dropdown{background:#f7f7f4;border-color:#c8cac2}
+
+body.theme-gradient-amber .main{background:linear-gradient(120deg,#0e0c09 0%,#3b2913 45%,#704716 100%)}
+body.theme-gradient-amber .page{background:transparent}
+body.theme-gradient-amber .setting{background:linear-gradient(135deg,#191611,#382816);border-color:#70552d}
+body.theme-gradient-amber .panel{background:linear-gradient(135deg,#191611 0%,#382816 100%);border-color:#70552d}
+body.theme-gradient-amber .theme-dropdown{background:#15120d;border-color:#70552d}
+
+body.theme-gradient-blue .main{background:linear-gradient(120deg,#080d13 0%,#12334c 45%,#185d7e 100%)}
+body.theme-gradient-blue .page{background:transparent}
+body.theme-gradient-blue .setting{background:linear-gradient(135deg,#111820,#183243);border-color:#3b647b}
+body.theme-gradient-blue .panel{background:linear-gradient(135deg,#111820 0%,#183243 100%);border-color:#3b647b}
+body.theme-gradient-blue .theme-dropdown{background:#0d1218;border-color:#3b647b}
+
+body.theme-gradient-purple .main{background:linear-gradient(120deg,#0e0913 0%,#351442 45%,#702b7e 100%)}
+body.theme-gradient-purple .page{background:transparent}
+body.theme-gradient-purple .setting{background:linear-gradient(135deg,#18111d,#351b40);border-color:#674573}
+body.theme-gradient-purple .panel{background:linear-gradient(135deg,#18111d 0%,#351b40 100%);border-color:#674573}
+body.theme-gradient-purple .theme-dropdown{background:#120d17;border-color:#674573}
+
+body.theme-mono-slate .main{background:linear-gradient(135deg,#101315,#252b2e 55%,#3a4246);color:#eef0ef}
+body.theme-mono-slate .page{background:transparent}
+body.theme-mono-slate .setting{background:#1d2225;border-color:#465057}
+body.theme-mono-slate .panel{background:#1d2225;border-color:#465057}
+body.theme-mono-slate .theme-dropdown{background:#161a1c;border-color:#465057}
+
+body.theme-mono-graphite .main{background:linear-gradient(135deg,#0c0c0c,#1e1e1e 55%,#3a3a3a);color:#eee}
+body.theme-mono-graphite .page{background:transparent}
+body.theme-mono-graphite .setting{background:#191919;border-color:#3a3a3a}
+body.theme-mono-graphite .panel{background:#191919;border-color:#3a3a3a}
+body.theme-mono-graphite .theme-dropdown{background:#111;border-color:#3a3a3a}
+
+body.theme-mono-silver .main{background:linear-gradient(135deg,#d8dbd9,#f1f2ef 55%,#aeb3b0);color:#222625}
+body.theme-mono-silver .page{background:transparent}
+body.theme-mono-silver .setting{background:#eceeeb;border-color:#b9bdb9}
+body.theme-mono-silver .panel{background:#eceeeb;border-color:#b9bdb9}
+body.theme-mono-silver .theme-dropdown{background:#d2d5d2;border-color:#aeb3b0}
+
+body.theme-mono-cream .main{background:linear-gradient(135deg,#e4dfd4,#f5f1e8 55%,#c9c1b2);color:#292823}
+body.theme-mono-cream .page{background:transparent}
+body.theme-mono-cream .setting{background:#f0ece3;border-color:#c5bdae}
+body.theme-mono-cream .panel{background:#f0ece3;border-color:#c5bdae}
+body.theme-mono-cream .theme-dropdown{background:#ded8cc;border-color:#b8b0a1}
+
+body.theme-gradient-cyan .main{background:linear-gradient(120deg,#061013,#0d3440 45%,#147c91 100%)}
+body.theme-gradient-cyan .page{background:transparent}
+body.theme-gradient-cyan .setting{background:linear-gradient(135deg,#111b1e,#17383f);border-color:#35616a}
+body.theme-gradient-cyan .panel{background:linear-gradient(135deg,#111b1e,#17383f);border-color:#35616a}
+body.theme-gradient-cyan .theme-dropdown{background:#0c1518;border-color:#35616a}
+
+body.theme-gradient-green .main{background:linear-gradient(120deg,#07100b,#123c25 45%,#1d7b48 100%)}
+body.theme-gradient-green .page{background:transparent}
+body.theme-gradient-green .setting{background:linear-gradient(135deg,#111a14,#173424);border-color:#37604a}
+body.theme-gradient-green .panel{background:linear-gradient(135deg,#111a14,#173424);border-color:#37604a}
+body.theme-gradient-green .theme-dropdown{background:#0d1510;border-color:#37604a}
+
+body.theme-gradient-red .main{background:linear-gradient(120deg,#110708,#431015 45%,#821f27 100%)}
+body.theme-gradient-red .page{background:transparent}
+body.theme-gradient-red .setting{background:linear-gradient(135deg,#1d1011,#39171a);border-color:#68383c}
+body.theme-gradient-red .panel{background:linear-gradient(135deg,#1d1011,#39171a);border-color:#68383c}
+body.theme-gradient-red .theme-dropdown{background:#160b0c;border-color:#68383c}
+
+body.theme-gradient-sunset .main{background:linear-gradient(120deg,#120b0c,#44251d 42%,#9a5730 100%)}
+body.theme-gradient-sunset .page{background:transparent}
+body.theme-gradient-sunset .setting{background:linear-gradient(135deg,#1d1310,#3a2118);border-color:#69483a}
+body.theme-gradient-sunset .panel{background:linear-gradient(135deg,#1d1310,#3a2118);border-color:#69483a}
+body.theme-gradient-sunset .theme-dropdown{background:#170e0d;border-color:#69483a}
