@@ -1,7 +1,40 @@
 <section class="page active" id="ai">
-  <div class="page-head standalone"><div><span class="eyebrow">Локальный интеллект</span><h2>ИИ</h2><p>Отдельное место для модели и Ollama. Никакой магии, только та самая локальная магия.</p></div></div>
+  <div class="page-head standalone"><div><span class="eyebrow">Локальный интеллект</span><h2>ИИ</h2><p>Модель, инструменты, параметры генерации и состояние железа в одном месте.</p></div></div>
   <div class="ai-grid">
-    <div class="panel model-card"><span class="eyebrow">Текущая модель</span><h3>Qwen 1.7B</h3><span class="ok">подключена</span><div class="model-line"><span>Thinking</span><b>выключен</b></div><div class="model-line"><span>Ollama</span><b class="ok">OK</b></div><div class="actions"><button class="primary">Управлять моделью</button><button>Выгрузить</button></div></div>
-    <div class="panel model-card"><span class="eyebrow">Роль ИИ</span><h3>Сложные задачи</h3><p>Модель подключается там, где обычной команде недостаточно прямого действия.</p><div class="tool-tags"><span>диалог</span><span>анализ</span><span>инструменты</span></div></div>
+    <div class="panel model-card">
+      <span class="eyebrow">Текущая модель</span><h3>qwen3:1.7b</h3><span class="ok">подключена</span>
+      <div class="model-line"><span>Режим размышлений</span><b>выключен</b></div>
+      <div class="model-line"><span>Контекст</span><b>4096 токенов</b></div>
+      <div class="model-line"><span>Температура</span><b>0.7</b></div>
+      <div class="model-line"><span>Ollama</span><b class="ok">включена</b></div>
+      <div class="actions"><button class="primary">Управлять моделью</button><button>Выгрузить</button></div>
+    </div>
+    <div class="panel stats-card">
+      <div class="section-title"><b>Статистика генерации</b><span>последний запрос</span></div>
+      <div class="stats-grid">
+        <div><small>Вход</small><strong>184</strong><span>токенов</span></div>
+        <div><small>Выход</small><strong>327</strong><span>токенов</span></div>
+        <div><small>Всего</small><strong>511</strong><span>токенов</span></div>
+        <div><small>Скорость</small><strong>6.8</strong><span>ток/с</span></div>
+        <div><small>Загрузка</small><strong>1.2 с</strong><span>модель</span></div>
+        <div><small>Обработка</small><strong>0.4 с</strong><span>запрос</span></div>
+        <div><small>Выдача</small><strong>48.1 с</strong><span>генерация</span></div>
+        <div><small>Раздумья</small><strong>Выкл.</strong><span>режим</span></div>
+      </div>
+    </div>
+    <div class="panel system-card">
+      <div class="section-title"><b>Состояние системы</b><span class="ok">онлайн</span></div>
+      <div class="system-grid">
+        <div><span>CPU</span><b>23%</b></div><div><span>GPU</span><b>41%</b></div>
+        <div><span>ОЗУ</span><b>7.4 / 16 ГБ</b></div><div><span>Видеопамять</span><b>2.1 / 4 ГБ</b></div>
+      </div>
+      <div class="model-line"><span>Где работает модель</span><b>GPU</b></div>
+    </div>
+    <div class="panel tools-card">
+      <div class="section-title"><b>Инструменты ИИ</b><span>доступны модели</span></div>
+      <div class="tool-tags"><span>Поиск файлов</span><span>Чтение файла</span><span>Создание файла</span><span>Удаление файла</span></div>
+      <p>Инструменты выполняются в разрешённых пределах Workspace.</p>
+      <button>Настроить инструменты</button>
+    </div>
   </div>
 </section>
