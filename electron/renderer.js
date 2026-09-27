@@ -75,6 +75,8 @@ function bindPageEvents() {
   const themeSelect = document.querySelector("#themeSelect");
   const languageSelect = document.querySelector("#languageSelect");
   const themePicker = document.querySelector("#themePicker");
+  const themeSwitcher = document.querySelector("#themeSwitcher");
+  const themeDropdown = document.querySelector("#themeDropdown");
   const interfaceButton = document.querySelector("#interfaceButton");
   const interfacePicker = document.querySelector("#interfacePicker");
   const saveAllButton = document.querySelector("#saveAllButton");
@@ -120,6 +122,24 @@ function bindPageEvents() {
           item.classList.toggle("selected", item === option);
         });
       });
+    });
+  }
+
+  if (themeSwitcher && themeDropdown) {
+    themeSwitcher.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = themeDropdown.hidden;
+      themeDropdown.hidden = !isOpen;
+      themeSwitcher.setAttribute("aria-expanded", String(isOpen));
+    });
+
+    themeDropdown.addEventListener("click", (event) => event.stopPropagation());
+
+    document.addEventListener("click", () => {
+      if (!themeDropdown.hidden) {
+        themeDropdown.hidden = true;
+        themeSwitcher.setAttribute("aria-expanded", "false");
+      }
     });
   }
 
