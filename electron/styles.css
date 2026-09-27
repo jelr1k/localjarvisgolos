@@ -48,3 +48,28 @@ body.theme-gradient-purple .sidebar,body.theme-gradient-purple .topbar{backgroun
 body.theme-gradient-purple .panel{background:linear-gradient(135deg,#19161c,#241927);border-color:#49384f}
 
 body.theme-gradient-amber .setting-select,body.theme-gradient-blue .setting-select,body.theme-gradient-purple .setting-select{background:#252721;color:#eee}
+
+.theme-hint{margin:5px 0 0;color:#73776f;font-size:11px}
+.theme-grid{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:8px}
+.theme-option{position:relative;min-height:100px;border:1px solid #454940;padding:14px;text-align:left;color:#eee;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;transition:transform .15s,border-color .15s,box-shadow .15s}
+.theme-option span{position:relative;z-index:1;font-weight:700}
+.theme-option small{position:relative;z-index:1;color:#c1c4bd;margin-top:4px}
+.theme-option:hover{transform:translateY(-2px);border-color:#d8ceb2;box-shadow:0 8px 22px #0006}
+.theme-option.selected{border-color:#d8ceb2;box-shadow:inset 0 0 0 1px #d8ceb2}
+.theme-option-dark{background:linear-gradient(135deg,#10110f 0%,#252721 100%)}
+.theme-option-light{background:linear-gradient(135deg,#f4f4ef 0%,#cfd1ca 100%);color:#252721}
+.theme-option-light small{color:#555950}
+.theme-option-amber{background:linear-gradient(125deg,#17130d 0%,#5d4018 48%,#c08a32 100%)}
+.theme-option-blue{background:linear-gradient(125deg,#0a1017 0%,#12344e 48%,#2682ad 100%)}
+.theme-option-purple{background:linear-gradient(125deg,#110b17 0%,#3a1750 48%,#8d3da9 100%)}
+body.theme-gradient-amber{background:linear-gradient(120deg,#0e0c09 0%,#3b2913 45%,#704716 100%);background-attachment:fixed}
+body.theme-gradient-amber .sidebar,body.theme-gradient-amber .topbar{background:linear-gradient(135deg,#15120d 0%,#322513 100%)}
+body.theme-gradient-amber .panel{background:linear-gradient(135deg,#191611 0%,#382816 100%);border-color:#70552d}
+body.theme-gradient-blue{background:linear-gradient(120deg,#080d13 0%,#12334c 45%,#185d7e 100%);background-attachment:fixed}
+body.theme-gradient-blue .sidebar,body.theme-gradient-blue .topbar{background:linear-gradient(135deg,#0d1218 0%,#132c3d 100%)}
+body.theme-gradient-blue .panel{background:linear-gradient(135deg,#111820 0%,#183243 100%);border-color:#3b647b}
+body.theme-gradient-purple{background:linear-gradient(120deg,#0e0913 0%,#351442 45%,#702b7e 100%);background-attachment:fixed}
+body.theme-gradient-purple .sidebar,body.theme-gradient-purple .topbar{background:linear-gradient(135deg,#120d17 0%,#2b1735 100%)}
+body.theme-gradient-purple .panel{background:linear-gradient(135deg,#18111d 0%,#351b40 100%);border-color:#674573}
+body.theme-gradient-amber .page,body.theme-gradient-blue .page,body.theme-gradient-purple .page{background:transparent}
+@media(max-width:950px){.theme-grid{grid-template-columns:repeat(2,1fr)}}
