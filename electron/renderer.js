@@ -8,7 +8,8 @@ const pageNames = {
 };
 
 const pageContainer = document.querySelector("#pageContainer");
-const themeClasses = ["theme-light", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple"];\nconst interfaceClasses = ["interface-minimal", "interface-dashboard"];
+const themeClasses = ["theme-light", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple"];
+const interfaceClasses = ["interface-minimal", "interface-dashboard"];
 
 function setThemeClass(theme) {
   document.body.classList.remove(...themeClasses);
@@ -23,10 +24,20 @@ function applyTheme(theme) {
   localStorage.setItem("jarvis-theme", theme);
 }
 
+function setInterfaceClass(name) {
+  document.body.classList.remove(...interfaceClasses);
+  if (name === "minimal") document.body.classList.add("interface-minimal");
+  if (name === "dashboard") document.body.classList.add("interface-dashboard");
+}
+
+function applyInterface(name) {
+  setInterfaceClass(name);
+  localStorage.setItem("jarvis-interface", name);
+}
+
 function applyLanguage(language) {
   localStorage.setItem("jarvis-language", language);
 }
-
 
 async function go(page) {
   try {
@@ -38,7 +49,7 @@ async function go(page) {
     bindPageEvents();
   } catch (error) {
     pageContainer.innerHTML = '<section class="page active"><div class="panel" style="padding:24px">Не удалось загрузить страницу.</div></section>';
-    console.error(error);
+    console.error("Jarvis page load error:", error);
   }
 }
 
@@ -49,7 +60,8 @@ function bindPageEvents() {
   const themeSelect = document.querySelector("#themeSelect");
   const languageSelect = document.querySelector("#languageSelect");
   const themePicker = document.querySelector("#themePicker");
-  const interfaceButton = document.querySelector("#interfaceButton");\n  const interfacePicker = document.querySelector("#interfacePicker");
+  const interfaceButton = document.querySelector("#interfaceButton");
+  const interfacePicker = document.querySelector("#interfacePicker");
 
   if (profileButton && profileMenu) {
     profileButton.addEventListener("click", (event) => {
@@ -65,6 +77,11 @@ function bindPageEvents() {
     }, { once: true });
   }
 
+  if (themeSelect) {
+    themeSelect.value = localStorage.getItem("jarvis-theme") || "dark";
+    themeSelect.addEventListener("change", () => applyTheme(themeSelect.value));
+  }
+
   if (themePicker) {
     const savedTheme = localStorage.getItem("jarvis-theme") || "dark";
     setThemeClass(savedTheme);
@@ -74,14 +91,35 @@ function bindPageEvents() {
       option.addEventListener("mouseleave", () => setThemeClass(localStorage.getItem("jarvis-theme") || "dark"));
       option.addEventListener("click", () => {
         applyTheme(option.dataset.theme);
-        themePicker.querySelectorAll("[data-theme]").forEach((item) => item.classList.toggle("selected", item === option));
+        themePicker.querySelectorAll("[data-theme]").forEach((item) => {
+          item.classList.toggle("selected", item === option);
+        });
       });
     });
   }
 
   if (interfaceButton) {
     interfaceButton.addEventListener("click", () => {
-      document.querySelector("#themePicker")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      interfacePicker?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
+  if (interfacePicker) {
+    const savedInterface = localStorage.getItem("jarvis-interface") || "classic";
+    setInterfaceClass(savedInterface);
+
+    interfacePicker.querySelectorAll("[data-interface]").forEach((option) => {
+      option.classList.toggle("selected", option.dataset.interface === savedInterface);
+      option.addEventListener("mouseenter", () => setInterfaceClass(option.dataset.interface));
+      option.addEventListener("mouseleave", () => {
+        setInterfaceClass(localStorage.getItem("jarvis-interface") || "classic");
+      });
+      option.addEventListener("click", () => {
+        applyInterface(option.dataset.interface);
+        interfacePicker.querySelectorAll("[data-interface]").forEach((item) => {
+          item.classList.toggle("selected", item === option);
+        });
+      });
     });
   }
 
@@ -118,7 +156,7 @@ function bindPageEvents() {
   if (micButton) {
     micButton.addEventListener("click", () => {
       micButton.classList.toggle("active");
-      micButton.textContent = micButton.classList.contains("active") ? "●" : "●";
+      micButton.textContent = "●";
     });
   }
 
@@ -144,4 +182,5 @@ document.querySelectorAll("[data-page]").forEach((button) => {
 });
 
 applyTheme(localStorage.getItem("jarvis-theme") || "dark");
+setInterfaceClass(localStorage.getItem("jarvis-interface") || "classic");
 go("home");
