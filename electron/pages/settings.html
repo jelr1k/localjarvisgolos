@@ -1,10 +1,29 @@
 <section class="page active" id="settings">
-  <div class="page-head standalone"><div><span class="eyebrow">Конфигурация</span><h2>Настройки</h2><p>Редкие настройки живут здесь. Главный экран от этого только выигрывает.</p></div><button class="primary">Сохранить всё</button></div>
-  <div class="settings-list">
-    <div class="panel setting"><div><b>Имя помощника</b><small>Используется интерфейсом и обращением к ассистенту.</small></div><span class="control">Jarvis</span></div>
-    <div class="panel setting"><div><b>Wake word</b><small>Слово, после которого Jarvis принимает команду.</small></div><span class="control">Jarvis</span></div>
-    <div class="panel setting"><div><b>Микрофон</b><small>Устройство для голосового контура.</small></div><span class="control">Системный</span></div>
-    <div class="panel setting"><div><b>Рабочая область</b><small>Разрешённая область для файловых операций.</small></div><span class="control">Только Workspace</span></div>
-    <div class="panel setting"><div><b>Тема</b><small>Внешний вид приложения.</small></div><span class="control">Тёмная</span></div>
+  <div class="page-head standalone"><div><span class="eyebrow">Конфигурация</span><h2>Настройки</h2><p>Основные параметры приложения, голоса и поведения ассистента.</p></div><button class="primary">Сохранить всё</button></div>
+  <div class="settings-section"><div class="settings-section-head"><h3>Приложение</h3></div>
+    <div class="settings-list">
+      <div class="panel setting"><div><b>Название приложения</b><small>Отображается в заголовке окна.</small></div><span class="control">JARVIS</span></div>
+      <div class="panel setting"><div><b>Имя ассистента</b><small>Имя, которое показывается в чате и сообщениях.</small></div><span class="control">Jarvis</span></div>
+      <div class="panel setting"><div><b>Режим тестирования</b><small>Работает только Command Router, без вызова ИИ.</small></div><label class="switch"><input type="checkbox"><i></i></label></div>
+    </div>
+  </div>
+  <div class="settings-section"><div class="settings-section-head"><h3>Голос</h3></div>
+    <div class="settings-list">
+      <div class="panel setting"><div><b>Wake word</b><small>Слово, после которого Jarvis принимает команду.</small></div><span class="control">Jarvis</span></div>
+      <div class="panel setting"><div><b>Микрофон</b><small>Устройство для голосового контура.</small></div><span class="control">Системный</span></div>
+      <div class="panel setting"><div><b>Тишина до автоотправки</b><small>Сколько тишины ждать после речи перед отправкой.</small></div><span class="control">1.2 с</span></div>
+    </div>
+  </div>
+  <div class="settings-section"><div class="settings-section-head"><h3>Рабочая область и алиасы</h3></div>
+    <div class="settings-list">
+      <div class="panel setting"><div><b>Рабочая область</b><small>Разрешённая область для файловых операций.</small></div><span class="control">Только Workspace</span></div>
+      <div class="panel setting"><div><b>Алиасы</b><small>Управление короткими именами файлов, папок и приложений.</small></div><button class="control">Открыть алиасы</button></div>
+    </div>
+  </div>
+  <div class="settings-section"><div class="settings-section-head"><h3>Система</h3></div>
+    <div class="settings-list">
+      <div class="panel setting"><div><b>Ollama</b><small>Разрешить приложению запускать и использовать локальный сервер Ollama.</small></div><label class="switch"><input type="checkbox" checked><i></i></label></div>
+      <div class="panel setting"><div><b>Тема</b><small>Внешний вид приложения.</small></div><span class="control">Тёмная</span></div>
+    </div>
   </div>
 </section>
