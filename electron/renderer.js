@@ -63,18 +63,24 @@ function bindPageEvents() {
   const interfaceButton = document.querySelector("#interfaceButton");
   const interfacePicker = document.querySelector("#interfacePicker");
 
-  if (profileButton && profileMenu) {
+  if (profileButton && profileMenu && profileButton.dataset.bound !== "true") {
+    profileButton.dataset.bound = "true";
+
     profileButton.addEventListener("click", (event) => {
       event.stopPropagation();
-      const isOpen = !profileMenu.hidden;
-      profileMenu.hidden = isOpen;
-      profileButton.setAttribute("aria-expanded", String(!isOpen));
+      const isOpen = profileMenu.hidden;
+      profileMenu.hidden = !isOpen;
+      profileButton.setAttribute("aria-expanded", String(isOpen));
+    });
+
+    profileMenu.addEventListener("click", (event) => {
+      event.stopPropagation();
     });
 
     document.addEventListener("click", () => {
       profileMenu.hidden = true;
       profileButton.setAttribute("aria-expanded", "false");
-    }, { once: true });
+    });
   }
 
   if (themeSelect) {
@@ -128,7 +134,8 @@ function bindPageEvents() {
     languageSelect.addEventListener("change", () => applyLanguage(languageSelect.value));
   }
 
-  if (profileSettings) {
+  if (profileSettings && profileSettings.dataset.bound !== "true") {
+    profileSettings.dataset.bound = "true";
     profileSettings.addEventListener("click", () => {
       if (profileMenu) profileMenu.hidden = true;
       if (profileButton) profileButton.setAttribute("aria-expanded", "false");
