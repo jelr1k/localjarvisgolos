@@ -10,6 +10,7 @@ const pageNames = {
 const pageContainer = document.querySelector("#pageContainer");
 const themeClasses = ["theme-light", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple"];
 const interfaceClasses = ["interface-minimal", "interface-dashboard"];
+let pendingInterface = localStorage.getItem("jarvis-interface") || "classic";
 
 function setThemeClass(theme) {
   document.body.classList.remove(...themeClasses);
@@ -62,6 +63,7 @@ function bindPageEvents() {
   const themePicker = document.querySelector("#themePicker");
   const interfaceButton = document.querySelector("#interfaceButton");
   const interfacePicker = document.querySelector("#interfacePicker");
+  const saveAllButton = document.querySelector("#saveAllButton");
 
   if (profileButton && profileMenu && profileButton.dataset.bound !== "true") {
     profileButton.dataset.bound = "true";
@@ -111,21 +113,26 @@ function bindPageEvents() {
   }
 
   if (interfacePicker) {
-    const savedInterface = localStorage.getItem("jarvis-interface") || "classic";
-    setInterfaceClass(savedInterface);
+    pendingInterface = localStorage.getItem("jarvis-interface") || "classic";
 
     interfacePicker.querySelectorAll("[data-interface]").forEach((option) => {
-      option.classList.toggle("selected", option.dataset.interface === savedInterface);
-      option.addEventListener("mouseenter", () => setInterfaceClass(option.dataset.interface));
-      option.addEventListener("mouseleave", () => {
-        setInterfaceClass(localStorage.getItem("jarvis-interface") || "classic");
-      });
+      option.classList.toggle("selected", option.dataset.interface === pendingInterface);
       option.addEventListener("click", () => {
-        applyInterface(option.dataset.interface);
+        pendingInterface = option.dataset.interface;
         interfacePicker.querySelectorAll("[data-interface]").forEach((item) => {
-          item.classList.toggle("selected", item === option);
+          item.classList.toggle("selected", item.dataset.interface === pendingInterface);
         });
       });
+    });
+  }
+
+  if (saveAllButton) {
+    saveAllButton.addEventListener("click", () => {
+      applyInterface(pendingInterface);
+      saveAllButton.textContent = "Сохранено";
+      setTimeout(() => {
+        if (saveAllButton.isConnected) saveAllButton.textContent = "Сохранить всё";
+      }, 1200);
     });
   }
 
@@ -190,4 +197,5 @@ document.querySelectorAll("[data-page]").forEach((button) => {
 
 applyTheme(localStorage.getItem("jarvis-theme") || "dark");
 setInterfaceClass(localStorage.getItem("jarvis-interface") || "classic");
+pendingInterface = localStorage.getItem("jarvis-interface") || "classic";
 go("home");
