@@ -160,3 +160,163 @@ body.interface-dashboard .workspace-main,body.interface-dashboard .info-card,bod
 body.interface-dashboard .ai-grid{gap:16px}
 body.interface-dashboard .settings-list{gap:12px}
 body.interface-dashboard .setting{padding:20px 22px;background:#131713;border-color:#303730}
+
+
+/* Expanded interface presets inspired by the repository's Atlas, Journal and Command Room explorations. */
+body.interface-atlas .app{grid-template-columns:214px minmax(0,1fr)}
+body.interface-atlas .sidebar{padding:16px 12px;background:#171815}
+body.interface-atlas .brand{padding:7px 10px 25px}
+body.interface-atlas .brand-mark{width:34px;height:34px}
+body.interface-atlas .topbar{height:56px;flex-basis:56px;padding:0 20px}
+body.interface-atlas .page{padding:10px;max-width:1480px;margin:auto}
+body.interface-atlas .home-grid{height:calc(100vh - 76px);grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:1fr 112px;gap:8px}
+body.interface-atlas .hero{padding:26px 30px;background:#181916}
+body.interface-atlas .hero h1{font-size:clamp(42px,5vw,62px)}
+body.interface-atlas .home-side{grid-template-rows:repeat(4,1fr);gap:8px;grid-row:1/3}
+body.interface-atlas .status-card{padding:14px 16px}
+body.interface-atlas .card-grid{grid-template-columns:repeat(3,1fr);gap:8px}
+body.interface-atlas .command-card{padding:20px;min-height:180px}
+body.interface-atlas .workspace-grid{grid-template-columns:190px minmax(0,1fr)}
+body.interface-atlas .workspace-main{padding:16px 18px}
+body.interface-atlas .settings-list{gap:0}
+body.interface-atlas .setting{padding:13px 16px;border-bottom:1px solid #343731}
+body.interface-atlas .page-head h2{font-size:46px}
+
+body.interface-journal .app{grid-template-columns:1fr;grid-template-rows:auto auto minmax(0,1fr)}
+body.interface-journal .sidebar{grid-row:1;grid-column:1;height:auto;padding:18px 28px;background:#15130f;border-right:0;border-bottom:1px solid #413a30;display:flex;flex-direction:row;align-items:center;justify-content:space-between}
+body.interface-journal .brand{padding:0;display:block}
+body.interface-journal .brand-mark{width:auto;height:auto;border:0;background:none;font:700 28px Georgia,serif}
+body.interface-journal .brand>div{display:block}
+body.interface-journal .brand small{font-family:Inter,Segoe UI,sans-serif}
+body.interface-journal .nav{grid-row:2;grid-column:1;display:flex;justify-content:center;gap:0;background:#171510;border-bottom:1px solid #413a30}
+body.interface-journal .nav-item{border:0;border-bottom:2px solid transparent;padding:13px 20px;color:#9d9587}
+body.interface-journal .nav-item:hover,body.interface-journal .nav-item.active{background:transparent;color:#f0e6d5;border-bottom-color:#c9b789}
+body.interface-journal .sidebar-bottom{position:absolute;right:28px;top:19px;display:flex;align-items:center}
+body.interface-journal .status{display:none}
+body.interface-journal .profile{padding:5px 0}
+body.interface-journal .profile-name{display:block}
+body.interface-journal .profile-menu{right:0;left:auto;bottom:auto;top:48px}
+body.interface-journal .main{grid-row:3;grid-column:1;background:#15120e}
+body.interface-journal .topbar{display:none}
+body.interface-journal .page{padding:28px max(28px,5vw);max-width:1480px}
+body.interface-journal .hero{background:#1b1915;border-color:#453e32;padding:32px}
+body.interface-journal .hero h1{font:700 clamp(44px,5vw,68px)/.9 Georgia,serif}
+body.interface-journal .panel{background:#1b1915;border-color:#453e32}
+body.interface-journal .home-grid{height:calc(100vh - 132px);grid-template-columns:minmax(0,1fr) 260px;gap:12px}
+body.interface-journal .status-card{padding:20px;border-color:#453e32}
+body.interface-journal .command-card{min-height:200px;padding:22px;background:#1b1915}
+body.interface-journal .message p{background:#29241d;border-color:#4a4337}
+body.interface-journal .message.user p{background:#d8c79d;color:#1b1710}
+body.interface-journal .page-head{border-color:#453e32}
+body.interface-journal .setting{background:#211e19;border-color:#453e32}
+body.interface-journal .theme-option,body.interface-journal .interface-option{background:#211e19;border-color:#51493d}
+
+body.interface-commandroom .app{grid-template-columns:1fr;grid-template-rows:62px minmax(0,1fr)}
+body.interface-commandroom .sidebar{grid-row:1;grid-column:1;height:62px;padding:0 22px;background:#191610;border-right:0;border-bottom:1px solid #453e32;display:flex;flex-direction:row;align-items:center;gap:25px}
+body.interface-commandroom .brand{padding:0;font:700 23px Georgia,serif}
+body.interface-commandroom .brand-mark{width:auto;height:auto;border:0;background:none;font:700 23px Georgia,serif}
+body.interface-commandroom .brand>div{display:none}
+body.interface-commandroom .nav{display:flex;gap:2px;height:100%;align-items:stretch}
+body.interface-commandroom .nav-item{border:0;border-bottom:2px solid transparent;padding:0 14px;color:#9d9587}
+body.interface-commandroom .nav-item:hover,body.interface-commandroom .nav-item.active{background:#2a251e;border-bottom-color:#d8c79d;color:#f5ecdc}
+body.interface-commandroom .sidebar-bottom{margin-left:auto;display:flex;align-items:center}
+body.interface-commandroom .status{display:none}
+body.interface-commandroom .profile{padding:6px 0}
+body.interface-commandroom .profile-name{display:block}
+body.interface-commandroom .profile-menu{right:0;left:auto;bottom:auto;top:52px}
+body.interface-commandroom .main{grid-row:2;grid-column:1;background:#15120e}
+body.interface-commandroom .topbar{display:none}
+body.interface-commandroom .page{padding:14px;max-width:1400px}
+body.interface-commandroom .home-grid{height:calc(100vh - 90px);grid-template-columns:minmax(0,1fr) 320px;gap:14px}
+body.interface-commandroom .hero{padding:28px;background:#1a1814;border-color:#453e32}
+body.interface-commandroom .hero h1{font:54px Georgia,serif}
+body.interface-commandroom .home-side{gap:0}
+body.interface-commandroom .status-card{border-color:#453e32;background:#1a1814;padding:20px}
+body.interface-commandroom .command-card{background:#1a1814;border-color:#453e32}
+body.interface-commandroom .panel{background:#1a1814;border-color:#453e32}
+body.interface-commandroom .setting{background:#211e19;border-color:#453e32}
+
+body.interface-density-compact .page{padding:14px}
+body.interface-density-compact .panel{padding-top:0}
+body.interface-density-compact .home-grid{gap:7px}
+body.interface-density-compact .home-side{gap:7px}
+body.interface-density-compact .command-card{min-height:160px;padding:17px}
+body.interface-density-compact .setting{padding:12px 15px}
+body.interface-density-compact .page-head{padding:12px 15px}
+body.interface-density-dense .page{padding:10px}
+body.interface-density-dense .home-grid,.interface-density-dense .home-side,.interface-density-dense .card-grid,.interface-density-dense .ai-grid{gap:5px}
+body.interface-density-dense .command-card{min-height:135px;padding:14px}
+body.interface-density-dense .setting{padding:9px 12px}
+body.interface-density-dense .page-head{padding:9px 12px}
+body.interface-density-dense .hero{padding:24px}
+body.interface-density-dense .status-card{padding:12px}
+
+body.interface-corners-soft .panel,body.interface-corners-soft .setting,.interface-corners-soft .interface-option,.interface-corners-soft .theme-option,.interface-corners-soft .control,.interface-corners-soft .actions button{border-radius:8px}
+body.interface-corners-round .panel,body.interface-corners-round .setting,.interface-corners-round .interface-option,.interface-corners-round .theme-option,.interface-corners-round .control,.interface-corners-round .actions button{border-radius:16px}
+body.interface-corners-round .profile-menu{border-radius:14px}
+body.interface-corners-round .hero{border-radius:20px}
+
+body.interface-motion-reduced *{animation-duration:.45s!important;transition-duration:.12s!important}
+body.interface-motion-off *{animation:none!important;transition:none!important}
+body.interface-motion-off .theme-option:hover,.interface-motion-off .interface-option:hover{transform:none}
+
+.theme-option-slate{background:linear-gradient(135deg,#111416,#3a4145);color:#eef0ef}
+.theme-option-graphite{background:linear-gradient(135deg,#111,#343434);color:#eee}
+.theme-option-silver{background:linear-gradient(135deg,#f4f5f3,#8f9492);color:#202321}
+.theme-option-silver small{color:#414542}
+.theme-option-cream{background:linear-gradient(135deg,#f1ede3,#bdb7a9);color:#27251f}
+.theme-option-cream small{color:#59544a}
+.theme-option-cyan{background:linear-gradient(125deg,#071316,#0c4b58,#22a8bb)}
+.theme-option-green{background:linear-gradient(125deg,#08130e,#155536,#35a56a)}
+.theme-option-red{background:linear-gradient(125deg,#15090a,#5a181d,#c34a4f)}
+.theme-option-sunset{background:linear-gradient(125deg,#1b0d12,#633025,#d08345)}
+
+.interface-option-atlas i{left:12px;right:12px;top:12px;bottom:48px}.interface-option-atlas i:before{left:0;top:0;bottom:0;width:25%;border-top:0;border-left:0;border-bottom:0}.interface-option-atlas i:after{left:31%;right:5%;top:10%;height:28%}
+.interface-option-journal i{left:16%;right:16%;top:12px;bottom:48px}.interface-option-journal i:before{left:0;right:0;top:0;height:18%;border-left:0;border-right:0;border-top:0}.interface-option-journal i:after{left:10%;right:10%;top:32%;height:40%}
+.interface-option-commandroom i{left:10px;right:10px;top:16px;bottom:48px}.interface-option-commandroom i:before{left:0;right:0;top:0;height:20%;border-left:0;border-right:0;border-top:0}.interface-option-commandroom i:after{left:5%;right:5%;top:34%;height:45%}
+
+body.theme-mono-slate{background:linear-gradient(135deg,#101315,#252b2e 55%,#3a4246);color:#eef0ef}
+body.theme-mono-slate .sidebar,body.theme-mono-slate .topbar{background:#161a1c;border-color:#394145}
+body.theme-mono-slate .panel{background:#1d2225;border-color:#465057}
+body.theme-mono-slate .primary{background:#cfd5d7;color:#141718;border-color:#cfd5d7}
+body.theme-mono-graphite{background:linear-gradient(135deg,#0c0c0c,#1e1e1e 55%,#3a3a3a)}
+body.theme-mono-graphite .sidebar,body.theme-mono-graphite .topbar{background:#111;border-color:#303030}
+body.theme-mono-graphite .panel{background:#191919;border-color:#3a3a3a}
+body.theme-mono-graphite .primary{background:#dedede;color:#111;border-color:#dedede}
+body.theme-mono-silver{background:linear-gradient(135deg,#d8dbd9,#f1f2ef 55%,#aeb3b0);color:#222625}
+body.theme-mono-silver .sidebar,body.theme-mono-silver .topbar{background:#d2d5d2;border-color:#aeb3b0}
+body.theme-mono-silver .panel{background:#eceeeb;border-color:#b9bdb9}
+body.theme-mono-silver .nav-item,body.theme-mono-silver .crumb,body.theme-mono-silver .eyebrow{color:#5b605d}
+body.theme-mono-silver .primary{background:#303534;color:#fff;border-color:#303534}
+body.theme-mono-cream{background:linear-gradient(135deg,#e4dfd4,#f5f1e8 55%,#c9c1b2);color:#292823}
+body.theme-mono-cream .sidebar,body.theme-mono-cream .topbar{background:#ded8cc;border-color:#b8b0a1}
+body.theme-mono-cream .panel{background:#f0ece3;border-color:#c5bdae}
+body.theme-mono-cream .nav-item,body.theme-mono-cream .crumb,body.theme-mono-cream .eyebrow{color:#696257}
+body.theme-mono-cream .primary{background:#35332d;color:#fff;border-color:#35332d}
+
+body.theme-gradient-cyan{background:linear-gradient(120deg,#061013,#0d3440 45%,#147c91 100%);background-attachment:fixed}
+body.theme-gradient-cyan .sidebar,body.theme-gradient-cyan .topbar{background:linear-gradient(135deg,#0c1518,#102a31)}
+body.theme-gradient-cyan .panel{background:linear-gradient(135deg,#111b1e,#17383f);border-color:#35616a}
+body.theme-gradient-cyan .primary{background:#a7dbe1;color:#102024;border-color:#a7dbe1}
+body.theme-gradient-green{background:linear-gradient(120deg,#07100b,#123c25 45%,#1d7b48 100%);background-attachment:fixed}
+body.theme-gradient-green .sidebar,body.theme-gradient-green .topbar{background:linear-gradient(135deg,#0d1510,#11281a)}
+body.theme-gradient-green .panel{background:linear-gradient(135deg,#111a14,#173424);border-color:#37604a}
+body.theme-gradient-green .primary{background:#a9d8b9;color:#102015;border-color:#a9d8b9}
+body.theme-gradient-red{background:linear-gradient(120deg,#110708,#431015 45%,#821f27 100%);background-attachment:fixed}
+body.theme-gradient-red .sidebar,body.theme-gradient-red .topbar{background:linear-gradient(135deg,#160b0c,#2b1114)}
+body.theme-gradient-red .panel{background:linear-gradient(135deg,#1d1011,#39171a);border-color:#68383c}
+body.theme-gradient-red .primary{background:#e2b4b7;color:#241011;border-color:#e2b4b7}
+body.theme-gradient-sunset{background:linear-gradient(120deg,#120b0c,#44251d 42%,#9a5730 100%);background-attachment:fixed}
+body.theme-gradient-sunset .sidebar,body.theme-gradient-sunset .topbar{background:linear-gradient(135deg,#170e0d,#2c1b16)}
+body.theme-gradient-sunset .panel{background:linear-gradient(135deg,#1d1310,#3a2118);border-color:#69483a}
+body.theme-gradient-sunset .primary{background:#e4c19c;color:#25170f;border-color:#e4c19c}
+
+@media(max-width:950px){
+  body.interface-journal .sidebar{padding:14px 16px}
+  body.interface-journal .nav-item{padding:11px 10px}
+  body.interface-journal .sidebar-bottom{right:16px;top:14px}
+  body.interface-commandroom .sidebar{gap:10px;padding:0 12px}
+  body.interface-commandroom .nav-item{padding:0 8px}
+  body.interface-atlas .home-grid{grid-template-columns:1fr;grid-template-rows:1fr}
+  body.interface-atlas .home-side{display:none}
+}
