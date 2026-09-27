@@ -31,6 +31,22 @@ function bindPageEvents() {
   const form = document.querySelector("#chatForm");
   const input = document.querySelector("#chatInput");
   const messages = document.querySelector("#messages");
+  const thinkingToggle = document.querySelector("#thinkingToggle");
+  const thinkingState = document.querySelector("#thinkingState");
+  const micButton = document.querySelector("#micButton");
+
+  if (thinkingToggle && thinkingState) {
+    thinkingToggle.addEventListener("change", () => {
+      thinkingState.textContent = thinkingToggle.checked ? "размышления вкл." : "размышления выкл.";
+    });
+  }
+
+  if (micButton) {
+    micButton.addEventListener("click", () => {
+      micButton.classList.toggle("active");
+      micButton.textContent = micButton.classList.contains("active") ? "●" : "●";
+    });
+  }
 
   if (!form || !input || !messages) return;
 
