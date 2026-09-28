@@ -1,26 +1,17 @@
 <section class="page active" id="home">
-  <div class="home-grid">
-    <div class="hero panel">
-      <div class="hero-copy">
-        <span class="eyebrow">Личный ассистент</span>
-        <h1>Голос.<br>Действие.<br>Результат.</h1>
-        <p>Jarvis слушает голосовые команды, распознаёт речь и выполняет действия Windows.</p>
-        <div class="actions">
-          <button class="primary" data-go="chat">Начать разговор</button>
-          <button data-go="commands">Посмотреть команды</button>
-        </div>
-      </div>
-      <div class="black-hole" aria-hidden="true"><canvas id="blackHoleCanvas"></canvas></div>
+  <div class="home-stage">
+    <div class="black-hole" aria-hidden="true"><canvas id="blackHoleCanvas"></canvas></div>
+
+    <button class="home-help" id="homeHelp" type="button" aria-label="О Jarvis" aria-expanded="false">?</button>
+    <div class="home-help-popover" id="homeHelpPopover" hidden>
+      <span class="eyebrow">Jarvis</span>
+      <strong>Локальный голосовой ассистент</strong>
+      <p>Слушает wake word, распознаёт речь и выполняет команды Windows.</p>
     </div>
-    <div class="home-side">
-      <div class="panel status-card"><span class="eyebrow">Состояние</span><strong>Готов</strong><small>голосовой контур активен</small></div>
-      <div class="panel status-card"><span class="eyebrow">Wake word</span><strong>Jarvis</strong><small class="ok">активен</small></div>
-      <div class="panel status-card">
-        <span class="eyebrow">Сервисы</span>
-        <div class="service-row"><span>Vosk</span><b class="ok">слушает</b></div>
-        <div class="service-row"><span>Whisper</span><b class="ok">готов</b></div>
-        <div class="service-row"><span>Ollama</span><b class="ok">OK</b></div>
-      </div>
+
+    <div class="home-status">
+      <span class="home-status-dot"></span>
+      <span>Jarvis готов</span>
     </div>
   </div>
 </section>
