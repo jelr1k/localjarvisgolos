@@ -216,8 +216,6 @@ let stopped=false;
 let rafId=0;
 function frame(t){
   ctx.clearRect(0,0,W,H);
-  ctx.fillStyle="#010102";
-  ctx.fillRect(0,0,W,H);
   drawNebula();
   drawStars(t);
   drawDisk(t);
