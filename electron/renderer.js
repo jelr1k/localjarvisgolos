@@ -62,6 +62,7 @@ async function go(page) {
     });
     document.querySelector("#pageName").textContent = pageNames[page] || pageNames.home;
     bindPageEvents();
+    initBlackHole();
   } catch (error) {
     pageContainer.innerHTML = '<section class="page active"><div class="panel" style="padding:24px">Не удалось загрузить страницу.</div></section>';
     console.error("Jarvis page load error:", error);
