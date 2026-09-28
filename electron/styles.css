@@ -806,3 +806,273 @@ body.interface-corners-sharp .interface-option{border-radius:0}
 
 /* Keep existing theme gradients as backgrounds, while all semantic
    component colors come from the tokens above. */
+
+
+/* ============================================================
+   GUI FIXES: usability, responsive width and contrast
+   ============================================================ */
+
+/* Minimal and Journal must use the whole available canvas.
+   max-width here previously created a large dead area on wide screens. */
+body.interface-minimal .page,
+body.interface-journal .page{
+  width:100%;
+  max-width:none;
+}
+
+/* Keep the AI primary action visibly primary instead of looking
+   like an accidental white/browser-default button. */
+.ai-grid .actions .primary{
+  background:var(--accent);
+  color:var(--accent-text);
+  border-color:var(--accent);
+  font-weight:600;
+}
+.ai-grid .actions .primary:hover{
+  background:var(--accent);
+  color:var(--accent-text);
+  filter:brightness(1.08);
+}
+
+/* Interface picker: make the previews larger, cleaner and readable. */
+.interface-grid{
+  grid-template-columns:repeat(3,minmax(220px,1fr));
+  gap:12px;
+  width:100%;
+}
+.interface-option{
+  min-height:178px;
+  padding:14px;
+  background:var(--surface);
+  color:var(--text);
+  border-color:var(--border-strong);
+  justify-content:flex-end;
+}
+.interface-option span{
+  font-size:15px;
+  line-height:1.2;
+  color:var(--text);
+}
+.interface-option small{
+  color:var(--text-muted);
+  font-size:11px;
+  line-height:1.3;
+}
+.interface-option i{
+  left:14px;
+  right:14px;
+  top:14px;
+  bottom:58px;
+  background:var(--surface-alt);
+  border-color:var(--border);
+}
+.interface-option i:before,
+.interface-option i:after{
+  background:var(--control-bg);
+  border-color:var(--border-strong);
+}
+.interface-option-classic i:before{
+  width:24%;
+}
+.interface-option-classic i:after{
+  left:31%;
+  right:6%;
+  top:14%;
+  height:46%;
+}
+.interface-option-minimal i{
+  left:26%;
+  right:26%;
+  top:10%;
+  bottom:10%;
+}
+.interface-option-minimal i:before{
+  left:10%;
+  right:10%;
+  top:12%;
+  height:15%;
+}
+.interface-option-minimal i:after{
+  left:10%;
+  right:10%;
+  top:40%;
+  height:34%;
+}
+.interface-option-dashboard i{
+  top:14px;
+  bottom:12px;
+}
+.interface-option-dashboard i:before{
+  height:24%;
+}
+.interface-option-dashboard i:after{
+  left:6%;
+  right:6%;
+  top:40%;
+  height:34%;
+}
+.interface-option-atlas i:before{
+  left:0;
+  top:0;
+  bottom:0;
+  width:18%;
+  border-top:0;
+  border-left:0;
+  border-bottom:0;
+}
+.interface-option-atlas i:after{
+  left:23%;
+  right:5%;
+  top:12%;
+  height:30%;
+}
+.interface-option-journal i{
+  top:22%;
+  bottom:8%;
+  border-left:0;
+  border-right:0;
+}
+.interface-option-journal i:before{
+  left:0;
+  right:0;
+  top:16%;
+  height:2px;
+}
+.interface-option-journal i:after{
+  left:10%;
+  right:10%;
+  top:42%;
+  height:28%;
+}
+.interface-option-commandroom i{
+  top:18%;
+  bottom:10%;
+}
+.interface-option-commandroom i:before{
+  left:0;
+  right:0;
+  top:0;
+  height:18%;
+}
+.interface-option-commandroom i:after{
+  left:7%;
+  right:7%;
+  top:34%;
+  height:42%;
+}
+body[class*="theme-"] .interface-option{
+  background:var(--surface);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+body[class*="theme-"] .interface-option span{
+  color:var(--text);
+}
+body[class*="theme-"] .interface-option small{
+  color:var(--text-muted);
+}
+.interface-option.selected{
+  border-color:var(--accent);
+  box-shadow:inset 0 0 0 1px var(--accent);
+}
+
+/* The theme control stays reachable in long settings pages,
+   including Dashboard where vertical space is consumed by the top bar. */
+.settings-theme-section{
+  position:sticky;
+  bottom:12px;
+  z-index:30;
+  padding:12px 0;
+  background:linear-gradient(to bottom,transparent 0%,var(--bg) 16%);
+}
+.settings-theme-section .settings-section-head{
+  padding-top:10px;
+}
+.settings-theme-section #themeSwitcher{
+  position:relative;
+  z-index:31;
+  min-width:180px;
+  box-shadow:0 8px 24px var(--shadow);
+}
+.settings-theme-section .theme-dropdown{
+  z-index:40;
+  max-height:min(62vh,520px);
+  overflow:auto;
+}
+.settings-theme-section .theme-grid{
+  max-height:min(54vh,450px);
+  overflow:auto;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border-strong) transparent;
+}
+.settings-theme-section .theme-grid::-webkit-scrollbar{
+  width:7px;
+}
+.settings-theme-section .theme-grid::-webkit-scrollbar-thumb{
+  background:var(--border-strong);
+}
+.settings-theme-section .theme-grid::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+/* Dark/gradient themes need stronger secondary text. */
+body.theme-gradient-amber{--text-muted:#c0b19d}
+body.theme-gradient-blue{--text-muted:#b0cad6}
+body.theme-gradient-purple{--text-muted:#c5a8cd}
+body.theme-gradient-cyan{--text-muted:#acd0d5}
+body.theme-gradient-green{--text-muted:#acd0b9}
+body.theme-gradient-red{--text-muted:#d1aeb1}
+body.theme-gradient-sunset{--text-muted:#d1b5a5}
+body.theme-mono-slate{--text-muted:#b7c0c4}
+body.theme-mono-graphite{--text-muted:#bdbdbd}
+
+body[class*="theme-"] .profile-name b,
+body[class*="theme-"] .profile-menu-head b,
+body[class*="theme-"] .page-head h2,
+body[class*="theme-"] .settings-section-head h3,
+body[class*="theme-"] .section-title b,
+body[class*="theme-"] .model-card h3,
+body[class*="theme-"] .command-card h3,
+body[class*="theme-"] .info-card strong,
+body[class*="theme-"] .status-card strong,
+body[class*="theme-"] .system-grid b,
+body[class*="theme-"] .stats-grid strong{
+  color:var(--text);
+}
+body[class*="theme-"] .profile-name b{
+  color:var(--accent);
+}
+body[class*="theme-"] .page-head p,
+body[class*="theme-"] .settings-section-head p,
+body[class*="theme-"] .setting small,
+body[class*="theme-"] .model-line span,
+body[class*="theme-"] .system-grid span,
+body[class*="theme-"] .stats-grid small,
+body[class*="theme-"] .stats-grid span,
+body[class*="theme-"] .tools-card p,
+body[class*="theme-"] .command-item span,
+body[class*="theme-"] .chat-model,
+body[class*="theme-"] .crumb,
+body[class*="theme-"] .eyebrow{
+  color:var(--text-muted);
+}
+body[class*="theme-"] .top-status,
+body[class*="theme-"] .live,
+body[class*="theme-"] .ok{
+  color:var(--accent);
+}
+
+@media(max-width:1100px){
+  .interface-grid{
+    grid-template-columns:repeat(2,minmax(200px,1fr));
+  }
+}
+@media(max-width:720px){
+  .interface-grid{
+    grid-template-columns:1fr;
+  }
+  .settings-theme-section{
+    position:relative;
+    bottom:auto;
+  }
+}
