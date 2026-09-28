@@ -84,6 +84,8 @@ function bindPageEvents() {
   const interfaceDensity = document.querySelector("#interfaceDensity");
   const interfaceCorners = document.querySelector("#interfaceCorners");
   const interfaceMotion = document.querySelector("#interfaceMotion");
+  const homeHelp = document.querySelector("#homeHelp");
+  const homeHelpPopover = document.querySelector("#homeHelpPopover");
 
   if (profileButton && profileMenu && profileButton.dataset.bound !== "true") {
     profileButton.dataset.bound = "true";
@@ -140,6 +142,22 @@ function bindPageEvents() {
       if (!themeDropdown.hidden) {
         themeDropdown.hidden = true;
         themeSwitcher.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  if (homeHelp && homeHelpPopover) {
+    homeHelp.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const isOpen = homeHelpPopover.hidden;
+      homeHelpPopover.hidden = !isOpen;
+      homeHelp.setAttribute("aria-expanded", String(isOpen));
+    });
+    homeHelpPopover.addEventListener("click", (event) => event.stopPropagation());
+    document.addEventListener("click", () => {
+      if (!homeHelpPopover.hidden) {
+        homeHelpPopover.hidden = true;
+        homeHelp.setAttribute("aria-expanded", "false");
       }
     });
   }
