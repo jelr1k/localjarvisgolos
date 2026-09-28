@@ -22,7 +22,6 @@ function resize(){
   scale=Math.min(W,H)/700;
 }
 window.addEventListener("resize",resize);
-resize();
 
 function rand(a,b){return a+Math.random()*(b-a)}
 
@@ -227,11 +226,15 @@ function frame(t){
   if(!stopped) rafId=requestAnimationFrame(frame);
 }
 rafId=requestAnimationFrame(frame);
+resizeObserver=new ResizeObserver(resize);
+resizeObserver.observe(canvas.parentElement || canvas);
+resize();
 
 blackHoleCleanup=()=>{
   stopped=true;
   cancelAnimationFrame(rafId);
   window.removeEventListener("resize",resize);
+  resizeObserver?.disconnect();
   blackHoleCleanup=null;
 };
 }
