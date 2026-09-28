@@ -1110,7 +1110,3 @@ body.page-settings.interface-commandroom .topbar{
   border-bottom:1px solid var(--border);
   padding:0 28px;
 }
-body.page-settings.interface-journal .main,
-body.page-settings.interface-commandroom .main{
-  grid-row:3;
-}
