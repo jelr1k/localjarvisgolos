@@ -117,8 +117,6 @@ function bindPageEvents() {
     setThemeClass(savedTheme);
     themePicker.querySelectorAll("[data-theme]").forEach((option) => {
       option.classList.toggle("selected", option.dataset.theme === savedTheme);
-      option.addEventListener("mouseenter", () => setThemeClass(option.dataset.theme));
-      option.addEventListener("mouseleave", () => setThemeClass(localStorage.getItem("jarvis-theme") || "dark"));
       option.addEventListener("click", () => {
         applyTheme(option.dataset.theme);
         themePicker.querySelectorAll("[data-theme]").forEach((item) => {
