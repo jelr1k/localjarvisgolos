@@ -1078,6 +1078,32 @@ body[class*="theme-"] .ok{
 }
 
 
+
+/* Theme previews are fixed mini-previews. Selecting a page theme must not recolor
+   the controls that represent the other available themes. */
+body[class*="theme-"] .theme-option{
+  color:#eee;
+  border-color:#454940;
+  background:#191a18;
+}
+body[class*="theme-"] .theme-option small{color:#c1c4bd}
+body[class*="theme-"] .theme-option-dark{background:linear-gradient(135deg,#10110f 0%,#252721 100%)}
+body[class*="theme-"] .theme-option-light{background:linear-gradient(135deg,#f4f4ef 0%,#cfd1ca 100%);color:#252721}
+body[class*="theme-"] .theme-option-light small{color:#555950}
+body[class*="theme-"] .theme-option-amber{background:linear-gradient(125deg,#17130d 0%,#5d4018 48%,#c08a32 100%)}
+body[class*="theme-"] .theme-option-blue{background:linear-gradient(125deg,#0a1017 0%,#12344e 48%,#2682ad 100%)}
+body[class*="theme-"] .theme-option-purple{background:linear-gradient(125deg,#110b17 0%,#3a1750 48%,#8d3da9 100%)}
+body[class*="theme-"] .theme-option-slate{background:linear-gradient(135deg,#111416,#3a4145)}
+body[class*="theme-"] .theme-option-graphite{background:linear-gradient(135deg,#111,#343434)}
+body[class*="theme-"] .theme-option-silver{background:linear-gradient(135deg,#f4f5f3,#8f9492);color:#202321}
+body[class*="theme-"] .theme-option-silver small{color:#414542}
+body[class*="theme-"] .theme-option-cream{background:linear-gradient(135deg,#f1ede3,#bdb7a9);color:#27251f}
+body[class*="theme-"] .theme-option-cream small{color:#59544a}
+body[class*="theme-"] .theme-option-cyan{background:linear-gradient(125deg,#071316,#0c4b58,#22a8bb)}
+body[class*="theme-"] .theme-option-green{background:linear-gradient(125deg,#08130e,#155536,#35a56a)}
+body[class*="theme-"] .theme-option-red{background:linear-gradient(125deg,#15090a,#5a181d,#c34a4f)}
+body[class*="theme-"] .theme-option-sunset{background:linear-gradient(125deg,#1b0d12,#633025,#d08345)}
+
 /* Settings: keep the global save action in the topbar instead of
    making users repeatedly scroll through the configuration page. */
 body.page-settings .topbar{
