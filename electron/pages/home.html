@@ -9,9 +9,23 @@
       <p>Слушает wake word, распознаёт речь и выполняет команды Windows.</p>
     </div>
 
-    <div class="home-status">
-      <span class="home-status-dot"></span>
-      <span>Jarvis готов</span>
+    <div class="home-status-cards" aria-label="Состояние Jarvis">
+      <div class="home-status-card">
+        <span class="home-status-card-dot"></span>
+        <div><small>Wake word</small><strong>Активен</strong></div>
+      </div>
+      <div class="home-status-card">
+        <span class="home-status-card-dot"></span>
+        <div><small>Vosk</small><strong>Слушает</strong></div>
+      </div>
+      <div class="home-status-card">
+        <span class="home-status-card-dot"></span>
+        <div><small>Normalizer</small><strong>Готов</strong></div>
+      </div>
+      <div class="home-status-card">
+        <span class="home-status-card-dot"></span>
+        <div><small>Router / LLM</small><strong>Готов</strong></div>
+      </div>
     </div>
   </div>
 </section>
