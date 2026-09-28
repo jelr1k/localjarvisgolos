@@ -61,6 +61,13 @@ async function go(page) {
       el.classList.toggle("active", el.dataset.page === page);
     });
     document.querySelector("#pageName").textContent = pageNames[page] || pageNames.home;
+    document.body.classList.toggle("page-settings", page === "settings");
+    const settingsSaveButton = document.querySelector("#saveAllButton");
+    const topbar = document.querySelector(".topbar");
+    if (page === "settings" && settingsSaveButton && topbar) {
+      settingsSaveButton.classList.add("settings-save-button");
+      topbar.appendChild(settingsSaveButton);
+    }
     bindPageEvents();
     requestAnimationFrame(() => initBlackHole());
   } catch (error) {
