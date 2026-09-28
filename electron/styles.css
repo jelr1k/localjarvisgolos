@@ -503,3 +503,306 @@ body.theme-gradient-sunset .page{background:transparent}
 body.theme-gradient-sunset .setting{background:linear-gradient(135deg,#1d1310,#3a2118);border-color:#69483a}
 body.theme-gradient-sunset .panel{background:linear-gradient(135deg,#1d1310,#3a2118);border-color:#69483a}
 body.theme-gradient-sunset .theme-dropdown{background:#170e0d;border-color:#69483a}
+
+
+/* ============================================================
+   JARVIS DESIGN SYSTEM
+   Layering contract:
+   1) components define geometry and behavior
+   2) interfaces define layout, typography and component geometry
+   3) themes define color tokens only
+   4) density/corners/motion modify their own dimensions/behavior
+   ============================================================ */
+
+:root{
+  --bg:#111210;
+  --surface:#191a18;
+  --surface-alt:#252721;
+  --surface-hover:#2d302a;
+  --text:#eee;
+  --text-muted:#858a82;
+  --border:#353831;
+  --border-strong:#454940;
+  --accent:#d8ceb2;
+  --accent-text:#171814;
+  --control-bg:#252721;
+  --control-hover:#2d302a;
+  --input-bg:#11120f;
+  --overlay:rgba(21,22,20,.94);
+  --shadow:rgba(0,0,0,.5);
+}
+
+/* ---------- Theme tokens: palette only ---------- */
+body.theme-light{
+  --bg:#f1f1ee; --surface:#f7f7f4; --surface-alt:#e7e8e2;
+  --surface-hover:#d9dad4; --text:#20221f; --text-muted:#666a63;
+  --border:#c8cac2; --border-strong:#bfc1b8;
+  --accent:#303534; --accent-text:#fff;
+  --control-bg:#e7e8e2; --control-hover:#d9dad4; --input-bg:#fff;
+  --overlay:rgba(247,247,244,.96); --shadow:rgba(0,0,0,.14);
+}
+body.theme-gradient-amber{
+  --bg:#0e0c09; --surface:#191611; --surface-alt:#382816;
+  --surface-hover:#46321b; --text:#eee; --text-muted:#9d9487;
+  --border:#70552d; --border-strong:#80633a;
+  --accent:#e4c19c; --accent-text:#25170f;
+  --control-bg:#252018; --control-hover:#34291b; --input-bg:#110e0b;
+  --overlay:rgba(21,18,13,.95);
+}
+body.theme-gradient-blue{
+  --bg:#080d13; --surface:#111820; --surface-alt:#183243;
+  --surface-hover:#204256; --text:#edf4f7; --text-muted:#8299a5;
+  --border:#3b647b; --border-strong:#4c7e97;
+  --accent:#8fd0e0; --accent-text:#102024;
+  --control-bg:#162630; --control-hover:#1d3542; --input-bg:#080d13;
+  --overlay:rgba(13,18,24,.95);
+}
+body.theme-gradient-purple{
+  --bg:#0e0913; --surface:#18111d; --surface-alt:#351b40;
+  --surface-hover:#45244f; --text:#f1eaf4; --text-muted:#a48cac;
+  --border:#674573; --border-strong:#7b5588;
+  --accent:#d7a4e5; --accent-text:#211126;
+  --control-bg:#24152b; --control-hover:#321c3c; --input-bg:#100a15;
+  --overlay:rgba(18,13,23,.95);
+}
+body.theme-gradient-cyan{
+  --bg:#061013; --surface:#111b1e; --surface-alt:#17383f;
+  --surface-hover:#1d4650; --text:#edf7f8; --text-muted:#7fa8af;
+  --border:#35616a; --border-strong:#477b84;
+  --accent:#a7dbe1; --accent-text:#102024;
+  --control-bg:#14282d; --control-hover:#1a363d; --input-bg:#071214;
+  --overlay:rgba(12,21,24,.95);
+}
+body.theme-gradient-green{
+  --bg:#07100b; --surface:#111a14; --surface-alt:#173424;
+  --surface-hover:#1d4530; --text:#edf7f0; --text-muted:#7fa38e;
+  --border:#37604a; --border-strong:#4a7b5f;
+  --accent:#a9d8b9; --accent-text:#102015;
+  --control-bg:#14271b; --control-hover:#1b3825; --input-bg:#08110c;
+  --overlay:rgba(13,21,16,.95);
+}
+body.theme-gradient-red{
+  --bg:#110708; --surface:#1d1011; --surface-alt:#39171a;
+  --surface-hover:#4a1d21; --text:#f8eeee; --text-muted:#b38b8e;
+  --border:#68383c; --border-strong:#82484d;
+  --accent:#e2b4b7; --accent-text:#241011;
+  --control-bg:#2b1517; --control-hover:#401c1f; --input-bg:#120809;
+  --overlay:rgba(22,11,12,.95);
+}
+body.theme-gradient-sunset{
+  --bg:#120b0c; --surface:#1d1310; --surface-alt:#3a2118;
+  --surface-hover:#4b2a1d; --text:#f8efea; --text-muted:#b49789;
+  --border:#69483a; --border-strong:#815b4b;
+  --accent:#e4c19c; --accent-text:#25170f;
+  --control-bg:#2b1a15; --control-hover:#3d241b; --input-bg:#130b0b;
+  --overlay:rgba(23,14,13,.95);
+}
+body.theme-mono-slate{
+  --bg:#101315; --surface:#1d2225; --surface-alt:#30383c;
+  --surface-hover:#394348; --text:#eef0ef; --text-muted:#929b9f;
+  --border:#465057; --border-strong:#5a666d;
+  --accent:#cfd5d7; --accent-text:#141718;
+  --control-bg:#293135; --control-hover:#353f44; --input-bg:#111517;
+  --overlay:rgba(22,26,28,.95);
+}
+body.theme-mono-graphite{
+  --bg:#0c0c0c; --surface:#191919; --surface-alt:#2a2a2a;
+  --surface-hover:#353535; --text:#eee; --text-muted:#999;
+  --border:#3a3a3a; --border-strong:#505050;
+  --accent:#dedede; --accent-text:#111;
+  --control-bg:#252525; --control-hover:#303030; --input-bg:#0d0d0d;
+  --overlay:rgba(17,17,17,.95);
+}
+body.theme-mono-silver{
+  --bg:#d8dbd9; --surface:#eceeeb; --surface-alt:#d2d5d2;
+  --surface-hover:#c7cbc8; --text:#222625; --text-muted:#5b605d;
+  --border:#b9bdb9; --border-strong:#aeb3b0;
+  --accent:#303534; --accent-text:#fff;
+  --control-bg:#d2d5d2; --control-hover:#c4c8c5; --input-bg:#f8f9f7;
+  --overlay:rgba(236,238,235,.96);
+}
+body.theme-mono-cream{
+  --bg:#e4dfd4; --surface:#f0ece3; --surface-alt:#ded8cc;
+  --surface-hover:#d3ccbe; --text:#292823; --text-muted:#696257;
+  --border:#c5bdae; --border-strong:#b8b0a1;
+  --accent:#35332d; --accent-text:#fff;
+  --control-bg:#ded8cc; --control-hover:#d2cabb; --input-bg:#fffdf8;
+  --overlay:rgba(240,236,227,.96);
+}
+
+/* ---------- Base components: geometry + semantic states ---------- */
+button{
+  appearance:none;
+  -webkit-appearance:none;
+  font:inherit;
+  cursor:pointer;
+  box-sizing:border-box;
+  border:1px solid var(--border-strong);
+  background:var(--control-bg);
+  color:var(--text);
+  padding:9px 14px;
+  min-height:36px;
+  line-height:1.2;
+  transition:background .15s,border-color .15s,color .15s,transform .15s;
+}
+button:hover{
+  background:var(--control-hover);
+  border-color:var(--accent);
+}
+button:disabled{
+  cursor:not-allowed;
+  opacity:.5;
+}
+button.primary{
+  background:var(--accent);
+  color:var(--accent-text);
+  border-color:var(--accent);
+}
+button.primary:hover{
+  filter:brightness(1.06);
+}
+button.icon-button{
+  min-height:34px;
+  width:34px;
+  padding:0;
+  display:grid;
+  place-items:center;
+}
+.control{
+  border:1px solid var(--border-strong);
+  background:var(--control-bg);
+  color:var(--text);
+  padding:9px 12px;
+}
+.panel{
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text);
+}
+.setting{
+  background:var(--surface);
+  border-color:var(--border);
+  color:var(--text);
+}
+.page-head{border-color:var(--border)}
+.page-head p,.setting small,.hero p,.command-card p,.model-card p{color:var(--text-muted)}
+.resource{border-color:var(--border)}
+.composer input{
+  background:var(--input-bg);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+.message p{
+  background:var(--surface-alt);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+.message.user p{
+  background:var(--accent);
+  color:var(--accent-text);
+  border-color:var(--accent);
+}
+.theme-switcher{
+  background:var(--control-bg);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+.theme-dropdown,.profile-menu,.home-help-popover{
+  background:var(--overlay);
+  border-color:var(--border-strong);
+}
+.nav-item{color:var(--text-muted)}
+.nav-item:hover,.nav-item.active{
+  background:var(--surface-alt);
+  color:var(--text);
+  border-color:var(--accent);
+}
+.brand-mark{color:var(--accent);border-color:var(--border-strong)}
+.eyebrow,.crumb{color:var(--text-muted)}
+
+/* Theme wins only for palette properties. This selector deliberately has
+   the same specificity as old interface-specific color rules and appears
+   after them, so legacy interface color overrides cannot leak through. */
+body[class*="theme-"] button{
+  background:var(--control-bg);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+body[class*="theme-"] button:hover{
+  background:var(--control-hover);
+  border-color:var(--accent);
+}
+body[class*="theme-"] button.primary,
+body[class*="theme-"] .primary{
+  background:var(--accent);
+  color:var(--accent-text);
+  border-color:var(--accent);
+}
+body[class*="theme-"] .panel,
+body[class*="theme-"] .workspace-main,
+body[class*="theme-"] .info-card,
+body[class*="theme-"] .model-card,
+body[class*="theme-"] .setting{
+  background:var(--surface);
+  border-color:var(--border);
+}
+body[class*="theme-"] .control,
+body[class*="theme-"] .setting-select,
+body[class*="theme-"] .theme-switcher{
+  background:var(--control-bg);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+body[class*="theme-"] .composer input{
+  background:var(--input-bg);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+body[class*="theme-"] .message p{
+  background:var(--surface-alt);
+  color:var(--text);
+  border-color:var(--border-strong);
+}
+body[class*="theme-"] .message.user p{
+  background:var(--accent);
+  color:var(--accent-text);
+  border-color:var(--accent);
+}
+body[class*="theme-"] .nav-item:hover,
+body[class*="theme-"] .nav-item.active{
+  background:var(--surface-alt);
+  color:var(--text);
+  border-left-color:var(--accent);
+  border-bottom-color:var(--accent);
+}
+body[class*="theme-"] .page,
+body[class*="theme-"] .main{
+  background:var(--bg);
+  color:var(--text);
+}
+body[class*="theme-"] .sidebar,
+body[class*="theme-"] .topbar{
+  background:var(--surface);
+  border-color:var(--border);
+}
+
+/* Interfaces may still change button geometry, never their palette. */
+body.interface-minimal button{border-radius:0;padding:11px 18px}
+body.interface-dashboard button{min-height:38px}
+body.interface-atlas button{padding:9px 14px}
+body.interface-journal button{font-family:Georgia,serif}
+body.interface-commandroom button{
+  text-transform:uppercase;
+  letter-spacing:.4px;
+}
+
+/* Corner preset is intentionally component-wide. */
+body.interface-corners-sharp button,
+body.interface-corners-sharp .panel,
+body.interface-corners-sharp .setting,
+body.interface-corners-sharp .control,
+body.interface-corners-sharp .theme-option,
+body.interface-corners-sharp .interface-option{border-radius:0}
+
+/* Keep existing theme gradients as backgrounds, while all semantic
+   component colors come from the tokens above. */
