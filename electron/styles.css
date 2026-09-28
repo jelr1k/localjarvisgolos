@@ -1076,3 +1076,41 @@ body[class*="theme-"] .ok{
     bottom:auto;
   }
 }
+
+
+/* Settings: keep the global save action in the topbar instead of
+   making users repeatedly scroll through the configuration page. */
+body.page-settings .topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  min-height:54px;
+}
+body.page-settings .topbar .settings-save-button{
+  margin-left:auto;
+  flex:0 0 auto;
+  min-width:150px;
+  box-shadow:0 6px 20px var(--shadow);
+}
+body.page-settings .page-head #saveAllButton{
+  display:none;
+}
+body.page-settings.interface-dashboard .topbar{
+  height:52px;
+  flex-basis:52px;
+  padding:0 30px;
+}
+body.page-settings.interface-journal .topbar,
+body.page-settings.interface-commandroom .topbar{
+  display:flex;
+  height:54px;
+  flex-basis:54px;
+  background:var(--bg);
+  border-bottom:1px solid var(--border);
+  padding:0 28px;
+}
+body.page-settings.interface-journal .main,
+body.page-settings.interface-commandroom .main{
+  grid-row:3;
+}
