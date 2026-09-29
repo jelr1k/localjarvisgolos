@@ -52,6 +52,7 @@ class VoiceService:
         self.model_name = voice_config.get("model", "small")
         self.device_type = voice_config.get("device", "cpu")
         self.compute_type = voice_config.get("compute_type", "int8")
+        self.cpu_threads = max(1, int(voice_config.get("cpu_threads", 4)))
         self.language = voice_config.get("language", "ru")
         self.min_duration = float(voice_config.get("min_duration", 0.25))
 
@@ -81,6 +82,7 @@ class VoiceService:
             device=self.device_type,
             compute_type=self.compute_type,
             language=self.language,
+            cpu_threads=self.cpu_threads,
         )
 
     def list_microphones(self):
