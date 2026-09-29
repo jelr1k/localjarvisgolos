@@ -15,10 +15,11 @@ class SettingsPage(QWidget):
         self.temperature=QDoubleSpinBox();self.temperature.setRange(0,2);self.temperature.setSingleStep(.05);self.temperature.setValue(float(get("temperature")))
         self.context=QSpinBox();self.context.setRange(512,131072);self.context.setSingleStep(512);self.context.setValue(int(get("context_length")))
         self.max_tokens=QSpinBox();self.max_tokens.setRange(1,131072);self.max_tokens.setSingleStep(256);self.max_tokens.setValue(int(get("max_tokens")))
+        voice=get("voice",{})
         self.whisper_cpu_threads=QSpinBox();self.whisper_cpu_threads.setRange(1,12);self.whisper_cpu_threads.setValue(max(1,min(12,int(voice.get("cpu_threads",4)))));self.whisper_cpu_threads.setToolTip("Количество CPU-потоков, выделяемых faster-whisper для распознавания. Для Ryzen 5 3600 можно начать с 4–6 и сравнить время.")
         self.url=QLineEdit(controller.ollama_url);self.router_only_mode=QCheckBox("Только роутер, без LLM");self.router_only_mode.setChecked(bool(get("router_only_mode",False)))
         self.allow_outside_workspace=QCheckBox("Работа вне Workspace");self.allow_outside_workspace.setChecked(bool(get("allow_outside_workspace",False)))
-        voice=get("voice",{});self.microphone=QComboBox()
+        self.microphone=QComboBox()
         self.whisper_model=QComboBox();[self.whisper_model.addItem(label,value) for label,value in self._WHISPER_PRESETS]
         current_whisper=str(voice.get("model","small") or "small");idx=self.whisper_model.findData(current_whisper);self.whisper_local_path=QLineEdit();self.whisper_local_path.setPlaceholderText("Путь к папке модели faster-whisper")
         browse=QPushButton("Выбрать");browse.clicked.connect(self._choose_whisper_model)
