@@ -25,6 +25,7 @@ DEFAULTS = {
         "model": "small",
         "device": "cpu",
         "compute_type": "int8",
+        "cpu_threads": 4,
         "language": "ru",
         "min_duration": 0.25,
         "silence_duration": 2.0,
