@@ -16,7 +16,8 @@
     "device": "cpu",
     "compute_type": "int8",
     "language": "ru",
-    "min_duration": 0.25
+    "min_duration": 0.25,
+    "cpu_threads": 4
   },
   "tools": {
     "search_files": true,
