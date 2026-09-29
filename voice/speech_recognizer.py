@@ -23,11 +23,13 @@ class SpeechRecognizer:
         device: str = "cpu",
         compute_type: str = "int8",
         language: str = "ru",
+        cpu_threads: int = 4,
     ):
         self.model_name = model_name
         self.device = device
         self.compute_type = compute_type
         self.language = language
+        self.cpu_threads = max(1, int(cpu_threads))
         self._model: WhisperModel | None = None
 
     def _get_model(self) -> WhisperModel:
@@ -54,6 +56,7 @@ class SpeechRecognizer:
                 model_source,
                 device=self.device,
                 compute_type=self.compute_type,
+                cpu_threads=self.cpu_threads,
             )
             logger.info("whisper_model_loaded model=%s", model_source)
         return self._model
