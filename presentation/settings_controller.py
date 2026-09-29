@@ -93,6 +93,7 @@ class SettingsController(QObject):
         voice.update(values["voice"])
         self._config.data["ollama"]["base_url"] = values["ollama_url"]
         self._config.save()
+        self._voice.apply_config(self._config.data)
         return self._config.get("model"), self._config.get("assistant_name", "JARVIS")
 
     def close(self):
