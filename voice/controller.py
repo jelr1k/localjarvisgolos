@@ -236,11 +236,11 @@ class VoiceService:
             self._emit("voice.error", f"Не удалось распознать речь: {exc}")
             return
 
-        if not raw_text:
-            return
-
         if self.recognizer is not None and self.recognizer.last_stats is not None:
             self._emit("voice.whisper_stats", self.recognizer.last_stats)
+
+        if not raw_text:
+            return
 
         normalized_text = normalize_voice_command(raw_text)
         logger.info("voice_command_normalized raw=%r normalized=%r", raw_text, normalized_text)
