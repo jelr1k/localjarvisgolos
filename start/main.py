@@ -60,7 +60,7 @@ def main():
         alias_controller = AliasController(backend.alias_manager)
         tools_controller = ToolsController(backend.permission_manager, TOOLS)
         ollama_controller = OllamaController(backend.ollama_manager, backend.tasks)
-        statistics_controller = StatisticsController(StatisticsService(), ollama_controller, backend.tasks)
+        statistics_controller = StatisticsController(StatisticsService(), ollama_controller, backend.tasks, backend.events)
         workspace_controller = WorkspaceController(WORKSPACE_DIR, backend.alias_manager)
         window = MainWindow(
             application_controller, chat_controller, voice_controller, wake_word_controller,
