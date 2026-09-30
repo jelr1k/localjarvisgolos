@@ -86,6 +86,26 @@ def find_input_device_by_name(name: str | None) -> dict[str, Any] | None:
     return None
 
 
+def get_shared_input_extra_settings(device=None):
+    """Return Windows WASAPI shared-mode settings for an input stream."""
+    try:
+        info = sd.query_devices(device)
+        hostapis = list(sd.query_hostapis())
+        hostapi_index = int(info.get("hostapi", -1))
+        hostapi_name = (
+            str(hostapis[hostapi_index].get("name", ""))
+            if 0 <= hostapi_index < len(hostapis)
+            else ""
+        )
+    except Exception:
+        return None
+
+    if hostapi_name != "Windows WASAPI":
+        return None
+
+    return sd.WasapiSettings(exclusive=False)
+
+
 def find_supported_sample_rate(device=None, channels: int = 1, preferred: int = 16000) -> int:
     """Return a sample rate accepted by the selected input device."""
     candidates = [int(preferred)] + [
