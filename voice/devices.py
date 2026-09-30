@@ -86,10 +86,48 @@ def find_input_device_by_name(name: str | None) -> dict[str, Any] | None:
     return None
 
 
+def resolve_shared_input_device(device=None):
+    """Resolve an input device to its Windows WASAPI shared-mode duplicate when possible."""
+    if device is None:
+        return None
+
+    try:
+        devices = list(sd.query_devices())
+        hostapis = list(sd.query_hostapis())
+        numeric_device = int(device)
+        if numeric_device < 0 or numeric_device >= len(devices):
+            return device
+
+        current = dict(devices[numeric_device])
+        current_hostapi = _host_api_name(current, hostapis)
+        if current_hostapi == "Windows WASAPI":
+            return numeric_device
+
+        current_name = _normalize_name(str(current.get("name", "")))
+        if not current_name:
+            return device
+
+        for index, candidate in enumerate(devices):
+            try:
+                if int(candidate.get("max_input_channels", 0)) <= 0:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            if _normalize_name(str(candidate.get("name", ""))) != current_name:
+                continue
+            if _host_api_name(candidate, hostapis) == "Windows WASAPI":
+                return index
+
+        return device
+    except Exception:
+        return device
+
+
 def get_shared_input_extra_settings(device=None):
     """Return Windows WASAPI shared-mode settings for an input stream."""
     try:
-        info = sd.query_devices(device)
+        resolved_device = resolve_shared_input_device(device)
+        info = sd.query_devices(resolved_device)
         hostapis = list(sd.query_hostapis())
         hostapi_index = int(info.get("hostapi", -1))
         hostapi_name = (
