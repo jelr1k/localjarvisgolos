@@ -8,7 +8,7 @@ class StatisticsController(QObject):
     system_status = Signal(object)
     whisper_updated = Signal(object)
 
-    def __init__(self, statistics_service, ollama_controller, task_runner):
+    def __init__(self, statistics_service, ollama_controller, task_runner, event_bus):
         super().__init__()
         self._service = statistics_service
         self._ollama = ollama_controller
