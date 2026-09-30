@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 import logging
 import time
 from pathlib import Path
@@ -8,6 +9,7 @@ import numpy as np
 from faster_whisper import WhisperModel
 
 from core.dependency_manager import get_dependency_manager
+from voice.statistics import WhisperStats
 
 
 logger = logging.getLogger("jarvis.voice.whisper")
@@ -25,14 +27,25 @@ class SpeechRecognizer:
         compute_type: str = "int8",
         language: str = "ru",
         cpu_threads: int = 4,
+        beam_size: int = 5,
     ):
         self.model_name = model_name
         self.device = device
         self.compute_type = compute_type
         self.language = language
         self.cpu_threads = max(1, int(cpu_threads))
+        self.beam_size = max(1, int(beam_size))
         self._model: WhisperModel | None = None
         self._model_load_duration_s: float | None = None
+        self._last_stats: WhisperStats | None = None
+
+    @property
+    def last_stats(self) -> WhisperStats | None:
+        return self._last_stats
+
+    def update_settings(self, *, beam_size: int | None = None) -> None:
+        if beam_size is not None:
+            self.beam_size = max(1, int(beam_size))
 
     def _get_model(self) -> WhisperModel:
         if self._model is None:
@@ -114,7 +127,7 @@ class SpeechRecognizer:
         segments, _info = model.transcribe(
             audio,
             language=self.language or None,
-            beam_size=5,
+            beam_size=self.beam_size,
             vad_filter=True,
         )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
@@ -125,13 +138,41 @@ class SpeechRecognizer:
             if audio_duration_s > 0
             else 0.0
         )
+        self._last_stats = WhisperStats(
+            model=self.model_name,
+            load_time_s=self._model_load_duration_s or 0.0,
+            transcription_time_s=transcription_duration_s,
+            audio_duration_s=audio_duration_s,
+            real_time_factor=real_time_factor,
+            unload_time_s=None,
+            beam_size=self.beam_size,
+            cpu_threads=self.cpu_threads,
+            device=self.device,
+            compute_type=self.compute_type,
+        )
         logger.info(
             "whisper_transcription_complete duration_s=%.3f audio_duration_s=%.3f "
-            "real_time_factor=%.3f chars=%d text=%r",
+            "real_time_factor=%.3f beam_size=%d chars=%d text=%r",
             transcription_duration_s,
             audio_duration_s,
             real_time_factor,
+            self.beam_size,
             len(text),
             text,
         )
         return text
+
+    def close(self) -> float | None:
+        if self._model is None:
+            return None
+
+        started = time.perf_counter()
+        self._model = None
+        gc.collect()
+        duration = time.perf_counter() - started
+        logger.info(
+            "whisper_model_unloaded model=%s duration_s=%.3f",
+            self.model_name,
+            duration,
+        )
+        return duration
