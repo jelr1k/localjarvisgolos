@@ -11,12 +11,41 @@ class StatisticsPage(QWidget):
         sf=QFormLayout()
         for key,name in [("processor","Модель работает на"),("gpu_memory","Память GPU"),("model_memory","Память модели"),("ram_usage","ОЗУ"),("cpu_usage","Загрузка CPU")]:self.labels[key]=QLabel("—");sf.addRow(name+":",self.labels[key])
         sb=QGroupBox("Состояние системы");sb.setLayout(sf)
-        root=QVBoxLayout(self);root.addWidget(box);root.addWidget(sb);root.addStretch()
-        self.timer=QTimer(self);self.timer.timeout.connect(self.update_system_status);self.timer.start(1000);self.controller.system_status.connect(self.on_system_status)
+
+        wf=QFormLayout()
+        for key,name in [
+            ("whisper_model","Модель"),
+            ("whisper_beam","Beam size"),
+            ("whisper_load","Загрузка модели"),
+            ("whisper_transcription","Распознавание"),
+            ("whisper_audio","Длительность аудио"),
+            ("whisper_rtf","Real-time factor"),
+            ("whisper_unload","Выгрузка модели"),
+            ("whisper_threads","CPU-потоки"),
+        ]:
+            self.labels[key]=QLabel("—");wf.addRow(name+":",self.labels[key])
+        wb=QGroupBox("Whisper");wb.setLayout(wf)
+
+        root=QVBoxLayout(self);root.addWidget(box);root.addWidget(wb);root.addWidget(sb);root.addStretch()
+        self.timer=QTimer(self);self.timer.timeout.connect(self.update_system_status);self.timer.start(1000)
+        self.controller.system_status.connect(self.on_system_status)
+        self.controller.whisper_updated.connect(self.on_whisper_updated)
     def refresh(self,stats):
         if not stats:return
         for key,value in [("model",stats.model),("input_tokens",stats.input_tokens),("output_tokens",stats.output_tokens),("total_tokens",stats.total_tokens),("generation_time_s",f"{stats.generation_time_s:.3f} с"),("generation_speed_tps",f"{stats.generation_speed_tps:.2f} ток/с"),("total_time_s",f"{stats.total_time_s:.3f} с"),("load_time_s",f"{stats.load_time_s:.3f} с"),("prompt_eval_time_s",f"{stats.prompt_eval_time_s:.3f} с"),("ttft_s",f"{stats.ttft_s:.3f} с"),("thinking","ВКЛ" if stats.thinking else "ВЫКЛ")]:self.labels[key].setText(str(value))
         self.update_system_status()
+    def on_whisper_updated(self,stats):
+        self.labels["whisper_model"].setText(str(stats.model))
+        self.labels["whisper_beam"].setText(str(stats.beam_size))
+        self.labels["whisper_load"].setText(f"{stats.load_time_s:.3f} с" if stats.load_time_s > 0 else "Уже загружена")
+        self.labels["whisper_transcription"].setText(f"{stats.transcription_time_s:.3f} с")
+        self.labels["whisper_audio"].setText(f"{stats.audio_duration_s:.3f} с")
+        self.labels["whisper_rtf"].setText(f"{stats.real_time_factor:.3f}")
+        self.labels["whisper_unload"].setText(
+            f"{stats.unload_time_s:.3f} с" if stats.unload_time_s is not None else "Не выгружается"
+        )
+        self.labels["whisper_threads"].setText(str(stats.cpu_threads))
+
     def update_system_status(self):
         if self.monitor_busy:return
         model=self.labels["model"].text()
