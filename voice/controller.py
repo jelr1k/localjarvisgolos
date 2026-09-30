@@ -53,6 +53,7 @@ class VoiceService:
         self.device_type = voice_config.get("device", "cpu")
         self.compute_type = voice_config.get("compute_type", "int8")
         self.cpu_threads = max(1, int(voice_config.get("cpu_threads", 4)))
+        self.beam_size = max(1, int(voice_config.get("beam_size", 5)))
         self.language = voice_config.get("language", "ru")
         self.min_duration = float(voice_config.get("min_duration", 0.25))
 
@@ -77,13 +78,27 @@ class VoiceService:
         except Exception as exc:
             logger.warning("voice_microphone_unavailable device=%r error=%r", self.device, exc)
 
-        self.recognizer = SpeechRecognizer(
-            model_name=self.model_name,
-            device=self.device_type,
-            compute_type=self.compute_type,
-            language=self.language,
-            cpu_threads=self.cpu_threads,
+        recognizer_config_matches = (
+            self.recognizer is not None
+            and self.recognizer.model_name == self.model_name
+            and self.recognizer.device == self.device_type
+            and self.recognizer.compute_type == self.compute_type
+            and self.recognizer.language == self.language
+            and self.recognizer.cpu_threads == self.cpu_threads
         )
+        if recognizer_config_matches:
+            self.recognizer.update_settings(beam_size=self.beam_size)
+        else:
+            if self.recognizer is not None:
+                self.recognizer.close()
+            self.recognizer = SpeechRecognizer(
+                model_name=self.model_name,
+                device=self.device_type,
+                compute_type=self.compute_type,
+                language=self.language,
+                cpu_threads=self.cpu_threads,
+                beam_size=self.beam_size,
+            )
 
     def list_microphones(self):
         """Return available input devices and the currently selected device."""
@@ -224,6 +239,9 @@ class VoiceService:
         if not raw_text:
             return
 
+        if self.recognizer is not None and self.recognizer.last_stats is not None:
+            self._emit("voice.whisper_stats", self.recognizer.last_stats)
+
         normalized_text = normalize_voice_command(raw_text)
         logger.info("voice_command_normalized raw=%r normalized=%r", raw_text, normalized_text)
         if normalized_text:
@@ -244,3 +262,7 @@ class VoiceService:
             except Exception:
                 logger.exception("voice_close_recording_stop_failed")
             self._emit("voice.listening_changed", False)
+
+        if self.recognizer is not None:
+            self.recognizer.close()
+            self.recognizer = None
