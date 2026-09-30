@@ -162,17 +162,19 @@ class SpeechRecognizer:
         )
         return text
 
-    def close(self) -> float | None:
+    def close(self) -> WhisperStats | None:
         if self._model is None:
-            return None
+            return self._last_stats
 
         started = time.perf_counter()
         self._model = None
         gc.collect()
         duration = time.perf_counter() - started
+        if self._last_stats is not None:
+            self._last_stats.unload_time_s = duration
         logger.info(
             "whisper_model_unloaded model=%s duration_s=%.3f",
             self.model_name,
             duration,
         )
-        return duration
+        return self._last_stats
