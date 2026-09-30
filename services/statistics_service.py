@@ -1,6 +1,7 @@
 class StatisticsService:
     def __init__(self):
         self.history = []
+        self.whisper_history = []
 
     def add(self, stats):
         self.history.append(stats)
