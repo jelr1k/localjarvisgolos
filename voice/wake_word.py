@@ -12,7 +12,12 @@ from pathlib import Path
 import sounddevice as sd
 
 from core.app_paths import APP_DATA_DIR
-from voice.devices import find_input_device_by_name, find_supported_sample_rate, get_shared_input_extra_settings
+from voice.devices import (
+    find_input_device_by_name,
+    find_supported_sample_rate,
+    get_shared_input_extra_settings,
+    resolve_shared_input_device,
+)
 
 
 logger = logging.getLogger("jarvis.voice.wake_word")
@@ -163,6 +168,7 @@ class WakeWordDetector:
                 self.device = int(resolved["index"])
         self.sample_rate = int(voice_config.get("sample_rate", 16000))
         try:
+            self.device = resolve_shared_input_device(self.device)
             self.sample_rate = find_supported_sample_rate(
                 device=self.device, channels=1, preferred=self.sample_rate
             )
@@ -219,17 +225,20 @@ class WakeWordDetector:
                     except queue.Full:
                         logger.warning("wake_word_audio_queue_full")
 
-            extra_settings = get_shared_input_extra_settings(self.device)
+            shared_device = resolve_shared_input_device(self.device)
+            extra_settings = get_shared_input_extra_settings(shared_device)
             logger.info(
-                "wake_word_stream_opening device=%r samplerate=%s shared_mode=%s",
+                "wake_word_stream_opening device=%r samplerate=%s shared_device=%r shared_mode=%s",
                 self.device,
                 self.sample_rate,
+                shared_device,
                 extra_settings is not None,
             )
+            stream_device = shared_device if shared_device is not None else self.device
             with sd.RawInputStream(
                 samplerate=self.sample_rate,
                 blocksize=1600,
-                device=self.device,
+                device=stream_device,
                 dtype="int16",
                 channels=1,
                 callback=callback,
