@@ -30,6 +30,10 @@ class StatisticsPage(QWidget):
         self.timer=QTimer(self);self.timer.timeout.connect(self.update_system_status);self.timer.start(1000)
         self.controller.system_status.connect(self.on_system_status)
         self.controller.whisper_updated.connect(self.on_whisper_updated)
+
+        latest_whisper = self.controller.latest_whisper
+        if latest_whisper is not None:
+            self.on_whisper_updated(latest_whisper)
     def refresh(self,stats):
         if not stats:return
         for key,value in [("model",stats.model),("input_tokens",stats.input_tokens),("output_tokens",stats.output_tokens),("total_tokens",stats.total_tokens),("generation_time_s",f"{stats.generation_time_s:.3f} с"),("generation_speed_tps",f"{stats.generation_speed_tps:.2f} ток/с"),("total_time_s",f"{stats.total_time_s:.3f} с"),("load_time_s",f"{stats.load_time_s:.3f} с"),("prompt_eval_time_s",f"{stats.prompt_eval_time_s:.3f} с"),("ttft_s",f"{stats.ttft_s:.3f} с"),("thinking","ВКЛ" if stats.thinking else "ВЫКЛ")]:self.labels[key].setText(str(value))
