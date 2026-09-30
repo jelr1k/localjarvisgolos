@@ -90,7 +90,9 @@ class VoiceService:
             self.recognizer.update_settings(beam_size=self.beam_size)
         else:
             if self.recognizer is not None:
-                self.recognizer.close()
+                unload_stats = self.recognizer.close()
+                if unload_stats is not None:
+                    self._emit("voice.whisper_stats", unload_stats)
             self.recognizer = SpeechRecognizer(
                 model_name=self.model_name,
                 device=self.device_type,
@@ -264,5 +266,7 @@ class VoiceService:
             self._emit("voice.listening_changed", False)
 
         if self.recognizer is not None:
-            self.recognizer.close()
+            unload_stats = self.recognizer.close()
+            if unload_stats is not None:
+                self._emit("voice.whisper_stats", unload_stats)
             self.recognizer = None
