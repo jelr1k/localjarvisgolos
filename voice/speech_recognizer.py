@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 import numpy as np
@@ -31,6 +32,7 @@ class SpeechRecognizer:
         self.language = language
         self.cpu_threads = max(1, int(cpu_threads))
         self._model: WhisperModel | None = None
+        self._model_load_duration_s: float | None = None
 
     def _get_model(self) -> WhisperModel:
         if self._model is None:
@@ -44,7 +46,14 @@ class SpeechRecognizer:
                 )
 
             if not local_path.is_dir():
+                prepare_started = time.perf_counter()
+                logger.info("whisper_model_prepare_started model=%s", model_source)
                 get_dependency_manager().ensure_whisper_model(model_source)
+                logger.info(
+                    "whisper_model_prepare_complete model=%s duration_s=%.3f",
+                    model_source,
+                    time.perf_counter() - prepare_started,
+                )
 
             logger.info(
                 "whisper_model_loading model=%s device=%s compute_type=%s",
@@ -52,13 +61,20 @@ class SpeechRecognizer:
                 self.device,
                 self.compute_type,
             )
+            model_started = time.perf_counter()
             self._model = WhisperModel(
                 model_source,
                 device=self.device,
                 compute_type=self.compute_type,
                 cpu_threads=self.cpu_threads,
             )
-            logger.info("whisper_model_loaded model=%s", model_source)
+            self._model_load_duration_s = time.perf_counter() - model_started
+            logger.info(
+                "whisper_model_loaded model=%s duration_s=%.3f cpu_threads=%d",
+                model_source,
+                self._model_load_duration_s,
+                self.cpu_threads,
+            )
         return self._model
 
     @staticmethod
@@ -88,6 +104,13 @@ class SpeechRecognizer:
             audio = self._resample(audio, sample_rate, _TARGET_SAMPLE_RATE)
 
         model = self._get_model()
+        transcription_started = time.perf_counter()
+        audio_duration_s = len(audio) / _TARGET_SAMPLE_RATE
+        logger.info(
+            "whisper_transcription_started audio_duration_s=%.3f samples=%d",
+            audio_duration_s,
+            len(audio),
+        )
         segments, _info = model.transcribe(
             audio,
             language=self.language or None,
@@ -96,5 +119,19 @@ class SpeechRecognizer:
         )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         text = " ".join(text.split())
-        logger.info("whisper_transcription_complete chars=%d text=%r", len(text), text)
+        transcription_duration_s = time.perf_counter() - transcription_started
+        real_time_factor = (
+            transcription_duration_s / audio_duration_s
+            if audio_duration_s > 0
+            else 0.0
+        )
+        logger.info(
+            "whisper_transcription_complete duration_s=%.3f audio_duration_s=%.3f "
+            "real_time_factor=%.3f chars=%d text=%r",
+            transcription_duration_s,
+            audio_duration_s,
+            real_time_factor,
+            len(text),
+            text,
+        )
         return text
