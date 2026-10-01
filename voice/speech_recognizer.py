@@ -28,6 +28,9 @@ class SpeechRecognizer:
         language: str = "ru",
         cpu_threads: int = 4,
         beam_size: int = 5,
+        vad_filter: bool = True,
+        without_timestamps: bool = True,
+        condition_on_previous_text: bool = False,
     ):
         self.model_name = model_name
         self.device = device
@@ -35,6 +38,9 @@ class SpeechRecognizer:
         self.language = language
         self.cpu_threads = max(1, int(cpu_threads))
         self.beam_size = max(1, int(beam_size))
+        self.vad_filter = bool(vad_filter)
+        self.without_timestamps = bool(without_timestamps)
+        self.condition_on_previous_text = bool(condition_on_previous_text)
         self._model: WhisperModel | None = None
         self._model_load_duration_s: float | None = None
         self._last_model_prepare_duration_s: float = 0.0
@@ -46,9 +52,15 @@ class SpeechRecognizer:
     def last_stats(self) -> WhisperStats | None:
         return self._last_stats
 
-    def update_settings(self, *, beam_size: int | None = None) -> None:
+    def update_settings(self, *, beam_size: int | None = None, vad_filter: bool | None = None, without_timestamps: bool | None = None, condition_on_previous_text: bool | None = None) -> None:
         if beam_size is not None:
             self.beam_size = max(1, int(beam_size))
+        if vad_filter is not None:
+            self.vad_filter = bool(vad_filter)
+        if without_timestamps is not None:
+            self.without_timestamps = bool(without_timestamps)
+        if condition_on_previous_text is not None:
+            self.condition_on_previous_text = bool(condition_on_previous_text)
 
     def _get_model(self) -> WhisperModel:
         if self._model is None:
@@ -140,7 +152,9 @@ class SpeechRecognizer:
             audio,
             language=self.language or None,
             beam_size=self.beam_size,
-            vad_filter=True,
+            vad_filter=self.vad_filter,
+            without_timestamps=self.without_timestamps,
+            condition_on_previous_text=self.condition_on_previous_text,
         )
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         text = " ".join(text.split())
@@ -167,12 +181,15 @@ class SpeechRecognizer:
             audio_prepare_time_s=audio_prepare_duration_s,
             total_time_s=total_duration_s,
             model_loaded_this_request=self._last_model_loaded_this_request,
+            vad_filter=self.vad_filter,
+            without_timestamps=self.without_timestamps,
+            condition_on_previous_text=self.condition_on_previous_text,
         )
         logger.info(
             "whisper_transcription_complete duration_s=%.3f audio_duration_s=%.3f "
             "real_time_factor=%.3f model_prepare_time_s=%.3f model_load_time_s=%.3f "
             "audio_prepare_time_s=%.3f total_time_s=%.3f model_loaded_this_request=%s "
-            "beam_size=%d chars=%d text=%r",
+            "beam_size=%d vad_filter=%s without_timestamps=%s condition_on_previous_text=%s chars=%d text=%r",
             transcription_duration_s,
             audio_duration_s,
             real_time_factor,
@@ -182,6 +199,9 @@ class SpeechRecognizer:
             total_duration_s,
             self._last_model_loaded_this_request,
             self.beam_size,
+            self.vad_filter,
+            self.without_timestamps,
+            self.condition_on_previous_text,
             len(text),
             text,
         )
