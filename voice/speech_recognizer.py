@@ -37,6 +37,9 @@ class SpeechRecognizer:
         self.beam_size = max(1, int(beam_size))
         self._model: WhisperModel | None = None
         self._model_load_duration_s: float | None = None
+        self._last_model_prepare_duration_s: float = 0.0
+        self._last_model_load_duration_s: float = 0.0
+        self._last_model_loaded_this_request: bool = False
         self._last_stats: WhisperStats | None = None
 
     @property
@@ -62,10 +65,11 @@ class SpeechRecognizer:
                 prepare_started = time.perf_counter()
                 logger.info("whisper_model_prepare_started model=%s", model_source)
                 get_dependency_manager().ensure_whisper_model(model_source)
+                self._last_model_prepare_duration_s = time.perf_counter() - prepare_started
                 logger.info(
                     "whisper_model_prepare_complete model=%s duration_s=%.3f",
                     model_source,
-                    time.perf_counter() - prepare_started,
+                    self._last_model_prepare_duration_s,
                 )
 
             logger.info(
@@ -75,6 +79,7 @@ class SpeechRecognizer:
                 self.compute_type,
             )
             model_started = time.perf_counter()
+            self._last_model_loaded_this_request = True
             self._model = WhisperModel(
                 model_source,
                 device=self.device,
@@ -82,6 +87,7 @@ class SpeechRecognizer:
                 cpu_threads=self.cpu_threads,
             )
             self._model_load_duration_s = time.perf_counter() - model_started
+            self._last_model_load_duration_s = self._model_load_duration_s
             logger.info(
                 "whisper_model_loaded model=%s duration_s=%.3f cpu_threads=%d",
                 model_source,
@@ -103,10 +109,15 @@ class SpeechRecognizer:
         return np.asarray(np.interp(target_positions, source_positions, audio), dtype=np.float32)
 
     def transcribe(self, audio: np.ndarray, sample_rate: int = _TARGET_SAMPLE_RATE) -> str:
+        request_started = time.perf_counter()
+        self._last_model_loaded_this_request = False
+        self._last_model_prepare_duration_s = 0.0
+        self._last_model_load_duration_s = 0.0
         if audio.size == 0:
             return ""
 
         audio = np.asarray(audio, dtype=np.float32)
+        audio_prepare_started = time.perf_counter()
         if int(sample_rate) != _TARGET_SAMPLE_RATE:
             logger.info(
                 "whisper_audio_resampling source_rate=%s target_rate=%s samples=%d",
@@ -115,6 +126,7 @@ class SpeechRecognizer:
                 len(audio),
             )
             audio = self._resample(audio, sample_rate, _TARGET_SAMPLE_RATE)
+        audio_prepare_duration_s = time.perf_counter() - audio_prepare_started
 
         model = self._get_model()
         transcription_started = time.perf_counter()
@@ -133,6 +145,7 @@ class SpeechRecognizer:
         text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
         text = " ".join(text.split())
         transcription_duration_s = time.perf_counter() - transcription_started
+        total_duration_s = time.perf_counter() - request_started
         real_time_factor = (
             transcription_duration_s / audio_duration_s
             if audio_duration_s > 0
@@ -149,13 +162,25 @@ class SpeechRecognizer:
             cpu_threads=self.cpu_threads,
             device=self.device,
             compute_type=self.compute_type,
+            model_prepare_time_s=self._last_model_prepare_duration_s,
+            model_load_time_s=self._last_model_load_duration_s,
+            audio_prepare_time_s=audio_prepare_duration_s,
+            total_time_s=total_duration_s,
+            model_loaded_this_request=self._last_model_loaded_this_request,
         )
         logger.info(
             "whisper_transcription_complete duration_s=%.3f audio_duration_s=%.3f "
-            "real_time_factor=%.3f beam_size=%d chars=%d text=%r",
+            "real_time_factor=%.3f model_prepare_time_s=%.3f model_load_time_s=%.3f "
+            "audio_prepare_time_s=%.3f total_time_s=%.3f model_loaded_this_request=%s "
+            "beam_size=%d chars=%d text=%r",
             transcription_duration_s,
             audio_duration_s,
             real_time_factor,
+            self._last_model_prepare_duration_s,
+            self._last_model_load_duration_s,
+            audio_prepare_duration_s,
+            total_duration_s,
+            self._last_model_loaded_this_request,
             self.beam_size,
             len(text),
             text,
