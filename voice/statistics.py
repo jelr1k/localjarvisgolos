@@ -15,3 +15,8 @@ class WhisperStats:
     cpu_threads: int = 0
     device: str = ""
     compute_type: str = ""
+    model_prepare_time_s: float = 0.0
+    model_load_time_s: float = 0.0
+    audio_prepare_time_s: float = 0.0
+    total_time_s: float = 0.0
+    model_loaded_this_request: bool = False
