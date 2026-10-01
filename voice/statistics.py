@@ -20,3 +20,6 @@ class WhisperStats:
     audio_prepare_time_s: float = 0.0
     total_time_s: float = 0.0
     model_loaded_this_request: bool = False
+    vad_filter: bool = True
+    without_timestamps: bool = True
+    condition_on_previous_text: bool = False
