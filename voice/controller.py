@@ -54,8 +54,12 @@ class VoiceService:
         self.compute_type = voice_config.get("compute_type", "int8")
         self.cpu_threads = max(1, int(voice_config.get("cpu_threads", 4)))
         self.beam_size = max(1, int(voice_config.get("beam_size", 5)))
+        self.vad_filter = bool(voice_config.get("vad_filter", True))
+        self.without_timestamps = bool(voice_config.get("without_timestamps", True))
+        self.condition_on_previous_text = bool(voice_config.get("condition_on_previous_text", False))
         self.language = voice_config.get("language", "ru")
         self.min_duration = float(voice_config.get("min_duration", 0.25))
+        logger.info("whisper_settings_applied model=%s cpu_threads=%d beam_size=%d vad_filter=%s without_timestamps=%s condition_on_previous_text=%s", self.model_name, self.cpu_threads, self.beam_size, self.vad_filter, self.without_timestamps, self.condition_on_previous_text)
 
         if self.recorder is not None and self.recorder.is_recording:
             self._silence_stop.set()
@@ -85,9 +89,12 @@ class VoiceService:
             and self.recognizer.compute_type == self.compute_type
             and self.recognizer.language == self.language
             and self.recognizer.cpu_threads == self.cpu_threads
+            and self.recognizer.vad_filter == self.vad_filter
+            and self.recognizer.without_timestamps == self.without_timestamps
+            and self.recognizer.condition_on_previous_text == self.condition_on_previous_text
         )
         if recognizer_config_matches:
-            self.recognizer.update_settings(beam_size=self.beam_size)
+            self.recognizer.update_settings(beam_size=self.beam_size, vad_filter=self.vad_filter, without_timestamps=self.without_timestamps, condition_on_previous_text=self.condition_on_previous_text)
         else:
             if self.recognizer is not None:
                 unload_stats = self.recognizer.close()
@@ -100,6 +107,9 @@ class VoiceService:
                 language=self.language,
                 cpu_threads=self.cpu_threads,
                 beam_size=self.beam_size,
+                vad_filter=self.vad_filter,
+                without_timestamps=self.without_timestamps,
+                condition_on_previous_text=self.condition_on_previous_text,
             )
 
     def list_microphones(self):
