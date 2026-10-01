@@ -28,6 +28,9 @@ class StatisticsPage(QWidget):
             ("whisper_device","Устройство"),
             ("whisper_compute","Тип вычислений"),
             ("whisper_loaded","Модель загружена в этом запросе"),
+            ("whisper_vad","VAD"),
+            ("whisper_timestamps","Таймкоды"),
+            ("whisper_previous","Предыдущий текст"),
         ]:
             self.labels[key]=QLabel("—");wf.addRow(name+":",self.labels[key])
         wb=QGroupBox("Whisper");wb.setLayout(wf)
@@ -61,6 +64,9 @@ class StatisticsPage(QWidget):
         self.labels["whisper_device"].setText(str(stats.device))
         self.labels["whisper_compute"].setText(str(stats.compute_type))
         self.labels["whisper_loaded"].setText("Да" if stats.model_loaded_this_request else "Нет")
+        self.labels["whisper_vad"].setText("Вкл" if stats.vad_filter else "Выкл")
+        self.labels["whisper_timestamps"].setText("Вкл" if not stats.without_timestamps else "Выкл")
+        self.labels["whisper_previous"].setText("Вкл" if stats.condition_on_previous_text else "Выкл")
 
     def update_system_status(self):
         if self.monitor_busy:return
