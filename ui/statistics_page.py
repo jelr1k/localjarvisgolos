@@ -17,11 +17,17 @@ class StatisticsPage(QWidget):
             ("whisper_model","Модель"),
             ("whisper_beam","Beam size"),
             ("whisper_load","Загрузка модели"),
+            ("whisper_prepare","Подготовка модели"),
+            ("whisper_audio_prepare","Подготовка аудио"),
             ("whisper_transcription","Распознавание"),
+            ("whisper_total","Полное время"),
             ("whisper_audio","Длительность аудио"),
             ("whisper_rtf","Real-time factor"),
             ("whisper_unload","Выгрузка модели"),
             ("whisper_threads","CPU-потоки"),
+            ("whisper_device","Устройство"),
+            ("whisper_compute","Тип вычислений"),
+            ("whisper_loaded","Модель загружена в этом запросе"),
         ]:
             self.labels[key]=QLabel("—");wf.addRow(name+":",self.labels[key])
         wb=QGroupBox("Whisper");wb.setLayout(wf)
@@ -41,14 +47,20 @@ class StatisticsPage(QWidget):
     def on_whisper_updated(self,stats):
         self.labels["whisper_model"].setText(str(stats.model))
         self.labels["whisper_beam"].setText(str(stats.beam_size))
-        self.labels["whisper_load"].setText(f"{stats.load_time_s:.3f} с" if stats.load_time_s > 0 else "Уже загружена")
+        self.labels["whisper_load"].setText(f"{stats.model_load_time_s:.3f} с" if stats.model_loaded_this_request else "Не загружалась")
+        self.labels["whisper_prepare"].setText(f"{stats.model_prepare_time_s:.3f} с")
+        self.labels["whisper_audio_prepare"].setText(f"{stats.audio_prepare_time_s:.3f} с")
         self.labels["whisper_transcription"].setText(f"{stats.transcription_time_s:.3f} с")
+        self.labels["whisper_total"].setText(f"{stats.total_time_s:.3f} с")
         self.labels["whisper_audio"].setText(f"{stats.audio_duration_s:.3f} с")
         self.labels["whisper_rtf"].setText(f"{stats.real_time_factor:.3f}")
         self.labels["whisper_unload"].setText(
             f"{stats.unload_time_s:.3f} с" if stats.unload_time_s is not None else "Не выгружается"
         )
         self.labels["whisper_threads"].setText(str(stats.cpu_threads))
+        self.labels["whisper_device"].setText(str(stats.device))
+        self.labels["whisper_compute"].setText(str(stats.compute_type))
+        self.labels["whisper_loaded"].setText("Да" if stats.model_loaded_this_request else "Нет")
 
     def update_system_status(self):
         if self.monitor_busy:return
