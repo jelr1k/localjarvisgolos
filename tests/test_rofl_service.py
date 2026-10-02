@@ -95,6 +95,20 @@ def test_router_rofl_ignores_failed_response(monkeypatch):
     assert emitted == []
 
 
+def test_rofl_settings_are_applied():
+    bus = FakeEventBus()
+    config = {"rofl": {"chance": 0.42, "demon_chance": 0.33}}
+    service = RoflService(bus, config)
+
+    assert service.rofl_chance == 0.42
+    assert service.demon_chance == 0.33
+
+    bus.emit("rofl.settings_changed", {"chance": 0.75, "demon_chance": 0.2})
+
+    assert service.rofl_chance == 0.75
+    assert service.demon_chance == 0.2
+
+
 def test_router_action_prefers_extended_command():
     assert RoflService._router_action("найди приложение Discord") == "find_application"
     assert RoflService._router_action("открой https://example.com") == "open_url"
