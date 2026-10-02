@@ -1,27 +1,16 @@
-<section class="page active jarvis-page" id="workspace">
-  <header class="jarvis-heading">
-    <div><span class="jarvis-kicker">Workspace</span><h1>Рабочая область</h1><p>Контролируемая зона для файлов. Jarvis не делает вид, что весь диск это его личный огород.</p></div>
-    <div class="jarvis-chip"><i></i>Доступ ограничен</div>
-  </header>
-  <div class="jarvis-grid two">
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Ресурсы</span>
-      <h2 style="margin-top:9px">Известные места</h2>
-      <div class="jarvis-list" style="margin-top:14px">
-        <div class="jarvis-list-item"><i></i><span>workspace<small>Корневая разрешённая папка</small></span></div>
-        <div class="jarvis-list-item"><i></i><span>Алиасы<small>Короткие имена файлов, папок и приложений</small></span></div>
-      </div>
-    </section>
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Политика</span>
-      <h2 style="margin-top:9px">Только Workspace</h2>
-      <p>Файловые операции ограничены рабочей областью. Проект и документы не превращаются в отдельные сущности интерфейса.</p>
-      <button class="jarvis-button" data-go="settings" type="button">Настроить доступ</button>
-    </section>
+<section class="page" id="workspace"><div class="jx-page jx-workspace">
+  <div class="jx-file-field">
+    <div class="jx-folder"><b>WORKSPACE</b><small>корневая область</small></div>
+    <div class="jx-folder"><b>ALIASES</b><small>быстрые имена ресурсов</small></div>
+    <div class="jx-folder"><b>TOOLS</b><small>локальные инструменты</small></div>
   </div>
-  <div class="jarvis-grid three">
-    <section class="panel jarvis-card"><span class="jarvis-kicker">Файлы</span><h2 style="margin-top:9px">Открыть</h2><p>Работа с известными файлами через команды Jarvis.</p></section>
-    <section class="panel jarvis-card"><span class="jarvis-kicker">Алиасы</span><h2 style="margin-top:9px">Сократить путь</h2><p>Используй короткие имена вместо длинных путей.</p></section>
-    <section class="panel jarvis-card"><span class="jarvis-kicker">Безопасность</span><h2 style="margin-top:9px">Ограничить</h2><p>Workspace остаётся границей файловых действий.</p></section>
-  </div>
-</section>
+  <aside class="jx-workspace-side">
+    <span class="jx-eyebrow">Workspace</span>
+    <h1 class="jx-title" style="font-size:50px">Граница.</h1>
+    <p class="jx-subtitle">Файловые действия не должны иметь доступ ко всему компьютеру просто потому, что технически могут.</p>
+    <div class="jx-resource"><span class="jx-kicker">Ресурс</span><br><b>Рабочая область</b></div>
+    <div class="jx-resource"><span class="jx-kicker">Алиасы</span><br><b>Короткие имена</b></div>
+    <div class="jx-resource"><span class="jx-kicker">Режим</span><br><b class="jx-accent">Ограниченный</b></div>
+    <button class="jx-action" data-go="settings" style="margin-top:20px">Настроить</button>
+  </aside>
+</div></section>
