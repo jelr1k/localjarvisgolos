@@ -52,7 +52,7 @@ class SettingsController(QObject):
             return result
 
         info = result["info"]
-        if not info.update_available:
+        if not getattr(info, "update_available", False):
             return result
 
         try:
