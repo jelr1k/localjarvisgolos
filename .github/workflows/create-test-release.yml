@@ -1,0 +1,101 @@
+name: Create JARVIS test release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 0.1.1"
+        required: true
+        default: "0.1.1"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout satichik-dev
+        uses: actions/checkout@v4
+        with:
+          ref: satichik-dev
+
+      - name: Set release version
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+            throw "Invalid release version: $env:RELEASE_VERSION"
+          }
+
+          $path = "core/version.py"
+          $content = Get-Content -Raw -Path $path
+          $content = [regex]::Replace(
+            $content,
+            'APP_VERSION\s*=\s*"[^"]+"',
+            ('APP_VERSION = "' + $env:RELEASE_VERSION + '"'),
+            1
+          )
+          Set-Content -Path $path -Value $content -Encoding utf8
+
+      - name: Create update archive
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "jarvis-release"
+          $root = Join-Path $stage "jarvis"
+          $archive = Join-Path $env:RUNNER_TEMP "jarvis.zip"
+
+          if (Test-Path $stage) {
+            Remove-Item -Recurse -Force $stage
+          }
+          New-Item -ItemType Directory -Path $root | Out-Null
+
+          $exclude = @(
+            ".git",
+            ".github",
+            ".pytest_cache",
+            "__pycache__",
+            "tests",
+            "logs",
+            "workspace",
+            "models"
+          )
+
+          Get-ChildItem -Force | Where-Object {
+            $exclude -notcontains $_.Name
+          } | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $root -Recurse -Force
+          }
+
+          if (-not (Test-Path (Join-Path $root "start/bootstrap.py"))) {
+            throw "Release archive does not contain start/bootstrap.py"
+          }
+
+          if (-not (Test-Path (Join-Path $root "core/version.py"))) {
+            throw "Release archive does not contain core/version.py"
+          }
+
+          Compress-Archive -Path (Join-Path $root "*") -DestinationPath $archive -CompressionLevel Optimal
+
+          if (-not (Test-Path $archive)) {
+            throw "Release archive was not created"
+          }
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: JARVIS v${{ inputs.version }} - update system test
+          body: |
+            Test release for the JARVIS updater.
+
+            This release is intended to verify the real update path:
+            download -> validation -> backup -> updater -> install -> restart.
+
+            It is based on branch satichik-dev.
+          files: ${{ runner.temp }}/jarvis.zip
+          generate_release_notes: false
