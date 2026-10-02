@@ -53,6 +53,20 @@ class FakeUpdateService:
         return self.plan
 
 
+class FakeUpdateValidator:
+    def __init__(self, result=None, error=None):
+        self.result = result
+        self.error = error
+        self.calls = []
+
+    def validate(self, archive_path, expected_size=None):
+        self.calls.append((archive_path, expected_size))
+        if self.error:
+            from services.update_validator import UpdateValidationError
+            raise UpdateValidationError(self.error)
+        return self.result
+
+
 class FakeUpdateDownloader:
     def __init__(self, result=None, error=None):
         self.result = result
@@ -69,7 +83,7 @@ class FakeUpdateDownloader:
         return self.result
 
 
-def make_controller(checker, update_service=None, update_downloader=None):
+def make_controller(checker, update_service=None, update_downloader=None, update_validator=None):
     return SettingsController(
         config=None,
         model_service=None,
@@ -80,6 +94,7 @@ def make_controller(checker, update_service=None, update_downloader=None):
         update_checker=checker,
         update_service=update_service,
         update_downloader=update_downloader,
+        update_validator=update_validator,
     )
 
 
@@ -244,3 +259,44 @@ def test_settings_controller_reports_download_error():
     controller.download_update(plan)
 
     assert finished == [{"success": False, "error": "network"}]
+
+
+def test_settings_controller_validates_downloaded_update():
+    from pathlib import Path
+    from services.update_validator import UpdateValidationResult
+
+    archive = Path("JARVIS.zip")
+    validation_result = UpdateValidationResult(
+        archive_path=archive,
+        file_count=3,
+        directory_count=1,
+        total_uncompressed_size=123,
+    )
+    validator = FakeUpdateValidator(result=validation_result)
+    controller = make_controller(
+        FakeChecker(),
+        update_downloader=FakeUpdateDownloader(result=object()),
+        update_validator=validator,
+    )
+    received = []
+    controller.update_validation_finished.connect(received.append)
+
+    controller.download_update(object())
+
+    assert validator.calls == [(archive, 100)]
+    assert received == [{"success": True, "result": validation_result}]
+
+
+def test_settings_controller_reports_archive_validation_error():
+    validator = FakeUpdateValidator(error="опасный путь")
+    controller = make_controller(
+        FakeChecker(),
+        update_downloader=FakeUpdateDownloader(result=object()),
+        update_validator=validator,
+    )
+    received = []
+    controller.update_validation_finished.connect(received.append)
+
+    controller.download_update(object())
+
+    assert received == [{"success": False, "error": "опасный путь"}]
