@@ -265,6 +265,8 @@ def test_settings_controller_validates_downloaded_update():
     from pathlib import Path
     from services.update_validator import UpdateValidationResult
 
+    from types import SimpleNamespace
+
     archive = Path("JARVIS.zip")
     validation_result = UpdateValidationResult(
         archive_path=archive,
@@ -275,7 +277,9 @@ def test_settings_controller_validates_downloaded_update():
     validator = FakeUpdateValidator(result=validation_result)
     controller = make_controller(
         FakeChecker(),
-        update_downloader=FakeUpdateDownloader(result=object()),
+        update_downloader=FakeUpdateDownloader(
+            result=SimpleNamespace(archive_path=archive, expected_size=100)
+        ),
         update_validator=validator,
     )
     received = []
@@ -288,10 +292,15 @@ def test_settings_controller_validates_downloaded_update():
 
 
 def test_settings_controller_reports_archive_validation_error():
+    from pathlib import Path
+    from types import SimpleNamespace
+
     validator = FakeUpdateValidator(error="опасный путь")
     controller = make_controller(
         FakeChecker(),
-        update_downloader=FakeUpdateDownloader(result=object()),
+        update_downloader=FakeUpdateDownloader(
+            result=SimpleNamespace(archive_path=Path("JARVIS.zip"), expected_size=100)
+        ),
         update_validator=validator,
     )
     received = []
