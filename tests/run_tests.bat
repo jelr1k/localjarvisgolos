@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 
 rem ============================================================
-rem JARVIS - Architecture Test Runner
+rem JARVIS - Architecture and Integration Test Runner
 rem ============================================================
 
 set "TESTS_DIR=%~dp0"
@@ -21,10 +21,16 @@ if not exist "%PROJECT_ROOT%\tests\unit\" (
     exit /b 1
 )
 
+if not exist "%PROJECT_ROOT%\tests\integration\" (
+    echo ERROR: integration test folder not found: "%PROJECT_ROOT%\tests\integration"
+    pause
+    exit /b 1
+)
+
 cd /d "%PROJECT_ROOT%"
 
 echo ========================================
-echo JARVIS - Architecture Test Runner
+echo JARVIS - Architecture and Integration Test Runner
 echo ========================================
 echo Project: %PROJECT_ROOT%
 echo.
@@ -41,21 +47,21 @@ python -m pytest --version
 
 echo.
 echo [3/4] Python syntax check
-python -m compileall -q core chat llm services security tools voice presentation ui start
+python -m compileall -q core chat llm services security tools voice presentation ui start tests
 if errorlevel 1 goto :compile_error
 echo Syntax check: OK
 
 echo.
-echo [4/4] Unit and architecture tests
+echo [4/4] Unit, architecture and integration tests
 echo ----------------------------------------
-python -m pytest tests\unit -ra --tb=short
+python -m pytest tests\unit tests\integration -ra --tb=short
 set "TEST_EXIT=%ERRORLEVEL%"
 echo ----------------------------------------
 
 echo.
 echo ========================================
 if "%TEST_EXIT%"=="0" (
-    echo RESULT: ALL ARCHITECTURE TESTS PASSED
+    echo RESULT: ALL ARCHITECTURE AND INTEGRATION TESTS PASSED
 ) else (
     echo RESULT: TESTS FAILED
     echo Exit code: %TEST_EXIT%
