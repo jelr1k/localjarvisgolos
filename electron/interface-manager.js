@@ -18,6 +18,18 @@
   let pendingInterface = localStorage.getItem("jarvis-interface") || "classic";
   let loadedCustomStyles = new Set();
 
+  function currentInterface() {
+    return localStorage.getItem("jarvis-interface") || "classic";
+  }
+
+  function requiresInterfaceRestart(name) {
+    const current = currentInterface();
+    if (current === name) return false;
+    const currentConfig = getInterfaceConfig(current);
+    const nextConfig = getInterfaceConfig(name);
+    return currentConfig.mode === "custom" || nextConfig.mode === "custom";
+  }
+
   function getInterfaceConfig(name) {
     return INTERFACES[name] || { mode: "shared", requiresRestart: false };
   }
@@ -86,7 +98,7 @@
 
   function saveInterface(button) {
     const config = getInterfaceConfig(pendingInterface);
-    if (!config.requiresRestart) {
+    if (!requiresInterfaceRestart(pendingInterface) && !config.requiresRestart) {
       applyInterface(pendingInterface);
       if (button) {
         button.textContent = "Сохранено";
