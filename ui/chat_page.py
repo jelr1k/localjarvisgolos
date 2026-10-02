@@ -167,7 +167,8 @@ class ChatPage(QWidget):
         self.input.setFocus()
 
     def on_rofl_response(self, text):
-        """Показывает редкую рофл-реплику, не прерывая текущую генерацию."""
+        """Показывает редкую рофл-реплику между целыми фрагментами ответа."""
+        self.flush_stream()
         self.chat.append(f"<b>{escape(self.assistant_name)}:</b> {escape(text)}")
 
     def on_chunk(self, chunk):

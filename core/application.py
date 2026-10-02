@@ -116,6 +116,10 @@ class JarvisApplication:
         logger.info("backend_application_shutdown_start")
 
         try:
+            self.rofl_service.close()
+        except Exception:
+            logger.exception("rofl_service_close_failed")
+        try:
             self.wake_word_detector.close()
         except Exception:
             logger.exception("wake_word_close_failed")
