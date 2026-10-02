@@ -318,7 +318,7 @@ body.interface-wave .home-eq span:nth-child(7){height:14px;animation-delay:-.8s}
 }
 
 body.interface-wave .home-status-cards {
-  position:absolute;
+  position:fixed;
   right:0;
   top:40px;
   bottom:20px;
