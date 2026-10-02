@@ -46,15 +46,11 @@ def setup_logging() -> logging.Logger:
     logger.addHandler(_handler(LOG_DIR / "jarvis.log", logging.DEBUG))
     logger.addHandler(_handler(LOG_DIR / "errors.log", logging.ERROR))
 
-    # Root logger is deliberately not connected to the application log files.
-    # Otherwise every child logger can duplicate its records in jarvis.log.
     root = logging.getLogger()
     root.setLevel(logging.WARNING)
     root.handlers.clear()
     logging.captureWarnings(True)
 
-    # Subsystem logs. Child loggers such as jarvis.voice.wake_word inherit
-    # handlers from their subsystem parent.
     _configure_logger("jarvis.voice", "voice.log")
     _configure_logger("jarvis.ollama", "ollama.log")
     _configure_logger("jarvis.llm", "ollama.log")
@@ -64,6 +60,17 @@ def setup_logging() -> logging.Logger:
     _configure_logger("jarvis.process", "commands.log")
     _configure_logger("jarvis.target_resolver", "commands.log")
     _configure_logger("jarvis.dependencies", "dependencies.log")
+
+    # Keep every updater subsystem in one dedicated diagnostic file.
+    _configure_logger("jarvis.update_checker", "update.log")
+    _configure_logger("jarvis.update_monitor", "update.log")
+    _configure_logger("jarvis.update_service", "update.log")
+    _configure_logger("jarvis.update_downloader", "update.log")
+    _configure_logger("jarvis.update_validator", "update.log")
+    _configure_logger("jarvis.update_backup", "update.log")
+    _configure_logger("jarvis.update_installer", "update.log")
+    _configure_logger("jarvis.update_relauncher", "update.log")
+    _configure_logger("jarvis.update_rollback", "update.log")
 
     events_logger = logging.getLogger("jarvis.events")
     events_logger.setLevel(logging.INFO)
