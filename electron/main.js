@@ -3,10 +3,25 @@ const path = require("path");
 const fs = require("fs/promises");
 
 const pagesDir = path.join(__dirname, "pages");
+const interfacesDir = path.join(__dirname, "interfaces");
 const allowedPages = new Set(["home", "chat", "commands", "workspace", "ai", "settings"]);
 
-ipcMain.handle("load-page", async (_event, page) => {
+ipcMain.handle("load-page", async (_event, page, interfaceName = "classic") => {
   if (!allowedPages.has(page)) throw new Error("Unknown page");
+
+  const safeInterfaceName = String(interfaceName).match(/^[a-z0-9_-]+$/i)?.[0];
+  if (safeInterfaceName && safeInterfaceName !== "classic") {
+    const customRoot = path.resolve(interfacesDir, safeInterfaceName, "pages");
+    const customPage = path.resolve(customRoot, page + ".html");
+    if (customPage.startsWith(customRoot + path.sep)) {
+      try {
+        return await fs.readFile(customPage, "utf8");
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+  }
+
   return fs.readFile(path.join(pagesDir, page + ".html"), "utf8");
 });
 
