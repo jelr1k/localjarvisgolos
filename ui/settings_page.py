@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar
+from ui.rofl_settings_dialog import RoflSettingsDialog
 
 class SettingsPage(QWidget):
     settings_changed=Signal(str,str)
@@ -35,12 +36,21 @@ class SettingsPage(QWidget):
         self.whisper_progress=QProgressBar();self.whisper_progress.hide();self.whisper_progress_label=QLabel();self.whisper_progress_label.hide()
         self.wake_word_enabled=QCheckBox("Включить wake word");self.wake_word_enabled.setChecked(bool(voice.get("wake_word_enabled",True)));self.wake_word=QLineEdit(voice.get("wake_word","Jarvis"))
         self.silence_duration=QDoubleSpinBox();self.silence_duration.setRange(.5,10);self.silence_duration.setSingleStep(.1);self.silence_duration.setValue(float(voice.get("silence_duration",2)))
-        self.status_label=QLabel();self.status_label.setWordWrap(True);self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
+        self.status_label=QLabel();self.status_label.setWordWrap(True)
+        self.rofl_secret=QLineEdit();self.rofl_secret.setPlaceholderText("Служебное слово");self.rofl_secret.setEchoMode(QLineEdit.Password);self.rofl_secret.textChanged.connect(self._check_rofl_secret)
+        self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
         form=QFormLayout()
-        for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace)]:form.addRow(label,widget)
+        for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace),("Служебное слово:",self.rofl_secret)]:form.addRow(label,widget)
         box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
         controller.refresh_finished.connect(self._refresh_finished);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
         self._refresh_whisper_statuses();self._load_microphones();self._set_status("Готово",False)
+
+    def _check_rofl_secret(self, text):
+        if str(text).strip().casefold() != "джарвис":
+            return
+        self.rofl_secret.clear()
+        dialog = RoflSettingsDialog(self.controller, self)
+        dialog.exec()
 
     def _set_status(self,text,error):self.status_label.setText(text);self.status_label.setProperty("status_error",bool(error));self.status_label.style().unpolish(self.status_label);self.status_label.style().polish(self.status_label)
 
