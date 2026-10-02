@@ -35,7 +35,7 @@ class ChatService:
         self.events = event_bus
         self.tasks = task_runner or TaskRunner(max_workers=4)
         self.conversation = Conversation()
-        self.router = CommandRouter(config, ollama_manager, self.alias_manager)
+        self.router = CommandRouter(config, ollama_manager, self.alias_manager, event_bus=self.events)
         self._current_answer = ""
         self._pending_messages = deque()
         self._pending_confirmation = None
@@ -54,7 +54,7 @@ class ChatService:
 
     def refresh_tools(self):
         logger.info("refresh_tools")
-        self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager)
+        self.router = CommandRouter(self.config, self.ollama_manager, self.alias_manager, event_bus=self.events)
         self.router.set_ui_actions(self._ui_actions)
 
     def send(self, text, thinking=False):
@@ -129,6 +129,7 @@ class ChatService:
             enabled_tools=allowed_tools,
             alias_manager=self.alias_manager,
             permission_manager=self.permission_manager,
+            event_bus=self.events,
         )
         messages = list(request.messages)
         stats = None

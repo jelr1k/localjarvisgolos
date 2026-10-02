@@ -65,10 +65,11 @@ class CommandRouter:
                 return match
         return None
 
-    def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None):
+    def __init__(self, config, ollama_manager, alias_manager: AliasManager | None = None, event_bus=None):
         self.config = config
         self.ollama_manager = ollama_manager
         self.alias_manager = alias_manager or AliasManager()
+        self.events = event_bus
         self.target_resolver = TargetResolver(self.alias_manager, get_workspace_index)
         self.ui_actions = {}
         logger.debug("router_created")
@@ -78,7 +79,7 @@ class CommandRouter:
         self.ui_actions = dict(actions or {})
 
     def _executor(self) -> ToolExecutor:
-        return ToolExecutor(self.config, set(TOOLS), self.alias_manager)
+        return ToolExecutor(self.config, set(TOOLS), self.alias_manager, event_bus=self.events)
 
     @classmethod
     def _is_contextual_file_search(cls, alias: str, target: str) -> bool:

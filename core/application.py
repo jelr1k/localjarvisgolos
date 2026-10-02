@@ -12,6 +12,7 @@ from core.task_runner import TaskRunner
 from security.permissions import PermissionManager
 from llm.ollama import OllamaProvider
 from services.chat_service import ChatService
+from services.rofl_service import RoflService
 from tools.paths import prepare_tool_workspace
 from voice.controller import VoiceService
 from voice.wake_word import WakeWordDetector
@@ -34,6 +35,7 @@ class JarvisApplication:
 
         self.events = EventBus()
         self.tasks = TaskRunner(max_workers=4)
+        self.rofl_service = RoflService(self.events)
         self.config = ConfigManager()
         self.alias_manager = AliasManager()
         self.ollama_manager = OllamaManager(self.config.ollama_url)

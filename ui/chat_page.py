@@ -166,6 +166,10 @@ class ChatPage(QWidget):
         self.send_button.setEnabled(True)
         self.input.setFocus()
 
+    def on_rofl_response(self, text):
+        """Показывает редкую рофл-реплику, не прерывая текущую генерацию."""
+        self.chat.append(f"<b>{escape(self.assistant_name)}:</b> {escape(text)}")
+
     def on_chunk(self, chunk):
         if chunk.thinking:
             self.thinking += chunk.thinking

@@ -14,10 +14,11 @@ logger = logging.getLogger("jarvis.tools")
 class ToolExecutor:
     """Единая точка запуска инструментов с проверкой разрешений."""
 
-    def __init__(self, config=None, enabled_tools=None, alias_manager: AliasManager | None = None, permission_manager: PermissionManager | None = None):
+    def __init__(self, config=None, enabled_tools=None, alias_manager: AliasManager | None = None, permission_manager: PermissionManager | None = None, event_bus=None):
         self.permission_manager = permission_manager or (PermissionManager(config) if config is not None else None)
         self.enabled_tools = set(enabled_tools) if enabled_tools is not None else set(TOOLS)
         self.alias_manager = alias_manager or AliasManager()
+        self.events = event_bus
         logger.debug("executor_created enabled_tools=%s", sorted(self.enabled_tools))
 
     def _is_enabled(self, tool_name: str) -> bool:
@@ -91,6 +92,8 @@ class ToolExecutor:
             logger.info("tool_finish name=%s success=%s elapsed=%.4fs result=%r", tool_name, result.get("success"), elapsed, result)
             if not result.get("success"):
                 logger.warning("tool_failed name=%s error=%s", tool_name, result.get("error", "unknown"))
+            elif self.events is not None:
+                self.events.emit("tool.executed", tool_name, dict(arguments), dict(result))
             return result
         except TypeError as exc:
             logger.exception("tool_type_error name=%s", tool_name)

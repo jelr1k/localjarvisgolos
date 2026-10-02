@@ -9,6 +9,7 @@ class ChatController(QObject):
     generation_finished = Signal(object)
     direct_response = Signal(str)
     error = Signal(str)
+    rofl_response = Signal(str)
     confirmation_requested = Signal(str, object)
 
     def __init__(self, service, event_bus):
@@ -21,6 +22,7 @@ class ChatController(QObject):
             ("chat.generation_finished", self.generation_finished.emit),
             ("chat.direct_response", self.direct_response.emit),
             ("chat.error", self.error.emit),
+            ("chat.rofl_response", self.rofl_response.emit),
         )
         for name, handler in self._subscriptions:
             event_bus.subscribe(name, handler)
