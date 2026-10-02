@@ -40,7 +40,20 @@ class FakeChecker:
         return self.result
 
 
-def make_controller(checker):
+class FakeUpdateService:
+    def __init__(self, plan=None, error=None):
+        self.plan = plan
+        self.error = error
+        self.calls = 0
+
+    def prepare(self, info):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return self.plan
+
+
+def make_controller(checker, update_service=None):
     return SettingsController(
         config=None,
         model_service=None,
@@ -49,6 +62,7 @@ def make_controller(checker):
         event_bus=FakeEvents(),
         voice_service=None,
         update_checker=checker,
+        update_service=update_service,
     )
 
 
@@ -75,3 +89,66 @@ def test_settings_controller_emits_update_check_error():
     assert len(received) == 1
     assert received[0]["success"] is False
     assert "offline" in received[0]["error"]
+
+
+def test_settings_controller_attaches_update_plan_to_available_update():
+    from services.update_checker import ReleaseAsset, UpdateInfo
+
+    info = UpdateInfo(
+        current_version="0.1.0",
+        latest_version="0.2.0",
+        update_available=True,
+        release_url="https://github.com/jelr1k/localjarvisgolos/releases/tag/v0.2.0",
+        tag_name="v0.2.0",
+        release_name="JARVIS 0.2.0",
+        assets=(
+            ReleaseAsset(
+                "JARVIS.zip",
+                "https://github.com/jelr1k/localjarvisgolos/releases/download/v0.2.0/JARVIS.zip",
+                2048,
+            ),
+        ),
+    )
+    plan = object()
+    service = FakeUpdateService(plan=plan)
+    controller = make_controller(FakeChecker(result=info), service)
+    received = []
+
+    controller.update_check_finished.connect(received.append)
+    controller.check_for_update()
+
+    assert service.calls == 1
+    assert received[0]["success"] is True
+    assert received[0]["info"] is info
+    assert received[0]["plan"] is plan
+
+
+def test_settings_controller_reports_update_plan_error():
+    from services.update_checker import ReleaseAsset, UpdateInfo
+    from services.update_service import UpdateServiceError
+
+    info = UpdateInfo(
+        current_version="0.1.0",
+        latest_version="0.2.0",
+        update_available=True,
+        release_url="https://github.com/jelr1k/localjarvisgolos/releases/tag/v0.2.0",
+        tag_name="v0.2.0",
+        release_name="JARVIS 0.2.0",
+        assets=(
+            ReleaseAsset(
+                "JARVIS.zip",
+                "https://github.com/jelr1k/localjarvisgolos/releases/download/v0.2.0/JARVIS.zip",
+                2048,
+            ),
+        ),
+    )
+    service = FakeUpdateService(error=UpdateServiceError("bad archive"))
+    controller = make_controller(FakeChecker(result=info), service)
+    received = []
+
+    controller.update_check_finished.connect(received.append)
+    controller.check_for_update()
+
+    assert received[0]["success"] is False
+    assert received[0]["error"] == "bad archive"
+    assert received[0]["info"] is info
