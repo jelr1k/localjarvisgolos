@@ -1,9 +1,9 @@
 """Stage 14: launch a separate updater and restart JARVIS safely.
 
 The running JARVIS process must not replace its own files on Windows. This
-service starts a separate updater process, passes it the current PID and the
-validated update archive, and then lets the updater install the update after
-JARVIS has exited.
+service starts a separate updater process, passes it the current PID, the
+validated update archive and the pre-update backup, and then lets the updater
+install or roll back the update after JARVIS has exited.
 
 The updater itself lives in start/updater.py so the mechanism can later be
 packaged as JarvisUpdater.exe without changing the update workflow.
@@ -27,6 +27,7 @@ class UpdateRelaunchPlan:
     updater_path: Path
     application_root: Path
     archive_path: Path
+    backup_application: Path
     expected_size: int
     process_id: int
     python_executable: Path
@@ -59,6 +60,7 @@ class UpdateRelauncher:
         archive_path: Path,
         expected_size: int,
         *,
+        backup_application: Path | None = None,
         process_id: int | None = None,
     ) -> UpdateRelaunchPlan:
         root = Path(application_root).resolve()
@@ -74,6 +76,12 @@ class UpdateRelauncher:
             raise UpdateRelaunchError("Размер архива обновления должен быть больше нуля.")
         if not self._python_executable.is_file():
             raise UpdateRelaunchError("Python для запуска updater-процесса не найден.")
+        if backup_application is None:
+            raise UpdateRelaunchError("Резервная копия для возможного отката не подготовлена.")
+
+        backup = Path(backup_application).resolve()
+        if not backup.is_dir():
+            raise UpdateRelaunchError("Резервная копия приложения для отката не найдена.")
 
         pid = os.getpid() if process_id is None else int(process_id)
         if pid <= 0:
@@ -83,6 +91,7 @@ class UpdateRelauncher:
             updater_path=self._updater_path,
             application_root=root,
             archive_path=archive,
+            backup_application=backup,
             expected_size=int(expected_size),
             process_id=pid,
             python_executable=self._python_executable,
@@ -99,6 +108,8 @@ class UpdateRelauncher:
             str(plan.application_root),
             "--archive",
             str(plan.archive_path),
+            "--backup",
+            str(plan.backup_application),
             "--expected-size",
             str(plan.expected_size),
         ]
