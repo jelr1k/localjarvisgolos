@@ -3,22 +3,17 @@ setlocal EnableExtensions
 
 rem ============================================================
 rem JARVIS - Test Runner
-rem Current project layout:
-rem   <project>\core
-rem   <project>\tests
-rem   <project>\start
+rem Uses the current Python project layout.
 rem ============================================================
 
 set "TESTS_DIR=%~dp0"
-set "PROJECT_ROOT=%TESTS_DIR%.."
-
-rem Normalize the project path.
-for %%I in ("%PROJECT_ROOT%") do set "PROJECT_ROOT=%%~fI"
+for %%I in ("%TESTS_DIR%..") do set "PROJECT_ROOT=%%~fI"
+set "PYTHONPATH=%PROJECT_ROOT%;%PYTHONPATH%"
 
 if not exist "%PROJECT_ROOT%\core\" (
     echo.
-    echo ERROR: Project root was not found.
-    echo Expected folder: "%PROJECT_ROOT%\core"
+    echo ERROR: JARVIS project root was not found.
+    echo Expected: "%PROJECT_ROOT%\core"
     echo.
     pause
     exit /b 1
@@ -26,8 +21,8 @@ if not exist "%PROJECT_ROOT%\core\" (
 
 if not exist "%PROJECT_ROOT%\tests\" (
     echo.
-    echo ERROR: Tests folder was not found.
-    echo Expected folder: "%PROJECT_ROOT%\tests"
+    echo ERROR: Tests directory was not found.
+    echo Expected: "%PROJECT_ROOT%\tests"
     echo.
     pause
     exit /b 1
@@ -41,63 +36,55 @@ echo ========================================
 echo Project: %PROJECT_ROOT%
 echo.
 
-echo Checking Python...
+echo [1/3] Python
 python --version
 if errorlevel 1 (
-    echo.
-    echo ERROR: Python was not found in PATH.
+    echo ERROR: Python was not found.
     echo.
     pause
     exit /b 1
 )
 
 echo.
-echo Checking pytest...
-python -m pytest --version >nul 2>&1
+echo [2/3] Pytest
+python -m pytest --version
 if errorlevel 1 (
-    echo pytest is not installed.
-    echo Installing pytest...
-    python -m pip install "pytest>=8,<9"
-    if errorlevel 1 (
-        echo.
-        echo ERROR: Failed to install pytest.
-        echo.
-        pause
-        exit /b 1
-    )
+    echo.
+    echo ERROR: pytest is not installed for this Python.
+    echo Install the project dependencies first, then run this file again.
+    echo.
+    pause
+    exit /b 1
 )
 
 echo.
-echo Python path:
-where python
-echo.
-
-rem Make the project root explicitly available for imports.
-rem This prevents errors such as:
-rem   ModuleNotFoundError: No module named 'core'
-set "PYTHONPATH=%PROJECT_ROOT%;%PYTHONPATH%"
-
-echo Running tests...
+echo [3/3] Running JARVIS tests
 echo ----------------------------------------
-python -m pytest tests -q
-set "TEST_EXIT=%errorlevel%"
+echo Import root: %PROJECT_ROOT%
+echo Test folder: %PROJECT_ROOT%\tests
+echo.
+echo The runner will show failed test names and short tracebacks.
 echo ----------------------------------------
 echo.
 
+python -m pytest tests -ra --tb=short
+set "TEST_EXIT=%ERRORLEVEL%"
+
+echo.
+echo ========================================
 if "%TEST_EXIT%"=="0" (
-    echo ========================================
-    echo ALL TESTS PASSED
-    echo ========================================
+    echo RESULT: ALL TESTS PASSED
 ) else (
-    echo ========================================
-    echo SOME TESTS FAILED
-    echo ========================================
+    echo RESULT: TESTS FAILED
     echo Exit code: %TEST_EXIT%
     echo.
-    echo The full pytest output above contains the
-    echo information needed to diagnose the failure.
+    echo IMPORTANT:
+    echo The runner itself completed normally.
+    echo The failures above are failures in individual tests,
+    echo not a failure of run_tests.bat.
 )
-
+echo ========================================
 echo.
+
 pause
 exit /b %TEST_EXIT%
