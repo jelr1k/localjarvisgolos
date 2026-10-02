@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
 
+from services.update_checker import UpdateCheckError, UpdateChecker
+
 
 class SettingsController(QObject):
     models_refreshed = Signal(object)
@@ -11,8 +13,9 @@ class SettingsController(QObject):
     whisper_state_changed = Signal(str, str)
     whisper_finished = Signal(str, bool, str)
     refresh_finished = Signal(object)
+    update_check_finished = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -20,9 +23,29 @@ class SettingsController(QObject):
         self._tasks = task_runner
         self._events = event_bus
         self._voice = voice_service
+        self._update_checker = update_checker or UpdateChecker()
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         
+    def check_for_update(self):
+        future = self._tasks.submit(self._check_for_update)
+        future.add_done_callback(self._update_check_done)
+        return future
+
+    def _check_for_update(self):
+        try:
+            return {"success": True, "info": self._update_checker.check()}
+        except UpdateCheckError as exc:
+            return {"success": False, "error": str(exc)}
+        except Exception as exc:
+            return {"success": False, "error": "Не удалось проверить обновления: " + str(exc)}
+
+    def _update_check_done(self, future):
+        try:
+            result = future.result()
+        except Exception as exc:
+            result = {"success": False, "error": "Не удалось проверить обновления: " + str(exc)}
+        self.update_check_finished.emit(result)
     def get(self, key, default=None):
         return self._config.get(key, default)
 
