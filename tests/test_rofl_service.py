@@ -61,3 +61,40 @@ def test_rofl_emits_demon_response(monkeypatch):
     bus.emit("tool.executed", "launch_application", {"target": "Discord"}, {"success": True})
 
     assert emitted == ["Ритуал завершён. Он уже здесь."]
+
+
+def test_router_rofl_uses_latin_response(monkeypatch):
+    bus = FakeEventBus()
+    service = RoflService(bus)
+    emitted = []
+    bus.subscribe("chat.rofl_response", emitted.append)
+
+    values = iter([0.0, 0.0])
+    monkeypatch.setattr("services.rofl_service.random.random", lambda: next(values))
+    monkeypatch.setattr("services.rofl_service.random.choice", lambda seq: seq[0])
+
+    service.maybe_router_response("удали файл test.txt", "Готово.", action="delete")
+
+    assert emitted == ["Deletio perfecta est. Iam non est."]
+
+
+def test_router_rofl_ignores_failed_response(monkeypatch):
+    bus = FakeEventBus()
+    service = RoflService(bus)
+    emitted = []
+    bus.subscribe("chat.rofl_response", emitted.append)
+
+    monkeypatch.setattr("services.rofl_service.random.random", lambda: 0.0)
+
+    service.maybe_router_response(
+        "закрой Discord",
+        "Не удалось закрыть Discord: процесс не найден.",
+        action="close",
+    )
+
+    assert emitted == []
+
+
+def test_router_action_prefers_extended_command():
+    assert RoflService._router_action("найди приложение Discord") == "find_application"
+    assert RoflService._router_action("открой https://example.com") == "open_url"
