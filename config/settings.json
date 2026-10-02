@@ -36,5 +36,9 @@
     "launch_application": true,
     "close_application": true,
     "open_url": true
+  },
+  "rofl": {
+    "chance": 0.12,
+    "demon_chance": 0.15
   }
 }
