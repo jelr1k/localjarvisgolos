@@ -21,6 +21,7 @@ class RoflService:
         "Портал в указанное приложение стабилизирован.",
         "Приложение материализовано.",
         "Дверь открыта. Не спрашивай, куда она ведёт.",
+        "Дверь успешно выебана, можно пользоваться.",
         "Porta interconnexa aperta est.",
         "Ritus invocationis perfectus est.",
         "Machina evocata est.",
