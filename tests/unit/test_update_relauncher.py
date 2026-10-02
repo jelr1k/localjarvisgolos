@@ -12,6 +12,8 @@ def test_relauncher_prepares_plan(tmp_path):
     root.mkdir()
     archive = tmp_path / "update.zip"
     archive.write_bytes(b"zip")
+    backup = tmp_path / "backup"
+    backup.mkdir()
     updater = tmp_path / "updater.py"
     updater.write_text("print('updater')", encoding="utf-8")
     python = tmp_path / "python.exe"
@@ -22,10 +24,11 @@ def test_relauncher_prepares_plan(tmp_path):
         python_executable=python,
     )
 
-    plan = relauncher.prepare(root, archive, 3, process_id=1234)
+    plan = relauncher.prepare(root, archive, 3, backup_application=backup, process_id=1234)
 
     assert plan.application_root == root.resolve()
     assert plan.archive_path == archive.resolve()
+    assert plan.backup_application == backup.resolve()
     assert plan.expected_size == 3
     assert plan.process_id == 1234
 
@@ -35,6 +38,8 @@ def test_relauncher_builds_standalone_command(tmp_path):
     root.mkdir()
     archive = tmp_path / "update.zip"
     archive.write_bytes(b"zip")
+    backup = tmp_path / "backup"
+    backup.mkdir()
     updater = tmp_path / "updater.py"
     updater.write_text("print('updater')", encoding="utf-8")
     python = tmp_path / "python.exe"
@@ -44,7 +49,7 @@ def test_relauncher_builds_standalone_command(tmp_path):
         updater_path=updater,
         python_executable=python,
     )
-    plan = relauncher.prepare(root, archive, 3, process_id=1234)
+    plan = relauncher.prepare(root, archive, 3, backup_application=backup, process_id=1234)
 
     assert UpdateRelauncher.command(plan) == [
         str(python.resolve()),
@@ -55,6 +60,8 @@ def test_relauncher_builds_standalone_command(tmp_path):
         str(root.resolve()),
         "--archive",
         str(archive.resolve()),
+        "--backup",
+        str(backup.resolve()),
         "--expected-size",
         "3",
     ]
@@ -62,16 +69,25 @@ def test_relauncher_builds_standalone_command(tmp_path):
 
 @pytest.mark.parametrize(
     "setup",
-    ("missing_root", "missing_archive", "missing_updater", "bad_size", "missing_python"),
+    (
+        "missing_root",
+        "missing_archive",
+        "missing_updater",
+        "missing_backup",
+        "bad_size",
+        "missing_python",
+    ),
 )
 def test_relauncher_rejects_invalid_setup(tmp_path, setup):
     root = tmp_path / "app"
     archive = tmp_path / "update.zip"
+    backup = tmp_path / "backup"
     updater = tmp_path / "updater.py"
     python = tmp_path / "python.exe"
 
     root.mkdir()
     archive.write_bytes(b"zip")
+    backup.mkdir()
     updater.write_text("print('updater')", encoding="utf-8")
     python.write_bytes(b"python")
 
@@ -79,16 +95,23 @@ def test_relauncher_rejects_invalid_setup(tmp_path, setup):
         root.rmdir()
     elif setup == "missing_archive":
         archive.unlink()
+    elif setup == "missing_backup":
+        backup.rmdir()
     elif setup == "missing_updater":
         updater.unlink()
     elif setup == "missing_python":
         python.unlink()
 
-    kwargs = {
-        "updater_path": updater,
-        "python_executable": python,
-    }
-    relauncher = UpdateRelauncher(**kwargs)
+    relauncher = UpdateRelauncher(
+        updater_path=updater,
+        python_executable=python,
+    )
 
     with pytest.raises(UpdateRelaunchError):
-        relauncher.prepare(root, archive, 0 if setup == "bad_size" else 3, process_id=1234)
+        relauncher.prepare(
+            root,
+            archive,
+            0 if setup == "bad_size" else 3,
+            backup_application=backup,
+            process_id=1234,
+        )
