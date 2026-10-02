@@ -39,6 +39,7 @@ class ChatService:
         self._current_answer = ""
         self._pending_messages = deque()
         self._pending_confirmation = None
+        self._active_router_command = None
         self._generation_future = None
         self._ollama_task_running = False
         self._ui_actions = {}
@@ -82,6 +83,7 @@ class ChatService:
         self.conversation.add("user", text)
 
         if self.router:
+            self._active_router_command = text
             if self._is_background_router_command(text):
                 self._start_background_router(text)
                 return
@@ -93,7 +95,11 @@ class ChatService:
             if direct is not None:
                 self.conversation.add("assistant", direct)
                 self._emit("chat.direct_response", direct)
+                self._maybe_router_rofl(text, direct)
+                self._active_router_command = None
                 return
+
+        self._active_router_command = None
 
         if self.config.get("router_only_mode", False):
             direct = "Роутер не распознал команду. LLM отключён в тестовом режиме."
@@ -222,6 +228,12 @@ class ChatService:
                 self.router.execute_confirmed(pending["tool_name"], pending["arguments"])
                 if confirmation else "Действие отменено."
             )
+            if confirmation:
+                self._maybe_router_rofl(
+                    pending.get("command_text", ""),
+                    direct,
+                    action=pending.get("rofl_action"),
+                )
         self.conversation.add("assistant", direct)
         self._emit("chat.direct_response", direct)
         return True
@@ -231,6 +243,8 @@ class ChatService:
             "mode": "router",
             "tool_name": tool_name,
             "arguments": dict(arguments),
+            "command_text": self._active_router_command or "",
+            "rofl_action": self._router_rofl_action(self._active_router_command or "", tool_name),
         }
         self._emit("chat.confirmation_requested", tool_name, dict(arguments))
         return None
@@ -252,6 +266,40 @@ class ChatService:
     @staticmethod
     def _confirm_alias(query, target, category):
         return False
+
+    def _router_rofl_action(self, text, tool_name=None):
+        if self.router is not None:
+            try:
+                from services.rofl_service import RoflService
+                action = RoflService._router_action(text, self.router)
+                if action:
+                    return action
+            except Exception:
+                logger.exception("router_rofl_action_failed")
+        return {
+            "create_file": "create_file",
+            "create_folder": "create_folder",
+            "write_file": "write_file",
+            "rename_file": "rename_file",
+            "copy_file": "copy_file",
+            "move_file": "move_file",
+            "file_info": "file_info",
+            "find_application": "find_application",
+            "open_url": "open_url",
+            "launch_application": "launch",
+            "close_application": "close",
+            "delete_file": "delete",
+            "search_files": "search",
+            "read_file": "read",
+            "get_process_status": "status",
+            "minimize_application": "minimize",
+        }.get(tool_name)
+
+    def _maybe_router_rofl(self, command_text, response, action=None):
+        if self.events is None:
+            return
+        self._emit("router.rofl_candidate", command_text, response, action)
+
 
     @staticmethod
     def _parse_confirmation(text):
@@ -285,13 +333,15 @@ class ChatService:
 
     def _background_router_done(self, future):
         self._ollama_task_running = False
+        command_text = ""
         try:
-            result = future.result()
+            command_text, result = future.result()
             direct = str(result)
         except Exception as exc:
             direct = f"Не удалось выполнить команду: {exc}"
         self.conversation.add("assistant", direct)
         self._emit("chat.direct_response", direct)
+        self._maybe_router_rofl(command_text, direct)
 
     def _on_chunk(self, chunk):
         if chunk.text:
