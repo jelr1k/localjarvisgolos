@@ -6,6 +6,8 @@ from services.update_checker import UpdateCheckError, UpdateChecker
 from services.update_downloader import UpdateDownloadError, UpdateDownloader
 from services.update_service import UpdateService, UpdateServiceError
 from services.update_validator import UpdateValidationError, UpdateValidator
+from services.update_backup import UpdateBackupError, UpdateBackupService
+from core.app_paths import APP_DATA_DIR, APP_ROOT
 
 
 class SettingsController(QObject):
@@ -21,8 +23,9 @@ class SettingsController(QObject):
     update_download_progress = Signal(int, int, float)
     update_download_finished = Signal(object)
     update_validation_finished = Signal(object)
+    update_backup_finished = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None, update_backup=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -34,6 +37,7 @@ class SettingsController(QObject):
         self._update_service = update_service or UpdateService()
         self._update_downloader = update_downloader or UpdateDownloader()
         self._update_validator = update_validator or UpdateValidator()
+        self._update_backup = update_backup or UpdateBackupService()
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
@@ -115,10 +119,27 @@ class SettingsController(QObject):
             self._update_downloader.cleanup(download_result)
             raise
 
+    def _create_update_backup(self):
+        return self._update_backup.create_backup(
+            APP_ROOT,
+            preserve_paths=(APP_DATA_DIR,),
+        )
+
+    def _update_backup_done(self, future):
+        try:
+            result = future.result()
+            self.update_backup_finished.emit({"success": True, "result": result})
+        except UpdateBackupError as exc:
+            self.update_backup_finished.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_backup_finished.emit({"success": False, "error": "Не удалось создать резервную копию: " + str(exc)})
+
     def _update_validation_done(self, future):
         try:
             result = future.result()
             self.update_validation_finished.emit({"success": True, "result": result})
+            backup_future = self._tasks.submit(self._create_update_backup)
+            backup_future.add_done_callback(self._update_backup_done)
         except UpdateValidationError as exc:
             self.update_validation_finished.emit({"success": False, "error": str(exc)})
         except Exception as exc:
