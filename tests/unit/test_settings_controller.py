@@ -152,3 +152,31 @@ def test_settings_controller_reports_update_plan_error():
     assert received[0]["success"] is False
     assert received[0]["error"] == "bad archive"
     assert received[0]["info"] is info
+
+
+def test_settings_controller_requests_confirmation_for_prepared_update():
+    from services.update_checker import ReleaseAsset, UpdateInfo
+
+    info = UpdateInfo(
+        current_version="0.1.0",
+        latest_version="0.2.0",
+        update_available=True,
+        release_url="https://github.com/jelr1k/localjarvisgolos/releases/tag/v0.2.0",
+        tag_name="v0.2.0",
+        release_name="JARVIS 0.2.0",
+        assets=(
+            ReleaseAsset(
+                "JARVIS.zip",
+                "https://github.com/jelr1k/localjarvisgolos/releases/download/v0.2.0/JARVIS.zip",
+                2048,
+            ),
+        ),
+    )
+    plan = object()
+    controller = make_controller(FakeChecker(result=info), FakeUpdateService(plan=plan))
+    received = []
+
+    controller.update_confirmation_requested.connect(received.append)
+    controller.check_for_update()
+
+    assert received == [plan]
