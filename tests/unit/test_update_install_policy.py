@@ -72,8 +72,11 @@ def test_policy_prefers_explicit_model_cache_environment_variables(tmp_path):
 
 def test_policy_deduplicates_identical_paths(tmp_path):
     app_data = tmp_path / "same"
+    app = tmp_path / "app"
+    app.mkdir()
+
     policy = UpdateInstallPolicy(
-        tmp_path / "app",
+        app,
         app_data_dir=app_data,
         environment={
             "HF_HUB_CACHE": str(app_data),
