@@ -52,8 +52,8 @@ def test_executor_rejects_non_dict_arguments():
     assert "объектом" in result["error"]
 
 
-def test_executor_requires_confirmation_for_write():
-    config = ConfigManager()
+def test_executor_requires_confirmation_for_write(tmp_path):
+    config = ConfigManager(tmp_path / "settings.json")
     config.data["tools"]["write_file"] = True
     permissions = PermissionManager(config)
     executor = ToolExecutor(config=config, enabled_tools={"write_file"}, permission_manager=permissions)
