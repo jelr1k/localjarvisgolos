@@ -1091,7 +1091,7 @@
 
     if (def.kind === "application-item") {
       if (def.setting === "app-name") {
-        content += `<div class="nx-control-block"><div class="nx-readonly"><span>Название приложения</span><b>JARVIS</b></div></div>`;
+        content += `<div class="nx-control-block"><label class="nx-field"><span>Название приложения</span><input data-nx-setting="app-name" value="${getSetting("jarvis-app-name", "JARVIS")}"></label><small class="nx-note">Сохраняется локально. Изменение заголовка окна потребует подключения к Electron main process.</small></div>`;
       }
       if (def.setting === "assistant-name") {
         content += `<div class="nx-control-block"><label class="nx-field"><span>Имя ассистента</span><input data-nx-setting="assistant-name" value="${getSetting("jarvis-assistant-name", "Jarvis")}"></label></div>`;
@@ -1200,6 +1200,7 @@
     if (!setting) return;
 
     const key = setting.dataset.nxSetting;
+    if (key === "app-name") setSetting("jarvis-app-name", setting.value);
     if (key === "assistant-name") setSetting("jarvis-assistant-name", setting.value);
     if (key === "testing") setSetting("jarvis-testing-mode", setting.checked);
     if (key === "silence") setSetting("jarvis-silence-threshold", setting.value);
