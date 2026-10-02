@@ -49,7 +49,7 @@ class SettingsPage(QWidget):
         form=QFormLayout()
         for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace)]:form.addRow(label,widget)
         box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(update_box);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
-        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.update_download_progress.connect(self._on_update_download_progress);controller.update_download_finished.connect(self._on_update_download_finished);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
+        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.update_download_progress.connect(self._on_update_download_progress);controller.update_download_finished.connect(self._on_update_download_finished);controller.update_validation_finished.connect(self._on_update_validation_finished);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
         self._refresh_whisper_statuses();self._load_microphones();self._set_status("Готово",False)
 
     def _check_for_update(self):
@@ -101,26 +101,44 @@ class SettingsPage(QWidget):
             )
 
     def _on_update_download_finished(self, result):
-        self.update_check_button.setEnabled(True)
-        self.update_details_button.setEnabled(True)
         if result.get("success"):
             download = result["result"]
             self.update_progress.setValue(100)
             self.update_progress_label.setText(
-                f"100% • архив сохранён во временную папку: {download.archive_path}"
+                "100% • архив скачан. Проверяю ZIP-архив перед установкой…"
             )
-            self._set_status(
-                "✓ Обновление скачано во временную папку. "
-                "Установка и замена файлов ещё не выполнялись.",
-                False,
-            )
+            self._set_status("⟳ Архив скачан. Проверяю его целостность и безопасность…", False)
         else:
+            self.update_check_button.setEnabled(True)
+            self.update_details_button.setEnabled(True)
             self.update_progress.hide()
             self.update_progress_label.setText(
                 f"Ошибка: {result.get('error', 'Не удалось скачать обновление')}"
             )
             self.update_progress_label.show()
             self._set_status("⚠ Не удалось скачать обновление", True)
+
+    def _on_update_validation_finished(self, result):
+        self.update_check_button.setEnabled(True)
+        self.update_details_button.setEnabled(True)
+        if result.get("success"):
+            validation = result["result"]
+            self.update_progress.setValue(100)
+            self.update_progress_label.setText(
+                f"✓ ZIP проверен: {validation.file_count} файлов, "
+                f"{self._format_bytes(validation.total_uncompressed_size)} распакованных данных."
+            )
+            self._set_status(
+                "✓ Обновление скачано и проверено. Установка и замена файлов ещё не выполнялись.",
+                False,
+            )
+        else:
+            self.update_progress.hide()
+            self.update_progress_label.setText(
+                f"Ошибка проверки архива: {result.get('error', 'ZIP-архив не прошёл проверку')}"
+            )
+            self.update_progress_label.show()
+            self._set_status("⚠ Архив обновления не прошёл проверку", True)
 
     def _update_check_finished(self, result):
         self.update_check_button.setEnabled(True)
