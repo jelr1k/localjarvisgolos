@@ -81,6 +81,19 @@ def test_checker_detects_available_update():
     assert session.calls[0][1]["timeout"] == 10.0
 
 
+def test_checker_handles_repository_without_releases():
+    class NoReleaseResponse(FakeResponse):
+        status_code = 404
+
+    session = FakeSession(NoReleaseResponse({}))
+
+    info = UpdateChecker(session=session).check("0.1.0")
+
+    assert info.update_available is False
+    assert info.latest_version == "0.1.0"
+    assert info.release_name == "Релизов пока нет"
+
+
 def test_checker_reports_no_update_when_versions_match():
     session = FakeSession(
         FakeResponse(
