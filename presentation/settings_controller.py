@@ -81,6 +81,21 @@ class SettingsController(QObject):
             result = {"success": False, "error": str(exc)}
         self.microphone_tested.emit(result)
 
+    def get_rofl_settings(self):
+        settings = self._config.get("rofl", {})
+        return {
+            "chance": float(settings.get("chance", 0.12)),
+            "demon_chance": float(settings.get("demon_chance", 0.15)),
+        }
+
+    def save_rofl_settings(self, chance, demon_chance):
+        rofl = self._config.data.setdefault("rofl", {})
+        rofl["chance"] = max(0.0, min(1.0, float(chance)))
+        rofl["demon_chance"] = max(0.0, min(1.0, float(demon_chance)))
+        self._config.save()
+        self._events.emit("rofl.settings_changed", dict(rofl))
+        return self.get_rofl_settings()
+
     def save(self, values):
         self._config.data["assistant_name"] = values["assistant_name"]
         self._config.data["model"] = values["model"]
