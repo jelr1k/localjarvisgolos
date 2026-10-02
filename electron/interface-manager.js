@@ -6,7 +6,13 @@
     atlas: { mode: "shared", requiresRestart: false },
     journal: { mode: "shared", requiresRestart: false },
     commandroom: { mode: "shared", requiresRestart: false },
-    wave: { mode: "shared", requiresRestart: false }
+    wave: { mode: "shared", requiresRestart: false },
+    jarvis: {
+      mode: "custom",
+      requiresRestart: true,
+      css: "interfaces/jarvis/interface.css",
+      js: "interfaces/jarvis/interface.js"
+    }
   };
 
   let pendingInterface = localStorage.getItem("jarvis-interface") || "classic";
