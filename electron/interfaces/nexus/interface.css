@@ -68,3 +68,29 @@ body.interface-nexus .page{display:block!important;position:relative;width:100%;
 
 @media(max-width:900px){.nx-nav button{padding:9px 8px}.nx-nav button i{display:none}.nx-hud{width:290px}.nx-node{width:190px}.nx-node[data-state="core"]{width:220px}}
 @media(max-width:650px){.nx-hud{width:calc(100% - 32px);right:16px;top:auto;bottom:16px;max-height:45vh}.nx-zoom{top:90px}.nx-nav{max-width:55vw;overflow:hidden}.nx-node{width:175px}.nx-node[data-state="core"]{width:205px}}
+.nx-map-head {
+  position: absolute;
+  top: 88px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  min-width: 280px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(8,10,14,.84);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+.nx-map-head > div { display:flex; flex-direction:column; gap:3px; }
+.nx-map-head strong { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+.nx-map-head [data-nx-back] {
+  margin-left:auto;
+  border:1px solid rgba(255,255,255,.12);
+  background:rgba(255,255,255,.04);
+  color:inherit;
+  padding:6px 10px;
+  cursor:pointer;
+}
