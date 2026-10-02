@@ -315,6 +315,7 @@ class RoflService:
     def __init__(self, event_bus):
         self.events = event_bus
         event_bus.subscribe("tool.executed", self._on_tool_executed)
+        event_bus.subscribe("router.rofl_candidate", self._on_router_rofl_candidate)
         logger.debug(
             "rofl_service_created chance=%.2f demon_chance=%.2f",
             self.ROFL_CHANCE,
@@ -407,6 +408,9 @@ class RoflService:
         # те же рофлы, что и прямой CommandRouter.
         return
 
+    def _on_router_rofl_candidate(self, command_text: str, response: str, action: str | None = None):
+        self.maybe_router_response(command_text, response, action=action)
+
     def _on_tool_executed(self, tool_name: str, arguments: dict, result: dict):
         if tool_name != "launch_application" or not result.get("success"):
             return
@@ -432,3 +436,4 @@ class RoflService:
 
     def close(self):
         self.events.unsubscribe("tool.executed", self._on_tool_executed)
+        self.events.unsubscribe("router.rofl_candidate", self._on_router_rofl_candidate)
