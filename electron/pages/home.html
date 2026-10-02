@@ -1,6 +1,90 @@
 <section class="page active" id="home">
   <div class="home-stage">
-    <div class="black-hole" aria-hidden="true"><canvas id="blackHoleCanvas"></canvas></div>
+    <div class="black-hole" aria-hidden="true">
+      <canvas id="blackHoleCanvas"></canvas>
+
+      <div class="wave-core-rings"></div>
+      <div class="wave-core-orb">
+        <div class="wave-eq" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+
+    <svg class="home-wave-svg" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
+      <path class="wave-a" d="M0 154 C100 70 145 70 230 150 S350 230 440 155 S560 75 650 150 S790 220 1000 135"/>
+      <path class="wave-b" d="M0 145 C100 210 150 205 235 145 S350 65 450 150 S565 230 660 150 S820 80 1000 165"/>
+      <path class="wave-c" d="M0 165 C105 110 155 100 240 160 S350 215 445 150 S565 100 665 160 S830 215 1000 145"/>
+      <path class="wave-d" d="M0 135 C110 180 165 180 245 140 S360 85 455 145 S570 205 665 140 S830 90 1000 155"/>
+    </svg>
+
+    <div class="wave-command-status"><i></i>Ожидание команды</div>
+
+    <div class="wave-steps" aria-label="Состояние обработки команды">
+      <div class="wave-step active">♩ &nbsp;Слушаю</div>
+      <div class="wave-step">▮▮ &nbsp;Распознаю</div>
+      <div class="wave-step">⚙ &nbsp;Обрабатываю</div>
+      <div class="wave-step">✓ &nbsp;Готово</div>
+    </div>
+
+    <div class="wave-input">
+      <div class="wave-mic">♩</div>
+      <div class="wave-input-placeholder">Напиши команду или скажи...</div>
+      <div class="wave-send">➤</div>
+    </div>
+
+    <aside class="home-status-cards" aria-label="Системная информация">
+      <section class="wave-panel">
+        <div class="wave-panel-title"><span>▮</span>Системная информация</div>
+        <div class="wave-stats">
+          <div class="wave-stat"><div class="wave-stat-ring">12%</div><label>CPU</label></div>
+          <div class="wave-stat"><div class="wave-stat-ring">42%</div><label>RAM</label></div>
+          <div class="wave-stat"><div class="wave-stat-ring">8%</div><label>GPU</label></div>
+          <div class="wave-stat"><div class="wave-stat-ring">65%</div><label>Диск</label></div>
+        </div>
+      </section>
+
+      <section class="wave-panel">
+        <div class="wave-panel-title"><span>♙</span>Активная модель</div>
+        <div class="wave-model">
+          <div class="wave-model-icon">♙</div>
+          <div><div>Llama 3.1:8b</div><div class="wave-model-sub">Локальная модель</div></div>
+          <div class="wave-arrow">›</div>
+        </div>
+      </section>
+
+      <section class="wave-panel">
+        <div class="wave-panel-title"><span>◷</span>Последние действия</div>
+        <div class="wave-actions">
+          <div class="wave-action">
+            <div class="wave-action-icon">◎</div>
+            <div><div class="wave-action-name">Открыть браузер</div><div class="wave-action-time">Выполнено • 2 мин назад</div></div>
+            <div class="wave-check">✓</div>
+          </div>
+          <div class="wave-action">
+            <div class="wave-action-icon">□</div>
+            <div><div class="wave-action-name">Найти файл project.py</div><div class="wave-action-time">Выполнено • 5 мин назад</div></div>
+            <div class="wave-check">✓</div>
+          </div>
+          <div class="wave-action">
+            <div class="wave-action-icon">◉</div>
+            <div><div class="wave-action-name">Запустить Discord</div><div class="wave-action-time">Выполнено • 12 мин назад</div></div>
+            <div class="wave-check">✓</div>
+          </div>
+          <div class="wave-action">
+            <div class="wave-action-icon">⚙</div>
+            <div><div class="wave-action-name">Изменить настройки</div><div class="wave-action-time">Настройки • 18 мин назад</div></div>
+            <div class="wave-arrow">›</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wave-panel">
+        <div class="wave-panel-title"><span>▮</span>Статус голосового помощника</div>
+        <div class="wave-voice-row"><span class="wave-voice-icon">≋</span>Wake word: Джарвис <span class="wave-toggle"></span></div>
+        <div class="wave-voice-row"><span class="wave-voice-icon">♩</span>Микрофон <span class="wave-meter"><i></i></span></div>
+      </section>
+    </aside>
 
     <button class="home-help" id="homeHelp" type="button" aria-label="О Jarvis" aria-expanded="false">?</button>
     <div class="home-help-popover" id="homeHelpPopover" hidden>
@@ -9,23 +93,5 @@
       <p>Слушает wake word, распознаёт речь и выполняет команды Windows.</p>
     </div>
 
-    <div class="home-status-cards" aria-label="Состояние Jarvis">
-      <div class="home-status-card">
-        <span class="home-status-card-dot"></span>
-        <div><small>Wake word</small><strong>Активен</strong></div>
-      </div>
-      <div class="home-status-card">
-        <span class="home-status-card-dot"></span>
-        <div><small>Vosk</small><strong>Слушает</strong></div>
-      </div>
-      <div class="home-status-card">
-        <span class="home-status-card-dot"></span>
-        <div><small>Normalizer</small><strong>Готов</strong></div>
-      </div>
-      <div class="home-status-card">
-        <span class="home-status-card-dot"></span>
-        <div><small>Router / LLM</small><strong>Готов</strong></div>
-      </div>
-    </div>
   </div>
 </section>
