@@ -15,21 +15,694 @@
   ];
 
   const NODE_DEFS = [
-    { id: "core", title: "SETTINGS CORE", tag: "CORE", description: "Центр настроек NEXUS. Все параметры находятся внутри этого пространства.", x: 0, y: 0, state: "core", kind: "core" },
-    { id: "interface", title: "INTERFACE", tag: "01", description: "Выбор оболочки Jarvis. Custom-интерфейсы применяются после перезапуска.", x: -410, y: -310, state: "active", kind: "interface" },
-    { id: "theme", title: "THEME", tag: "02", description: "Цветовая схема приложения. Применяется сразу.", x: 0, y: -410, state: "active", kind: "theme" },
-    { id: "navigation", title: "NAVIGATION", tag: "03", description: "Управление вкладками верхней навигации. Скрытые вкладки не удаляются.", x: 430, y: -290, state: "active", kind: "navigation" },
-    { id: "application", title: "APPLICATION", tag: "04", description: "Имя ассистента и режим тестирования команд.", x: -470, y: 260, state: "active", kind: "application" },
-    { id: "voice", title: "VOICE", tag: "05", description: "Параметры голосового контура и текущие значения голосовых настроек.", x: 0, y: 390, state: "active", kind: "voice" },
-    { id: "workspace", title: "WORKSPACE", tag: "06", description: "Рабочая область, алиасы и ограничения файловых операций.", x: 470, y: 240, state: "active", kind: "workspace" },
-    { id: "system", title: "SYSTEM", tag: "07", description: "Системные параметры приложения и язык интерфейса.", x: 780, y: 500, state: "active", kind: "system" }
-  ];
+  {
+    "id": "core",
+    "title": "SETTINGS CORE",
+    "tag": "CORE",
+    "description": "Центр настроек NEXUS. Здесь собрана вся карта параметров.",
+    "x": 0,
+    "y": 0,
+    "state": "core",
+    "kind": "core"
+  },
+  {
+    "id": "interface",
+    "title": "INTERFACE",
+    "tag": "01",
+    "description": "Оболочка и визуальная структура Jarvis.",
+    "x": -720,
+    "y": -500,
+    "state": "active",
+    "kind": "interface"
+  },
+  {
+    "id": "interface-classic",
+    "title": "Классический",
+    "tag": "01.1",
+    "description": "Sidebar и карточки",
+    "x": -950,
+    "y": -690,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "classic",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-minimal",
+    "title": "Минималистичный",
+    "tag": "01.2",
+    "description": "Узкая навигация",
+    "x": -720,
+    "y": -690,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "minimal",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-dashboard",
+    "title": "Dashboard",
+    "tag": "01.3",
+    "description": "Верхняя навигация",
+    "x": -490,
+    "y": -690,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "dashboard",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-atlas",
+    "title": "Atlas",
+    "tag": "01.4",
+    "description": "Плотный командный центр",
+    "x": -950,
+    "y": -500,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "atlas",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-journal",
+    "title": "Journal",
+    "tag": "01.5",
+    "description": "Редакционный журнал",
+    "x": -720,
+    "y": -500,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "journal",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-commandroom",
+    "title": "Command Room",
+    "tag": "01.6",
+    "description": "Тёмная консоль",
+    "x": -490,
+    "y": -500,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "commandroom",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-wave",
+    "title": "Wave",
+    "tag": "01.7",
+    "description": "Анимированные волны",
+    "x": -950,
+    "y": -310,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "wave",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-jarvis",
+    "title": "JARVIS",
+    "tag": "01.8",
+    "description": "Отдельный интерфейс",
+    "x": -720,
+    "y": -310,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "jarvis",
+    "parent": "interface"
+  },
+  {
+    "id": "interface-nexus",
+    "title": "NEXUS",
+    "tag": "01.9",
+    "description": "Интерактивные настройки",
+    "x": -490,
+    "y": -310,
+    "state": "active",
+    "kind": "interface-item",
+    "setting": "nexus",
+    "parent": "interface"
+  },
+  {
+    "id": "theme",
+    "title": "THEME",
+    "tag": "02",
+    "description": "Каждая тема теперь отдельный узел.",
+    "x": 0,
+    "y": -700,
+    "state": "active",
+    "kind": "theme"
+  },
+  {
+    "id": "theme-dark",
+    "title": "Тёмная",
+    "tag": "02.1",
+    "description": "Базовая",
+    "x": -260,
+    "y": -1140,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "dark",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-light",
+    "title": "Светлая",
+    "tag": "02.2",
+    "description": "Светлый интерфейс",
+    "x": 0,
+    "y": -1140,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "light",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-gradient-amber",
+    "title": "Янтарный",
+    "tag": "02.3",
+    "description": "Тёплый градиент",
+    "x": 260,
+    "y": -1140,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "gradient-amber",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-gradient-blue",
+    "title": "Синий",
+    "tag": "02.4",
+    "description": "Холодный градиент",
+    "x": -260,
+    "y": -920,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "gradient-blue",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-gradient-purple",
+    "title": "Фиолетовый",
+    "tag": "02.5",
+    "description": "Тёмный градиент",
+    "x": 0,
+    "y": -920,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "gradient-purple",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-mono-slate",
+    "title": "Сланец",
+    "tag": "02.6",
+    "description": "Монохромный",
+    "x": 260,
+    "y": -920,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "mono-slate",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-mono-graphite",
+    "title": "Графит",
+    "tag": "02.7",
+    "description": "Монохромный",
+    "x": -260,
+    "y": -700,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "mono-graphite",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-mono-silver",
+    "title": "Серебро",
+    "tag": "02.8",
+    "description": "Монохромный",
+    "x": 0,
+    "y": -700,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "mono-silver",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-mono-cream",
+    "title": "Кремовый",
+    "tag": "02.9",
+    "description": "Монохромный",
+    "x": 260,
+    "y": -700,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "mono-cream",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-gradient-cyan",
+    "title": "Циан",
+    "tag": "02.10",
+    "description": "Градиент",
+    "x": -260,
+    "y": -480,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "gradient-cyan",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-gradient-green",
+    "title": "Изумруд",
+    "tag": "02.11",
+    "description": "Градиент",
+    "x": 0,
+    "y": -480,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "gradient-green",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-gradient-red",
+    "title": "Красный",
+    "tag": "02.12",
+    "description": "Градиент",
+    "x": 260,
+    "y": -480,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "gradient-red",
+    "parent": "theme"
+  },
+  {
+    "id": "theme-gradient-sunset",
+    "title": "Закат",
+    "tag": "02.13",
+    "description": "Градиент",
+    "x": -260,
+    "y": -260,
+    "state": "active",
+    "kind": "theme-item",
+    "setting": "gradient-sunset",
+    "parent": "theme"
+  },
+  {
+    "id": "navigation",
+    "title": "NAVIGATION",
+    "tag": "03",
+    "description": "Отдельный узел для каждой верхней вкладки.",
+    "x": 720,
+    "y": -500,
+    "state": "active",
+    "kind": "navigation"
+  },
+  {
+    "id": "navigation-home",
+    "title": "Главная",
+    "tag": "03.1",
+    "description": "Верхняя вкладка",
+    "x": 605,
+    "y": -595,
+    "state": "active",
+    "kind": "navigation-item",
+    "setting": "home",
+    "parent": "navigation"
+  },
+  {
+    "id": "navigation-chat",
+    "title": "Чат",
+    "tag": "03.2",
+    "description": "Верхняя вкладка",
+    "x": 835,
+    "y": -595,
+    "state": "active",
+    "kind": "navigation-item",
+    "setting": "chat",
+    "parent": "navigation"
+  },
+  {
+    "id": "navigation-commands",
+    "title": "Команды",
+    "tag": "03.3",
+    "description": "Верхняя вкладка",
+    "x": 605,
+    "y": -405,
+    "state": "active",
+    "kind": "navigation-item",
+    "setting": "commands",
+    "parent": "navigation"
+  },
+  {
+    "id": "navigation-ai",
+    "title": "ИИ",
+    "tag": "03.4",
+    "description": "Верхняя вкладка",
+    "x": 835,
+    "y": -405,
+    "state": "active",
+    "kind": "navigation-item",
+    "setting": "ai",
+    "parent": "navigation"
+  },
+  {
+    "id": "application",
+    "title": "APPLICATION",
+    "tag": "04",
+    "description": "Параметры самого приложения.",
+    "x": -720,
+    "y": 300,
+    "state": "active",
+    "kind": "application"
+  },
+  {
+    "id": "application-app-name",
+    "title": "Название приложения",
+    "tag": "04.1",
+    "description": "JARVIS",
+    "x": -835,
+    "y": 205,
+    "state": "active",
+    "kind": "application-item",
+    "setting": "app-name",
+    "parent": "application"
+  },
+  {
+    "id": "application-assistant-name",
+    "title": "Имя ассистента",
+    "tag": "04.2",
+    "description": "Jarvis",
+    "x": -605,
+    "y": 205,
+    "state": "active",
+    "kind": "application-item",
+    "setting": "assistant-name",
+    "parent": "application"
+  },
+  {
+    "id": "application-testing",
+    "title": "Режим тестирования",
+    "tag": "04.3",
+    "description": "Command Router без ИИ",
+    "x": -835,
+    "y": 395,
+    "state": "active",
+    "kind": "application-item",
+    "setting": "testing",
+    "parent": "application"
+  },
+  {
+    "id": "voice",
+    "title": "VOICE",
+    "tag": "05",
+    "description": "Параметры голосового контура.",
+    "x": 0,
+    "y": 650,
+    "state": "active",
+    "kind": "voice"
+  },
+  {
+    "id": "voice-wake-word",
+    "title": "Wake word",
+    "tag": "05.1",
+    "description": "Jarvis",
+    "x": -115,
+    "y": 555,
+    "state": "active",
+    "kind": "voice-item",
+    "setting": "wake-word",
+    "parent": "voice"
+  },
+  {
+    "id": "voice-microphone",
+    "title": "Микрофон",
+    "tag": "05.2",
+    "description": "Системный",
+    "x": 115,
+    "y": 555,
+    "state": "active",
+    "kind": "voice-item",
+    "setting": "microphone",
+    "parent": "voice"
+  },
+  {
+    "id": "voice-silence",
+    "title": "Тишина до автоотправки",
+    "tag": "05.3",
+    "description": "1.2 с",
+    "x": -115,
+    "y": 745,
+    "state": "active",
+    "kind": "voice-item",
+    "setting": "silence",
+    "parent": "voice"
+  },
+  {
+    "id": "workspace",
+    "title": "WORKSPACE",
+    "tag": "06",
+    "description": "Рабочая область и алиасы.",
+    "x": 720,
+    "y": 300,
+    "state": "active",
+    "kind": "workspace"
+  },
+  {
+    "id": "workspace-workspace-scope",
+    "title": "Рабочая область",
+    "tag": "06.1",
+    "description": "Только Workspace",
+    "x": 605,
+    "y": 300,
+    "state": "active",
+    "kind": "workspace-item",
+    "setting": "workspace-scope",
+    "parent": "workspace"
+  },
+  {
+    "id": "workspace-aliases",
+    "title": "Алиасы",
+    "tag": "06.2",
+    "description": "Файлы, папки и приложения",
+    "x": 835,
+    "y": 300,
+    "state": "active",
+    "kind": "workspace-item",
+    "setting": "aliases",
+    "parent": "workspace"
+  },
+  {
+    "id": "system",
+    "title": "SYSTEM",
+    "tag": "07",
+    "description": "Системные параметры.",
+    "x": 1200,
+    "y": 700,
+    "state": "active",
+    "kind": "system"
+  },
+  {
+    "id": "system-language",
+    "title": "Язык",
+    "tag": "07.1",
+    "description": "Русский",
+    "x": 1085,
+    "y": 700,
+    "state": "active",
+    "kind": "system-item",
+    "setting": "language",
+    "parent": "system"
+  },
+  {
+    "id": "system-interface-id",
+    "title": "Текущий интерфейс",
+    "tag": "07.2",
+    "description": "NEXUS",
+    "x": 1315,
+    "y": 700,
+    "state": "active",
+    "kind": "system-item",
+    "setting": "interface-id",
+    "parent": "system"
+  }
+];
 
   const LINK_DEFS = [
-    ["core", "interface"], ["core", "theme"], ["core", "navigation"],
-    ["core", "application"], ["core", "voice"], ["core", "workspace"],
-    ["core", "system"]
-  ];
+  [
+    "core",
+    "interface"
+  ],
+  [
+    "interface",
+    "interface-classic"
+  ],
+  [
+    "interface",
+    "interface-minimal"
+  ],
+  [
+    "interface",
+    "interface-dashboard"
+  ],
+  [
+    "interface",
+    "interface-atlas"
+  ],
+  [
+    "interface",
+    "interface-journal"
+  ],
+  [
+    "interface",
+    "interface-commandroom"
+  ],
+  [
+    "interface",
+    "interface-wave"
+  ],
+  [
+    "interface",
+    "interface-jarvis"
+  ],
+  [
+    "interface",
+    "interface-nexus"
+  ],
+  [
+    "core",
+    "theme"
+  ],
+  [
+    "theme",
+    "theme-dark"
+  ],
+  [
+    "theme",
+    "theme-light"
+  ],
+  [
+    "theme",
+    "theme-gradient-amber"
+  ],
+  [
+    "theme",
+    "theme-gradient-blue"
+  ],
+  [
+    "theme",
+    "theme-gradient-purple"
+  ],
+  [
+    "theme",
+    "theme-mono-slate"
+  ],
+  [
+    "theme",
+    "theme-mono-graphite"
+  ],
+  [
+    "theme",
+    "theme-mono-silver"
+  ],
+  [
+    "theme",
+    "theme-mono-cream"
+  ],
+  [
+    "theme",
+    "theme-gradient-cyan"
+  ],
+  [
+    "theme",
+    "theme-gradient-green"
+  ],
+  [
+    "theme",
+    "theme-gradient-red"
+  ],
+  [
+    "theme",
+    "theme-gradient-sunset"
+  ],
+  [
+    "core",
+    "navigation"
+  ],
+  [
+    "navigation",
+    "navigation-home"
+  ],
+  [
+    "navigation",
+    "navigation-chat"
+  ],
+  [
+    "navigation",
+    "navigation-commands"
+  ],
+  [
+    "navigation",
+    "navigation-ai"
+  ],
+  [
+    "core",
+    "application"
+  ],
+  [
+    "application",
+    "application-app-name"
+  ],
+  [
+    "application",
+    "application-assistant-name"
+  ],
+  [
+    "application",
+    "application-testing"
+  ],
+  [
+    "core",
+    "voice"
+  ],
+  [
+    "voice",
+    "voice-wake-word"
+  ],
+  [
+    "voice",
+    "voice-microphone"
+  ],
+  [
+    "voice",
+    "voice-silence"
+  ],
+  [
+    "core",
+    "workspace"
+  ],
+  [
+    "workspace",
+    "workspace-workspace-scope"
+  ],
+  [
+    "workspace",
+    "workspace-aliases"
+  ],
+  [
+    "core",
+    "system"
+  ],
+  [
+    "system",
+    "system-language"
+  ],
+  [
+    "system",
+    "system-interface-id"
+  ]
+];
 
   const state = {
     x: 0,
@@ -319,7 +992,7 @@
       inspector.innerHTML = `
         <span class="nx-label">SETTINGS</span>
         <strong>Выбери узел</strong>
-        <p>Здесь находятся все настройки приложения. Узлы можно таскать, а поле можно масштабировать и перемещать.</p>
+        <p>Каждая настройка представлена отдельным узлом. Категории соединены с конкретными параметрами.</p>
       `;
       toggle.disabled = true;
       open.disabled = true;
@@ -337,49 +1010,74 @@
     `;
 
     if (def.kind === "interface") {
-      content += `<div class="nx-control-block"><span class="nx-control-title">Оболочка</span><div class="nx-choice-grid">${interfaceOptions()}</div></div>`;
+      content += `<div class="nx-control-block"><span class="nx-control-title">Категория интерфейса</span><p class="nx-note">Выбери конкретный дочерний узел ниже, чтобы изменить одну оболочку.</p></div>`;
+    }
+
+    if (def.kind === "interface-item") {
+      content += `<div class="nx-control-block"><span class="nx-control-title">Оболочка</span><button type="button" class="nx-wide-action" data-nx-interface="${def.setting}">Выбрать ${def.title}</button><small class="nx-note">${def.setting === "nexus" || def.setting === "jarvis" ? "Требует перезапуска." : "Применяется сразу."}</small></div>`;
     }
 
     if (def.kind === "theme") {
-      content += `<div class="nx-control-block"><span class="nx-control-title">Тема</span><div class="nx-choice-grid theme-grid-nx">${themeOptions()}</div></div>`;
+      content += `<div class="nx-control-block"><span class="nx-control-title">Темы</span><p class="nx-note">13 вариантов вынесены в отдельные узлы. Связи показывают принадлежность к THEME.</p></div>`;
+    }
+
+    if (def.kind === "theme-item") {
+      content += `<div class="nx-control-block"><span class="nx-control-title">Тема</span><button type="button" class="nx-wide-action" data-nx-theme="${def.setting}">Применить «${def.title}»</button></div>`;
     }
 
     if (def.kind === "navigation") {
-      content += `<div class="nx-control-block"><span class="nx-control-title">Верхние вкладки</span>${navigationControls()}<small class="nx-note">Настройки остаются доступны всегда.</small></div>`;
+      content += `<div class="nx-control-block"><span class="nx-control-title">Вкладки</span><p class="nx-note">Каждая вкладка имеет собственный узел. Выбери его для управления видимостью.</p></div>`;
+    }
+
+    if (def.kind === "navigation-item") {
+      const hidden = new Set(getHiddenNav());
+      content += `<div class="nx-control-block"><span class="nx-control-title">Верхняя вкладка</span><label class="nx-setting-row"><span><b>Показывать «${def.title}»</b><small>Настройка сохраняется локально</small></span><input type="checkbox" data-nx-nav="${def.setting}" ${hidden.has(def.setting) ? "" : "checked"}></label></div>`;
     }
 
     if (def.kind === "application") {
-      content += `
-        <div class="nx-control-block">
-          <label class="nx-field"><span>Имя ассистента</span><input data-nx-setting="assistant-name" value="${getSetting("jarvis-assistant-name", "Jarvis")}"></label>
-          <label class="nx-setting-row"><span><b>Режим тестирования</b><small>Только Command Router, без вызова ИИ</small></span><input type="checkbox" data-nx-setting="testing" ${getSetting("jarvis-testing-mode","false") === "true" ? "checked" : ""}></label>
-        </div>`;
+      content += `<div class="nx-control-block"><span class="nx-control-title">Параметры приложения</span><p class="nx-note">Каждый параметр вынесен в отдельный узел.</p></div>`;
+    }
+
+    if (def.kind === "application-item") {
+      if (def.setting === "app-name") {
+        content += `<div class="nx-control-block"><div class="nx-readonly"><span>Название приложения</span><b>JARVIS</b></div></div>`;
+      }
+      if (def.setting === "assistant-name") {
+        content += `<div class="nx-control-block"><label class="nx-field"><span>Имя ассистента</span><input data-nx-setting="assistant-name" value="${getSetting("jarvis-assistant-name", "Jarvis")}"></label></div>`;
+      }
+      if (def.setting === "testing") {
+        content += `<div class="nx-control-block"><label class="nx-setting-row"><span><b>Режим тестирования</b><small>Command Router без вызова ИИ</small></span><input type="checkbox" data-nx-setting="testing" ${getSetting("jarvis-testing-mode","false") === "true" ? "checked" : ""}></label></div>`;
+      }
     }
 
     if (def.kind === "voice") {
-      content += `
-        <div class="nx-control-block">
-          <div class="nx-readonly"><span>Wake word</span><b>Jarvis</b></div>
-          <div class="nx-readonly"><span>Микрофон</span><b>Системный</b></div>
-          <label class="nx-field"><span>Тишина до автоотправки</span><input type="number" min="0.2" max="10" step="0.1" data-nx-setting="silence" value="${getSetting("jarvis-silence-threshold","1.2")}"><small>сек.</small></label>
-        </div>`;
+      content += `<div class="nx-control-block"><span class="nx-control-title">Голосовые параметры</span><p class="nx-note">Каждый параметр имеет отдельный узел.</p></div>`;
+    }
+
+    if (def.kind === "voice-item") {
+      if (def.setting === "wake-word") content += `<div class="nx-control-block"><div class="nx-readonly"><span>Wake word</span><b>Jarvis</b></div></div>`;
+      if (def.setting === "microphone") content += `<div class="nx-control-block"><div class="nx-readonly"><span>Микрофон</span><b>Системный</b></div></div>`;
+      if (def.setting === "silence") content += `<div class="nx-control-block"><label class="nx-field"><span>Тишина до автоотправки</span><input type="number" min="0.2" max="10" step="0.1" data-nx-setting="silence" value="${getSetting("jarvis-silence-threshold","1.2")}"><small>сек.</small></label></div>`;
     }
 
     if (def.kind === "workspace") {
-      content += `
-        <div class="nx-control-block">
-          <div class="nx-readonly"><span>Рабочая область</span><b>Только Workspace</b></div>
-          <button type="button" class="nx-wide-action" data-nx-action="aliases">Открыть алиасы</button>
-          <small class="nx-note">Функция алиасов открывает существующий раздел команд/ресурсов, не создавая отдельную страницу.</small>
-        </div>`;
+      content += `<div class="nx-control-block"><span class="nx-control-title">Workspace</span><p class="nx-note">Рабочая область и алиасы разделены на отдельные узлы.</p></div>`;
+    }
+
+    if (def.kind === "workspace-item") {
+      if (def.setting === "workspace-scope") content += `<div class="nx-control-block"><div class="nx-readonly"><span>Рабочая область</span><b>Только Workspace</b></div></div>`;
+      if (def.setting === "aliases") content += `<div class="nx-control-block"><button type="button" class="nx-wide-action" data-nx-action="aliases">Открыть алиасы</button></div>`;
     }
 
     if (def.kind === "system") {
-      content += `
-        <div class="nx-control-block">
-          <label class="nx-field"><span>Язык</span><select data-nx-setting="language"><option value="ru">Русский</option><option value="en">English</option></select></label>
-          <div class="nx-readonly"><span>Интерфейс</span><b>NEXUS</b></div>
-        </div>`;
+      content += `<div class="nx-control-block"><span class="nx-control-title">Система</span><p class="nx-note">Системные параметры разделены на отдельные узлы.</p></div>`;
+    }
+
+    if (def.kind === "system-item") {
+      if (def.setting === "language") {
+        content += `<div class="nx-control-block"><label class="nx-field"><span>Язык</span><select data-nx-setting="language"><option value="ru">Русский</option><option value="en">English</option></select></label></div>`;
+      }
+      if (def.setting === "interface-id") content += `<div class="nx-control-block"><div class="nx-readonly"><span>Интерфейс</span><b>NEXUS</b></div></div>`;
     }
 
     inspector.innerHTML = content;
@@ -397,8 +1095,9 @@
     const interfaceButton = event.target.closest("[data-nx-interface]");
     if (interfaceButton) {
       const name = interfaceButton.dataset.nxInterface;
-      interfaceButton.closest(".nx-choice-grid").querySelectorAll(".nx-choice").forEach(item => item.classList.remove("selected"));
-      interfaceButton.classList.add("selected");
+      const choices = interfaceButton.closest(".nx-choice-grid");
+      if (choices) choices.querySelectorAll(".nx-choice").forEach(item => item.classList.remove("selected"));
+      if (interfaceButton.classList.contains("nx-choice")) interfaceButton.classList.add("selected");
 
       if (window.JarvisInterfaceManager) {
         const bridgeOption = document.createElement("button");
@@ -427,19 +1126,12 @@
     if (themeButton) {
       const theme = themeButton.dataset.nxTheme;
       if (typeof window.applyTheme === "function") window.applyTheme(theme);
-      else {
-        localStorage.setItem("jarvis-theme", theme);
-        document.body.className = document.body.className.replace(/theme-[^ ]+/g, "");
-      }
-      themeButton.closest(".nx-choice-grid").querySelectorAll(".nx-choice").forEach(item => item.classList.remove("selected"));
-      themeButton.classList.add("selected");
+      else localStorage.setItem("jarvis-theme", theme);
       return;
     }
 
     const action = event.target.closest("[data-nx-action]");
-    if (action?.dataset.nxAction === "aliases") {
-      go("commands");
-    }
+    if (action?.dataset.nxAction === "aliases") go("commands");
   }
 
   function handleInspectorChange(event) {
