@@ -1,50 +1,19 @@
 <section class="page nx-workspace">
-  <div class="nx-viewport" aria-label="Интерактивное пространство Workspace">
+  <div class="nx-viewport" aria-label="Интерактивное пространство настроек Jarvis">
     <div class="nx-space-grid" aria-hidden="true"></div>
-
-    <div class="nx-world">
-      <svg class="nx-links" aria-hidden="true"></svg>
-      <div class="nx-nodes" aria-live="polite"></div>
-    </div>
-
-    <div class="nx-hint">
-      <span>WORKSPACE / LIVE MAP</span>
-      <small>перетаскивай узлы · двигай поле · колесо мыши — масштаб</small>
-    </div>
-
+    <div class="nx-world"><svg class="nx-links" aria-hidden="true"></svg><div class="nx-nodes" aria-live="polite"></div></div>
+    <div class="nx-hint"><span>SETTINGS / LIVE MAP</span><small>перетаскивай узлы · двигай поле · колесо мыши — масштаб</small></div>
     <div class="nx-zoom">
-      <button type="button" data-nx-minus aria-label="Уменьшить">−</button>
-      <span data-nx-zoom>100%</span>
-      <button type="button" data-nx-plus aria-label="Увеличить">+</button>
-      <button type="button" data-nx-reset aria-label="Сбросить вид">⌂</button>
+      <button type="button" data-nx-minus aria-label="Уменьшить">−</button><span data-nx-zoom>92%</span>
+      <button type="button" data-nx-plus aria-label="Увеличить">+</button><button type="button" data-nx-reset aria-label="Сбросить вид">⌂</button>
     </div>
-
-    <aside class="nx-hud" aria-label="Инспектор узла">
-      <div class="nx-hud-head">
-        <div>
-          <span class="nx-label">WORKSPACE</span>
-          <b>NODE INSPECTOR</b>
-        </div>
-        <span class="nx-live-dot">LIVE</span>
-      </div>
-
+    <aside class="nx-hud" aria-label="Инспектор настройки">
+      <div class="nx-hud-head"><div><span class="nx-label">SETTINGS</span><b>NODE INSPECTOR</b></div><span class="nx-live-dot">LIVE</span></div>
       <div class="nx-hud-body">
-        <div class="nx-selected" data-nx-inspector>
-          <span class="nx-label">NO SELECTION</span>
-          <strong>Выбери узел</strong>
-          <p>Каждый объект здесь является частью пространства, а не карточкой интерфейса.</p>
-        </div>
-
-        <div class="nx-inspector-actions">
-          <button type="button" class="nx-button" data-nx-toggle disabled>Состояние</button>
-          <button type="button" class="nx-button primary" data-nx-open disabled>Открыть</button>
-        </div>
+        <div class="nx-selected" data-nx-inspector><span class="nx-label">SETTINGS</span><strong>Выбери узел</strong><p>Все настройки находятся прямо в этом пространстве. Никаких отдельных списков.</p></div>
+        <div class="nx-inspector-actions"><button type="button" class="nx-button" data-nx-toggle disabled>Отключить узел</button><button type="button" class="nx-button primary" data-nx-open disabled>Центрировать</button></div>
       </div>
-
-      <div class="nx-hud-foot">
-        <span>Узлов: <b data-nx-node-count>0</b></span>
-        <span>Связей: <b data-nx-link-count>0</b></span>
-      </div>
+      <div class="nx-hud-foot"><span>Узлов: <b data-nx-node-count>0</b></span><span>Связей: <b data-nx-link-count>0</b></span></div>
     </aside>
   </div>
 </section>
