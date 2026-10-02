@@ -39,6 +39,22 @@ class RoflService:
         "Invocatio daemonis completa est. Quid fecisti?",
     )
 
+    # Заготовки для будущих прямых команд. Пока не подключены к выдаче.
+    FUTURE_LINES = {
+        "ollama_start": (
+            ("Оллама проснулась. Лучше бы не будить.", "Сервер поднят. Теперь есть кому пожирать RAM."),
+            ("Ollama experrecta est. Melius dormire debuit.", "Servitium surrexit. Nunc RAM devorabit."),
+        ),
+        "ollama_stop": (
+            ("Оллама остановлена. RAM снова может дышать.", "Сервер уснул. Тишина продлится недолго."),
+            ("Ollama sopita est. RAM respirare potest.", "Servitium dormit. Silentium diu non manebit."),
+        ),
+        "model_unload": (
+            ("Модель выгружена. Память освобождена от цифрового паразита.", "Квен изгнан из оперативной памяти."),
+            ("Exemplum e memoria expulsum est. Parasitus digitalis abiit.", "Qwen e memoria RAM expulsus est."),
+        ),
+    }
+
     ROUTER_LINES = {
         "close": (
             (
