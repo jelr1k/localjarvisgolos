@@ -5,6 +5,7 @@ from PySide6.QtCore import QObject, Signal
 from services.update_checker import UpdateCheckError, UpdateChecker
 from services.update_downloader import UpdateDownloadError, UpdateDownloader
 from services.update_service import UpdateService, UpdateServiceError
+from services.update_validator import UpdateValidationError, UpdateValidator
 
 
 class SettingsController(QObject):
@@ -19,8 +20,9 @@ class SettingsController(QObject):
     update_confirmation_requested = Signal(object)
     update_download_progress = Signal(int, int, float)
     update_download_finished = Signal(object)
+    update_validation_finished = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -31,6 +33,7 @@ class SettingsController(QObject):
         self._update_checker = update_checker or UpdateChecker()
         self._update_service = update_service or UpdateService()
         self._update_downloader = update_downloader or UpdateDownloader()
+        self._update_validator = update_validator or UpdateValidator()
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
@@ -95,10 +98,25 @@ class SettingsController(QObject):
         try:
             result = future.result()
             self.update_download_finished.emit({"success": True, "result": result})
+            validation_future = self._tasks.submit(
+                self._update_validator.validate,
+                result.archive_path,
+                result.expected_size,
+            )
+            validation_future.add_done_callback(self._update_validation_done)
         except UpdateDownloadError as exc:
             self.update_download_finished.emit({"success": False, "error": str(exc)})
         except Exception as exc:
             self.update_download_finished.emit({"success": False, "error": "Не удалось скачать обновление: " + str(exc)})
+
+    def _update_validation_done(self, future):
+        try:
+            result = future.result()
+            self.update_validation_finished.emit({"success": True, "result": result})
+        except UpdateValidationError as exc:
+            self.update_validation_finished.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_validation_finished.emit({"success": False, "error": "Не удалось проверить архив обновления: " + str(exc)})
 
     def get(self, key, default=None):
         return self._config.get(key, default)
