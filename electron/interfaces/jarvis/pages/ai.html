@@ -1,0 +1,44 @@
+<section class="page active jarvis-page" id="ai">
+  <header class="jarvis-heading">
+    <div><span class="jarvis-kicker">Local AI</span><h1>Интеллект</h1><p>Модель здесь не главный герой. Она подключается тогда, когда локального действия недостаточно.</p></div>
+    <div class="jarvis-chip"><i></i>Ollama • локально</div>
+  </header>
+  <div class="jarvis-grid two">
+    <section class="panel jarvis-card">
+      <span class="jarvis-kicker">Модель</span>
+      <h2 style="font:30px Georgia,serif;margin:10px 0">qwen3:1.7b</h2>
+      <div class="jarvis-metric"><span>Статус</span><b>Готова</b></div>
+      <div class="jarvis-metric"><span>Размышления</span><b>Выкл. по умолчанию</b></div>
+      <div class="jarvis-metric"><span>Ollama</span><b>localhost:11434</b></div>
+      <div class="jarvis-metric"><span>Назначение</span><b>Fallback</b></div>
+    </section>
+    <section class="panel jarvis-card">
+      <span class="jarvis-kicker">Система</span>
+      <div class="jarvis-stat-grid" style="margin-top:13px">
+        <div class="jarvis-stat"><small>CPU</small><strong>—</strong></div>
+        <div class="jarvis-stat"><small>GPU</small><strong>—</strong></div>
+        <div class="jarvis-stat"><small>ОЗУ</small><strong>—</strong></div>
+        <div class="jarvis-stat"><small>VRAM</small><strong>—</strong></div>
+      </div>
+      <p>Реальные значения подключаются из системной статистики, когда backend отдаёт их интерфейсу.</p>
+    </section>
+  </div>
+  <div class="jarvis-grid two">
+    <section class="panel jarvis-card">
+      <span class="jarvis-kicker">Голосовой контур</span>
+      <h2 style="margin-top:9px">Wake word → Whisper → Router</h2>
+      <div class="jarvis-metric"><span>Wake word</span><b>Jarvis</b></div>
+      <div class="jarvis-metric"><span>Распознавание</span><b>Whisper Medium</b></div>
+      <div class="jarvis-metric"><span>Загрузка Whisper</span><b>по необходимости</b></div>
+    </section>
+    <section class="panel jarvis-card">
+      <span class="jarvis-kicker">Инструменты</span>
+      <h2 style="margin-top:9px">Минимальный набор</h2>
+      <div class="jarvis-list" style="margin-top:12px">
+        <div class="jarvis-list-item"><i></i><span>Файлы<small>В пределах Workspace</small></span></div>
+        <div class="jarvis-list-item"><i></i><span>Приложения<small>Запуск и управление</small></span></div>
+        <div class="jarvis-list-item"><i></i><span>Система<small>Только доступные команды</small></span></div>
+      </div>
+    </section>
+  </div>
+</section>
