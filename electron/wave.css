@@ -614,3 +614,110 @@ body.interface-wave.page-settings .topbar > div:first-child { display:block; }
   body.interface-wave .home-stage::before,
   body.interface-wave .home-stage::after { left:30px; }
 }
+
+
+body.interface-wave .black-hole canvas {
+  display:none;
+}
+body.interface-wave .wave-core-rings {
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  pointer-events:none;
+}
+body.interface-wave .wave-core-rings::before,
+body.interface-wave .wave-core-rings::after {
+  content:"";
+  position:absolute;
+  border-radius:50%;
+  border:1px solid rgba(128,83,255,.42);
+}
+body.interface-wave .wave-core-rings::before {
+  inset:18px;
+  border-top-color:#9b62ff;
+  border-bottom-color:#5233cf;
+  animation:wave-spin 10s linear infinite;
+}
+body.interface-wave .wave-core-rings::after {
+  inset:-2px;
+  border-left-color:#7048ff;
+  border-right-color:#315ed8;
+  animation:wave-spin 15s linear infinite reverse;
+}
+body.interface-wave .wave-core-orb {
+  position:absolute;
+  width:174px;
+  height:174px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  background:radial-gradient(circle at 42% 36%,#c4a6ff 0%,#7b49f2 16%,#38209b 43%,#100b38 72%,#050313 100%);
+  border:2px solid rgba(171,127,255,.75);
+  box-shadow:0 0 22px rgba(135,76,255,.75),0 0 65px rgba(102,45,255,.42),inset 0 0 35px rgba(197,158,255,.18);
+  z-index:8;
+}
+body.interface-wave .wave-core-orb::before {
+  content:"";
+  position:absolute;
+  width:125px;
+  height:125px;
+  border-radius:50%;
+  border:1px solid rgba(210,186,255,.25);
+  box-shadow:inset 0 0 30px rgba(150,105,255,.25);
+  animation:wave-core-pulse 2.2s ease-in-out infinite;
+}
+body.interface-wave .wave-core-orb::after {
+  content:"";
+  position:absolute;
+  inset:-25%;
+  background:conic-gradient(transparent,rgba(194,155,255,.2),transparent 25%);
+  animation:wave-spin 4s linear infinite;
+}
+@keyframes wave-core-pulse {
+  0%,100% { transform:scale(.92);opacity:.55; }
+  50% { transform:scale(1.05);opacity:1; }
+}
+
+body.interface-wave .interface-option-wave i {
+  background:
+    radial-gradient(circle at 50% 50%,rgba(126,78,255,.8) 0 12%,transparent 13%),
+    linear-gradient(165deg,transparent 42%,rgba(120,71,255,.8) 43%,transparent 44%),
+    var(--surface-alt);
+  overflow:hidden;
+}
+body.interface-wave .interface-option-wave i::before {
+  content:"";
+  position:absolute;
+  left:8%;
+  right:8%;
+  top:48%;
+  height:2px;
+  background:linear-gradient(90deg,transparent,#7d50ff 15%,#b17aff 50%,#3e7dff 85%,transparent);
+  box-shadow:0 8px rgba(80,63,220,.65),0 -8px rgba(126,80,255,.55);
+}
+body.interface-wave .interface-option-wave i::after {
+  content:"";
+  position:absolute;
+  width:48px;
+  height:48px;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  border:1px solid #a16fff;
+  box-shadow:0 0 14px rgba(126,80,255,.55),inset 0 0 12px rgba(126,80,255,.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.interface-wave .home-wave-svg path,
+  body.interface-wave .wave-core-rings::before,
+  body.interface-wave .wave-core-rings::after,
+  body.interface-wave .wave-core-orb::before,
+  body.interface-wave .wave-core-orb::after,
+  body.interface-wave .home-stage .wave-line::before,
+  body.interface-wave .home-stage .wave-line::after,
+  body.interface-wave .home-eq span {
+    animation:none;
+  }
+}
