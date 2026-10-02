@@ -68,3 +68,44 @@ def test_backup_cleans_partial_result_on_copy_failure(tmp_path, monkeypatch):
         service.create_backup(app)
 
     assert not list((tmp_path / "backups").glob("jarvis-backup-*"))
+
+
+def test_backup_removes_previous_backup_after_new_one_succeeds(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "main.py").write_text("version-1", encoding="utf-8")
+
+    backups = tmp_path / "backups"
+    service = UpdateBackupService(backups)
+
+    first = service.create_backup(app)
+    assert first.backup_directory.exists()
+
+    (app / "main.py").write_text("version-2", encoding="utf-8")
+    second = service.create_backup(app)
+
+    assert second.backup_directory.exists()
+    assert not first.backup_directory.exists()
+    assert list(backups.glob("jarvis-backup-*")) == [second.backup_directory]
+    assert (second.application_backup / "main.py").read_text(encoding="utf-8") == "version-2"
+
+
+def test_backup_keeps_previous_backup_if_new_backup_fails(tmp_path, monkeypatch):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "main.py").write_text("version-1", encoding="utf-8")
+
+    backups = tmp_path / "backups"
+    service = UpdateBackupService(backups)
+    first = service.create_backup(app)
+
+    def fail_copy2(*args, **kwargs):
+        raise OSError("disk error")
+
+    monkeypatch.setattr("services.update_backup.shutil.copy2", fail_copy2)
+
+    with pytest.raises(UpdateBackupError, match="disk error"):
+        service.create_backup(app)
+
+    assert first.backup_directory.exists()
+    assert list(backups.glob("jarvis-backup-*")) == [first.backup_directory]
