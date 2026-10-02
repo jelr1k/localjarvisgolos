@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import QObject, Signal
 
 from services.update_checker import UpdateCheckError, UpdateChecker
+from services.update_downloader import UpdateDownloadError, UpdateDownloader
 from services.update_service import UpdateService, UpdateServiceError
 
 
@@ -16,8 +17,10 @@ class SettingsController(QObject):
     refresh_finished = Signal(object)
     update_check_finished = Signal(object)
     update_confirmation_requested = Signal(object)
+    update_download_progress = Signal(int, int, float)
+    update_download_finished = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -27,6 +30,7 @@ class SettingsController(QObject):
         self._voice = voice_service
         self._update_checker = update_checker or UpdateChecker()
         self._update_service = update_service or UpdateService()
+        self._update_downloader = update_downloader or UpdateDownloader()
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
@@ -74,6 +78,27 @@ class SettingsController(QObject):
         self.update_check_finished.emit(result)
         if result.get("success") and result.get("plan") is not None:
             self.update_confirmation_requested.emit(result["plan"])
+
+    def download_update(self, plan):
+        """Download a confirmed update into a temporary directory."""
+        def progress(current, total, speed):
+            self.update_download_progress.emit(current, total, speed)
+
+        def work():
+            return self._update_downloader.download(plan, progress_callback=progress)
+
+        future = self._tasks.submit(work)
+        future.add_done_callback(self._update_download_done)
+        return future
+
+    def _update_download_done(self, future):
+        try:
+            result = future.result()
+            self.update_download_finished.emit({"success": True, "result": result})
+        except UpdateDownloadError as exc:
+            self.update_download_finished.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_download_finished.emit({"success": False, "error": "Не удалось скачать обновление: " + str(exc)})
 
     def get(self, key, default=None):
         return self._config.get(key, default)
