@@ -1,21 +1,50 @@
 <section class="page nx-workspace">
   <div class="nx-viewport" aria-label="Интерактивное пространство Workspace">
-    <div class="nx-hint">DRAG FIELD / DRAG NODES / SCROLL TO ZOOM</div>
+    <div class="nx-space-grid" aria-hidden="true"></div>
+
     <div class="nx-world">
-      <svg class="nx-links" viewBox="0 0 2400 1500" preserveAspectRatio="none">
-        <line data-a="core" data-b="voice"></line><line data-a="core" data-b="model"></line><line data-a="core" data-b="files"></line>
-        <line data-a="files" data-b="aliases"></line><line data-a="files" data-b="tools"></line><line data-a="model" data-b="stats"></line><line data-a="voice" data-b="wake"></line>
-      </svg>
-      <button class="nx-node" data-node-id="core" data-state="core" style="left:950px;top:500px"><div class="nx-node-top"><strong>WORKSPACE CORE</strong><em>CORE</em></div><small>Центр пространства и точка связи остальных возможностей.</small></button>
-      <button class="nx-node" data-node-id="voice" style="left:620px;top:300px"><div class="nx-node-top"><strong>VOICE</strong><em>01</em></div><small>Голосовой контур, запись и распознавание.</small></button>
-      <button class="nx-node" data-node-id="model" style="left:1290px;top:290px"><div class="nx-node-top"><strong>MODEL</strong><em>02</em></div><small>Модель и параметры генерации.</small></button>
-      <button class="nx-node" data-node-id="files" style="left:550px;top:700px"><div class="nx-node-top"><strong>FILES</strong><em>03</em></div><small>Разрешённые файловые операции Workspace.</small></button>
-      <button class="nx-node" data-node-id="aliases" style="left:300px;top:920px"><div class="nx-node-top"><strong>ALIASES</strong><em>04</em></div><small>Пользовательские короткие имена ресурсов.</small></button>
-      <button class="nx-node" data-node-id="tools" style="left:760px;top:1000px"><div class="nx-node-top"><strong>TOOLS</strong><em>05</em></div><small>Доступные инструменты и их разрешения.</small></button>
-      <button class="nx-node" data-node-id="stats" style="left:1500px;top:520px"><div class="nx-node-top"><strong>AI STATS</strong><em>06</em></div><small>Метрики модели, CPU, RAM, VRAM и времени обработки.</small></button>
-      <button class="nx-node" data-node-id="wake" style="left:300px;top:120px"><div class="nx-node-top"><strong>WAKE WORD</strong><em>07</em></div><small>Состояние Vosk и фраза пробуждения.</small></button>
+      <svg class="nx-links" aria-hidden="true"></svg>
+      <div class="nx-nodes" aria-live="polite"></div>
     </div>
+
+    <div class="nx-hint">
+      <span>WORKSPACE / LIVE MAP</span>
+      <small>перетаскивай узлы · двигай поле · колесо мыши — масштаб</small>
+    </div>
+
+    <div class="nx-zoom">
+      <button type="button" data-nx-minus aria-label="Уменьшить">−</button>
+      <span data-nx-zoom>100%</span>
+      <button type="button" data-nx-plus aria-label="Увеличить">+</button>
+      <button type="button" data-nx-reset aria-label="Сбросить вид">⌂</button>
+    </div>
+
+    <aside class="nx-hud" aria-label="Инспектор узла">
+      <div class="nx-hud-head">
+        <div>
+          <span class="nx-label">WORKSPACE</span>
+          <b>NODE INSPECTOR</b>
+        </div>
+        <span class="nx-live-dot">LIVE</span>
+      </div>
+
+      <div class="nx-hud-body">
+        <div class="nx-selected" data-nx-inspector>
+          <span class="nx-label">NO SELECTION</span>
+          <strong>Выбери узел</strong>
+          <p>Каждый объект здесь является частью пространства, а не карточкой интерфейса.</p>
+        </div>
+
+        <div class="nx-inspector-actions">
+          <button type="button" class="nx-button" data-nx-toggle disabled>Состояние</button>
+          <button type="button" class="nx-button primary" data-nx-open disabled>Открыть</button>
+        </div>
+      </div>
+
+      <div class="nx-hud-foot">
+        <span>Узлов: <b data-nx-node-count>0</b></span>
+        <span>Связей: <b data-nx-link-count>0</b></span>
+      </div>
+    </aside>
   </div>
-  <aside class="nx-hud"><div class="nx-hud-head"><b>NODE INSPECTOR</b><span class="nx-label">LIVE</span></div><div class="nx-hud-body"><div class="nx-selected"><span class="nx-label">Workspace</span><strong>Выбери узел</strong><p>Узлы можно двигать отдельно от камеры. Связи перестраиваются автоматически.</p></div><div class="nx-hud-actions"><button class="nx-button" data-nx-reset>Сброс</button><button class="nx-button primary" data-go="settings">Настроить</button></div></div></aside>
-  <div class="nx-zoom"><button data-nx-minus>−</button><span data-nx-zoom>100%</span><button data-nx-plus>+</button></div>
 </section>
