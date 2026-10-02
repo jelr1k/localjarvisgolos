@@ -68,8 +68,10 @@ def test_update_pipeline_downloads_validates_backs_up_and_installs(tmp_path):
         asset_size=len(payload),
     )
 
+    download_root = tmp_path / "downloads"
+    download_root.mkdir()
     downloader = UpdateDownloader(
-        temp_root=tmp_path / "downloads",
+        temp_root=download_root,
         chunk_size=32,
         session=FakeSession(payload),
     )
