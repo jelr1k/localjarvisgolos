@@ -1,68 +1,29 @@
-<section class="page active jarvis-page" id="home">
-  <header class="jarvis-heading">
-    <div>
-      <span class="jarvis-kicker">Локальный интеллект • Windows</span>
-      <h1>Я рядом.</h1>
-      <p>Один центр для команд, голоса, файлов и локального ИИ. Не пытается заменить Windows. Просто делает её удобнее.</p>
+<section class="page" id="home"><div class="jx-page jx-home">
+  <div class="jx-core">
+    <div class="jx-orbit"></div><div class="jx-orbit"></div><div class="jx-orbit"></div>
+    <div class="jx-blackhole"></div>
+    <div class="jx-core-copy">
+      <span class="jx-eyebrow">Local assistant / Windows</span>
+      <h1>Я здесь.</h1>
+      <p>Команда, голос, приложения и локальный интеллект в одном контуре.</p>
+      <div class="jx-home-actions">
+        <button class="jx-action" data-go="chat">Начать разговор</button>
+        <button class="jx-action" data-go="commands">Посмотреть команды</button>
+      </div>
     </div>
-    <div class="jarvis-chip"><i></i><span>Система готова</span><b data-jarvis-clock>--:--</b></div>
-  </header>
-
-  <div class="jarvis-home">
-    <section class="panel jarvis-core">
-      <div class="jarvis-core-content">
-        <span class="jarvis-kicker">JARVIS CORE</span>
-        <h2 class="jarvis-core-title">Что делаем?</h2>
-        <p class="jarvis-core-sub">Скажи команду или напиши её. Быстрые действия выполняются напрямую, ИИ подключается там, где нужен.</p>
-        <form class="jarvis-commandbar" id="chatForm">
-          <input id="jarvisCommandInput" autocomplete="off" placeholder="Открой Discord, найди файл, спроси что-нибудь…">
-          <button class="primary jarvis-button" type="submit">Выполнить</button>
-        </form>
-      </div>
-    </section>
-
-    <aside class="jarvis-side-stack">
-      <section class="panel jarvis-card">
-        <span class="jarvis-kicker">Контур</span>
-        <div class="jarvis-ring">ONLINE</div>
-        <div class="jarvis-metric"><span>Wake word</span><b>Jarvis</b></div>
-        <div class="jarvis-metric"><span>Распознавание</span><b>Whisper</b></div>
-        <div class="jarvis-metric"><span>Модель</span><b>qwen3:1.7b</b></div>
-      </section>
-
-      <section class="panel jarvis-card">
-        <span class="jarvis-kicker">Быстрый доступ</span>
-        <div class="jarvis-list" style="margin-top:12px">
-          <button class="jarvis-list-item" data-go="chat" type="button"><i></i><span>Открыть разговор<small>Текст + голос</small></span></button>
-          <button class="jarvis-list-item" data-go="commands" type="button"><i></i><span>Посмотреть команды<small>Локальный роутер</small></span></button>
-          <button class="jarvis-list-item" data-go="workspace" type="button"><i></i><span>Рабочая область<small>Файлы и алиасы</small></span></button>
-        </div>
-      </section>
-
-      <section class="panel jarvis-card">
-        <span class="jarvis-kicker">Последнее состояние</span>
-        <div class="jarvis-metric"><span>Голос</span><b>Ожидание</b></div>
-        <div class="jarvis-metric"><span>Ollama</span><b>Готова</b></div>
-        <div class="jarvis-metric"><span>Workspace</span><b>Доступен</b></div>
-        <div class="jarvis-metric"><span>Интерфейс</span><b>JARVIS</b></div>
-      </section>
-    </aside>
   </div>
-
-  <div class="jarvis-section-grid">
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Последние действия</span>
-      <div class="jarvis-list" style="margin-top:12px">
-        <div class="jarvis-list-item"><i></i><span>Открытие приложения<small>локальная команда • только что</small></span></div>
-        <div class="jarvis-list-item"><i></i><span>Голосовой контур<small>wake word активен</small></span></div>
-        <div class="jarvis-list-item"><i></i><span>Модель выгружена<small>ресурсы освобождены после работы</small></span></div>
-      </div>
-    </section>
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Принцип</span>
-      <h2 style="margin-top:10px">Сначала действие. Потом интеллект.</h2>
-      <p>Jarvis не обязан превращать каждое «открой Discord» в философский диспут с языковой моделью. Простая команда идёт напрямую, сложная задача передаётся локальному ИИ.</p>
-      <button class="jarvis-button" data-go="ai" type="button">Состояние ИИ</button>
-    </section>
-  </div>
-</section>
+  <aside>
+    <span class="jx-eyebrow">Состояние контура</span>
+    <div class="jx-overview" style="margin-top:18px">
+      <div class="jx-overview-row"><span class="jx-kicker">Wake word</span><b class="jx-value">Jarvis</b></div>
+      <div class="jx-overview-row"><span class="jx-kicker">Speech</span><b class="jx-value">Whisper</b></div>
+      <div class="jx-overview-row"><span class="jx-kicker">Local AI</span><b class="jx-value">qwen3:1.7b</b></div>
+      <div class="jx-overview-row"><span class="jx-kicker">Router</span><b class="jx-value">Direct first</b></div>
+      <div class="jx-overview-row"><span class="jx-kicker">Workspace</span><b class="jx-value">Available</b></div>
+    </div>
+    <div style="margin-top:26px">
+      <span class="jx-eyebrow">Идея</span>
+      <p class="jx-subtitle">Jarvis не обязан превращать простую команду в разговор с моделью. Сначала действие. Потом интеллект.</p>
+    </div>
+  </aside>
+</div></section>
