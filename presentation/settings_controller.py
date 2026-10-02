@@ -7,6 +7,7 @@ from services.update_downloader import UpdateDownloadError, UpdateDownloader
 from services.update_service import UpdateService, UpdateServiceError
 from services.update_validator import UpdateValidationError, UpdateValidator
 from services.update_backup import UpdateBackupError, UpdateBackupService
+from services.update_relauncher import UpdateRelaunchError, UpdateRelauncher
 from core.app_paths import APP_DATA_DIR, APP_ROOT
 
 
@@ -24,8 +25,9 @@ class SettingsController(QObject):
     update_download_finished = Signal(object)
     update_validation_finished = Signal(object)
     update_backup_finished = Signal(object)
+    update_restart_requested = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None, update_backup=None):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None, update_backup=None, update_relauncher=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -38,10 +40,12 @@ class SettingsController(QObject):
         self._update_downloader = update_downloader or UpdateDownloader()
         self._update_validator = update_validator or UpdateValidator()
         self._update_backup = update_backup or UpdateBackupService()
+        self._update_relauncher = update_relauncher or UpdateRelauncher()
+        self._download_result = None
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
-        
+
     def _background_update_finished(self, result):
         self._emit_update_result(self._prepare_update_result(result))
 
@@ -101,6 +105,7 @@ class SettingsController(QObject):
     def _update_download_done(self, future):
         try:
             result = future.result()
+            self._download_result = result
             self.update_download_finished.emit({"success": True, "result": result})
             validation_future = self._tasks.submit(self._validate_download_result, result)
             validation_future.add_done_callback(self._update_validation_done)
@@ -129,10 +134,35 @@ class SettingsController(QObject):
         try:
             result = future.result()
             self.update_backup_finished.emit({"success": True, "result": result})
+            if self._download_result is not None:
+                restart_future = self._tasks.submit(self._launch_update_relauncher)
+                restart_future.add_done_callback(self._update_restart_done)
         except UpdateBackupError as exc:
             self.update_backup_finished.emit({"success": False, "error": str(exc)})
         except Exception as exc:
             self.update_backup_finished.emit({"success": False, "error": "Не удалось создать резервную копию: " + str(exc)})
+
+    def _launch_update_relauncher(self):
+        download = self._download_result
+        if download is None:
+            raise UpdateRelaunchError("Архив обновления не подготовлен для перезапуска.")
+
+        plan = self._update_relauncher.prepare(
+            APP_ROOT,
+            download.archive_path,
+            download.expected_size,
+        )
+        process = self._update_relauncher.launch(plan)
+        return {"plan": plan, "process": process}
+
+    def _update_restart_done(self, future):
+        try:
+            result = future.result()
+            self.update_restart_requested.emit({"success": True, "result": result})
+        except UpdateRelaunchError as exc:
+            self.update_restart_requested.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_restart_requested.emit({"success": False, "error": "Не удалось запустить updater-процесс: " + str(exc)})
 
     def _update_validation_done(self, future):
         try:
