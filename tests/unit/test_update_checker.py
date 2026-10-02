@@ -12,6 +12,8 @@ from services.update_checker import (
 
 
 class FakeResponse:
+    status_code = 200
+
     def __init__(self, payload=None, error=None):
         self.payload = payload
         self.error = error
