@@ -136,6 +136,15 @@ class UpdateChecker:
                 },
                 timeout=self.timeout,
             )
+            if getattr(response, "status_code", None) == 404:
+                return UpdateInfo(
+                    current_version=str(current_version).strip(),
+                    latest_version=str(current_version).strip(),
+                    update_available=False,
+                    release_url="",
+                    tag_name="",
+                    release_name="Релизов пока нет",
+                )
             response.raise_for_status()
             payload = response.json()
         except requests.RequestException as exc:
