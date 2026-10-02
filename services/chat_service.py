@@ -327,7 +327,7 @@ class ChatService:
         self._ollama_task_running = True
         self._emit("chat.direct_response", "Выполняю операцию с Ollama в фоне…")
         future = self.tasks.submit(
-            lambda: self.router.route(text, self._confirm_direct, self._confirm_alias)
+            lambda: (text, self.router.route(text, self._confirm_direct, self._confirm_alias))
         )
         future.add_done_callback(self._background_router_done)
 
