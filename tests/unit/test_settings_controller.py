@@ -53,7 +53,23 @@ class FakeUpdateService:
         return self.plan
 
 
-def make_controller(checker, update_service=None):
+class FakeUpdateDownloader:
+    def __init__(self, result=None, error=None):
+        self.result = result
+        self.error = error
+        self.calls = []
+
+    def download(self, plan, progress_callback=None):
+        self.calls.append(plan)
+        if progress_callback:
+            progress_callback(50, 100, 25.0)
+        if self.error:
+            from services.update_downloader import UpdateDownloadError
+            raise UpdateDownloadError(self.error)
+        return self.result
+
+
+def make_controller(checker, update_service=None, update_downloader=None):
     return SettingsController(
         config=None,
         model_service=None,
@@ -63,6 +79,7 @@ def make_controller(checker, update_service=None):
         voice_service=None,
         update_checker=checker,
         update_service=update_service,
+        update_downloader=update_downloader,
     )
 
 
