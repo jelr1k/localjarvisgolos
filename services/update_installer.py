@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 import shutil
+import stat
 import tempfile
 import zipfile
 
@@ -115,7 +116,6 @@ class UpdateInstaller:
                         )
 
                     mode = (info.external_attr >> 16) & 0xFFFF
-                    import stat
                     if stat.S_ISLNK(mode):
                         raise UpdateInstallError(
                             f"Архив содержит символическую ссылку: {info.filename}"
@@ -130,7 +130,7 @@ class UpdateInstaller:
                             f"Архив выходит за пределы каталога установки: {info.filename}"
                         ) from exc
 
-                    if info.is_dir() or info.filename.endswith(("/", "\")):
+                    if info.is_dir() or info.filename.endswith(("/", "\\")):
                         target.mkdir(parents=True, exist_ok=True)
                         continue
 
@@ -144,7 +144,7 @@ class UpdateInstaller:
 
     @staticmethod
     def _safe_member_path(name: str) -> PurePosixPath | None:
-        normalized = str(name).replace("\", "/")
+        normalized = str(name).replace("\\", "/")
         path = PurePosixPath(normalized)
         if not normalized or path.is_absolute() or ".." in path.parts:
             return None
@@ -175,8 +175,6 @@ class UpdateInstaller:
     ) -> int:
         installed = 0
 
-        # Remove old application-owned content first. Protected paths are
-        # explicitly skipped so their contents survive the replacement.
         for item in list(destination_root.iterdir()):
             if policy.is_protected(item):
                 continue
