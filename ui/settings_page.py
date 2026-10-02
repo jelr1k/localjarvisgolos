@@ -41,15 +41,15 @@ class SettingsPage(QWidget):
         self.status_label=QLabel();self.status_label.setWordWrap(True)
         self.update_status=QLabel(f"Текущая версия: {APP_VERSION}");self.update_status.setWordWrap(True)
         self.update_check_button=QPushButton("Проверить обновления");self.update_check_button.clicked.connect(self._check_for_update)
-        self.update_details_button=QPushButton("Открыть страницу релиза");self.update_details_button.clicked.connect(self._open_release);self.update_details_button.hide()
+        self.update_details_button=QPushButton("Открыть страницу релиза");self.update_details_button.clicked.connect(self._open_release);self.update_details_button.hide();self.update_progress=QProgressBar();self.update_progress.hide();self.update_progress_label=QLabel();self.update_progress_label.hide()
         update_row=QHBoxLayout();update_row.setContentsMargins(0,0,0,0);update_row.addWidget(self.update_check_button);update_row.addWidget(self.update_details_button)
-        update_box=QGroupBox("Обновления");update_layout=QVBoxLayout(update_box);update_layout.addWidget(self.update_status);update_layout.addLayout(update_row)
+        update_box=QGroupBox("Обновления");update_layout=QVBoxLayout(update_box);update_layout.addWidget(self.update_status);update_layout.addLayout(update_row);update_layout.addWidget(self.update_progress);update_layout.addWidget(self.update_progress_label)
         self._latest_release_url=""
         self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
         form=QFormLayout()
         for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace)]:form.addRow(label,widget)
         box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(update_box);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
-        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
+        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.update_download_progress.connect(self._on_update_download_progress);controller.update_download_finished.connect(self._on_update_download_finished);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
         self._refresh_whisper_statuses();self._load_microphones();self._set_status("Готово",False)
 
     def _check_for_update(self):
@@ -75,13 +75,52 @@ class SettingsPage(QWidget):
             QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
+            self.update_check_button.setEnabled(False)
+            self.update_details_button.setEnabled(False)
+            self.update_progress.setValue(0)
+            self.update_progress.show()
+            self.update_progress_label.setText("Начинаю безопасную загрузку во временную папку…")
+            self.update_progress_label.show()
+            self._set_status(f"⟳ Скачиваю обновление {plan.target_version}…", False)
+            self.controller.download_update(plan)
+        else:
+            self._set_status("Обновление отложено.", False)
+
+    def _on_update_download_progress(self, current, total, speed):
+        if total > 0:
+            percent = min(100, max(0, round(current * 100 / total)))
+            eta = (total - current) / speed if speed > 0 else 0
+            self.update_progress.setValue(percent)
+            self.update_progress_label.setText(
+                f"{percent}% • {self._format_bytes(current)} / {self._format_bytes(total)}\\n"
+                f"Скорость: {self._format_bytes(speed)}/с • Осталось примерно: {self._format_eta(eta)}"
+            )
+        else:
+            self.update_progress_label.setText(
+                f"{self._format_bytes(current)} скачано • определяю размер…"
+            )
+
+    def _on_update_download_finished(self, result):
+        self.update_check_button.setEnabled(True)
+        self.update_details_button.setEnabled(True)
+        if result.get("success"):
+            download = result["result"]
+            self.update_progress.setValue(100)
+            self.update_progress_label.setText(
+                f"100% • архив сохранён во временную папку: {download.archive_path}"
+            )
             self._set_status(
-                f"✓ Обновление {plan.target_version} подтверждено. "
-                "Скачивание будет выполнено на следующем этапе.",
+                "✓ Обновление скачано во временную папку. "
+                "Установка и замена файлов ещё не выполнялись.",
                 False,
             )
         else:
-            self._set_status("Обновление отложено.", False)
+            self.update_progress.hide()
+            self.update_progress_label.setText(
+                f"Ошибка: {result.get('error', 'Не удалось скачать обновление')}"
+            )
+            self.update_progress_label.show()
+            self._set_status("⚠ Не удалось скачать обновление", True)
 
     def _update_check_finished(self, result):
         self.update_check_button.setEnabled(True)
