@@ -1,0 +1,19 @@
+<section class="page active jarvis-page" id="commands">
+  <header class="jarvis-heading">
+    <div><span class="jarvis-kicker">Command Router</span><h1>Команды</h1><p>То, что Jarvis умеет сделать без лишнего обращения к модели.</p></div>
+    <button class="jarvis-button primary" data-go="chat" type="button">Выполнить команду</button>
+  </header>
+  <div class="jarvis-command-grid">
+    <article class="panel jarvis-command"><span class="icon">◈</span><h3>Приложения</h3><p>Открыть Discord, браузер, Проводник и другие приложения.</p></article>
+    <article class="panel jarvis-command"><span class="icon">□</span><h3>Окна</h3><p>Свернуть, развернуть, восстановить или закрыть окно.</p></article>
+    <article class="panel jarvis-command"><span class="icon">⌂</span><h3>Файлы</h3><p>Открыть файл или перейти к разрешённой рабочей области.</p></article>
+    <article class="panel jarvis-command"><span class="icon">◇</span><h3>Ollama</h3><p>Запустить, остановить или выгрузить локальную модель.</p></article>
+    <article class="panel jarvis-command"><span class="icon">≋</span><h3>Голос</h3><p>Wake word → запись → Whisper → команда. Без постоянной загрузки Whisper.</p></article>
+    <article class="panel jarvis-command"><span class="icon">⚙</span><h3>Система</h3><p>Управление доступными действиями Windows через локальные инструменты Jarvis.</p></article>
+  </div>
+  <section class="panel jarvis-card">
+    <span class="jarvis-kicker">Логика</span>
+    <h2 style="margin-top:9px">Команда не должна становиться запросом к LLM только потому, что она умеет говорить.</h2>
+    <p>Роутер проверяет простые действия первым. Если подходящей команды нет, запрос может уйти в локальный ИИ.</p>
+  </section>
+</section>
