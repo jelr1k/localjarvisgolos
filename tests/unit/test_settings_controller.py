@@ -72,6 +72,7 @@ class FakeUpdateDownloader:
         self.result = result
         self.error = error
         self.calls = []
+        self.cleaned = []
 
     def download(self, plan, progress_callback=None):
         self.calls.append(plan)
@@ -81,6 +82,9 @@ class FakeUpdateDownloader:
             from services.update_downloader import UpdateDownloadError
             raise UpdateDownloadError(self.error)
         return self.result
+
+    def cleanup(self, result):
+        self.cleaned.append(result)
 
 
 def make_controller(checker, update_service=None, update_downloader=None, update_validator=None):
@@ -309,3 +313,5 @@ def test_settings_controller_reports_archive_validation_error():
     controller.download_update(object())
 
     assert received == [{"success": False, "error": "опасный путь"}]
+    assert len(validator.calls) == 1
+    assert controller._update_downloader.cleaned
