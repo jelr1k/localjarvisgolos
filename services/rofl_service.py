@@ -12,8 +12,8 @@ logger = logging.getLogger("jarvis.rofl")
 class RoflService:
     """Редкие шуточные ответы после успешных действий Jarvis."""
 
-    ROFL_CHANCE = 0.12
-    DEMON_CHANCE = 0.15
+    DEFAULT_ROFL_CHANCE = 0.12
+    DEFAULT_DEMON_CHANCE = 0.15
 
     NORMAL_LINES = (
         "Готово, {target} открыта.",
@@ -328,14 +328,45 @@ class RoflService:
         ),
     }
 
-    def __init__(self, event_bus):
+    def __init__(self, event_bus, config):
         self.events = event_bus
+        self.rofl_chance = self._clamp_chance(
+            config.get("rofl", {}).get("chance", self.DEFAULT_ROFL_CHANCE),
+            self.DEFAULT_ROFL_CHANCE,
+        )
+        self.demon_chance = self._clamp_chance(
+            config.get("rofl", {}).get("demon_chance", self.DEFAULT_DEMON_CHANCE),
+            self.DEFAULT_DEMON_CHANCE,
+        )
         event_bus.subscribe("tool.executed", self._on_tool_executed)
         event_bus.subscribe("router.rofl_candidate", self._on_router_rofl_candidate)
+        event_bus.subscribe("rofl.settings_changed", self._on_settings_changed)
         logger.debug(
             "rofl_service_created chance=%.2f demon_chance=%.2f",
-            self.ROFL_CHANCE,
-            self.DEMON_CHANCE,
+            self.rofl_chance,
+            self.demon_chance,
+        )
+
+    @staticmethod
+    def _clamp_chance(value, default):
+        try:
+            return max(0.0, min(1.0, float(value)))
+        except (TypeError, ValueError):
+            return default
+
+    def _on_settings_changed(self, settings: dict):
+        self.rofl_chance = self._clamp_chance(
+            settings.get("chance", self.DEFAULT_ROFL_CHANCE),
+            self.DEFAULT_ROFL_CHANCE,
+        )
+        self.demon_chance = self._clamp_chance(
+            settings.get("demon_chance", self.DEFAULT_DEMON_CHANCE),
+            self.DEFAULT_DEMON_CHANCE,
+        )
+        logger.info(
+            "rofl_settings_applied chance=%.2f demon_chance=%.2f",
+            self.rofl_chance,
+            self.demon_chance,
         )
 
     @staticmethod
@@ -410,7 +441,7 @@ class RoflService:
         action = action or self._router_action(command_text, router)
         if not action or action == "launch" or action not in self.ROUTER_LINES:
             return
-        if random.random() >= self.ROFL_CHANCE:
+        if random.random() >= self.rofl_chance:
             return
 
         normal_lines, latin_lines = self.ROUTER_LINES[action]
@@ -436,7 +467,7 @@ class RoflService:
         if random.random() >= self.ROFL_CHANCE:
             return
 
-        if random.random() < self.DEMON_CHANCE:
+        if random.random() < self.demon_chance:
             text = random.choice(self.DEMON_LINES)
             category = "demon"
         else:
@@ -456,3 +487,4 @@ class RoflService:
     def close(self):
         self.events.unsubscribe("tool.executed", self._on_tool_executed)
         self.events.unsubscribe("router.rofl_candidate", self._on_router_rofl_candidate)
+        self.events.unsubscribe("rofl.settings_changed", self._on_settings_changed)
