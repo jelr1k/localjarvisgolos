@@ -35,8 +35,8 @@ class JarvisApplication:
 
         self.events = EventBus()
         self.tasks = TaskRunner(max_workers=4)
-        self.rofl_service = RoflService(self.events)
         self.config = ConfigManager()
+        self.rofl_service = RoflService(self.events, self.config)
         self.alias_manager = AliasManager()
         self.ollama_manager = OllamaManager(self.config.ollama_url)
         self.provider = OllamaProvider(self.config.ollama_url)
