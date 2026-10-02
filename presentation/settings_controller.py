@@ -15,6 +15,7 @@ class SettingsController(QObject):
     whisper_finished = Signal(str, bool, str)
     refresh_finished = Signal(object)
     update_check_finished = Signal(object)
+    update_confirmation_requested = Signal(object)
 
     def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None):
         super().__init__()
@@ -31,7 +32,7 @@ class SettingsController(QObject):
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
         
     def _background_update_finished(self, result):
-        self.update_check_finished.emit(self._prepare_update_result(result))
+        self._emit_update_result(self._prepare_update_result(result))
 
     def check_for_update(self):
         future = self._tasks.submit(self._check_for_update)
@@ -67,7 +68,13 @@ class SettingsController(QObject):
             result = future.result()
         except Exception as exc:
             result = {"success": False, "error": "Не удалось проверить обновления: " + str(exc)}
+        self._emit_update_result(result)
+
+    def _emit_update_result(self, result):
         self.update_check_finished.emit(result)
+        if result.get("success") and result.get("plan") is not None:
+            self.update_confirmation_requested.emit(result["plan"])
+
     def get(self, key, default=None):
         return self._config.get(key, default)
 
