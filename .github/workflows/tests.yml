@@ -3,6 +3,13 @@ name: Tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: "Create JARVIS v0.1.1 release from satichik-dev"
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   unit-tests:
@@ -16,3 +23,48 @@ jobs:
         run: python -m pip install -r requirements.txt
       - name: Run tests
         run: python -m pytest -q
+
+  create-release:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.create_release == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout satichik-dev
+        uses: actions/checkout@v4
+        with:
+          ref: satichik-dev
+
+      - name: Set release version
+        shell: pwsh
+        run: |
+          $path = "core/version.py"
+          $content = Get-Content -Raw -Path $path
+          $content = [regex]::Replace($content, 'APP_VERSION\s*=\s*"[^"]+"', 'APP_VERSION = "0.1.1"', 1)
+          Set-Content -Path $path -Value $content -Encoding utf8
+
+      - name: Create update archive
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP "jarvis-release"
+          $root = Join-Path $stage "jarvis"
+          $archive = Join-Path $env:RUNNER_TEMP "jarvis.zip"
+          New-Item -ItemType Directory -Path $root -Force | Out-Null
+          $exclude = @(".git",".github",".pytest_cache","__pycache__","tests","logs","workspace","models")
+          Get-ChildItem -Force | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination $root -Recurse -Force
+          }
+          if (-not (Test-Path (Join-Path $root "start/bootstrap.py"))) { throw "Missing start/bootstrap.py" }
+          if (-not (Test-Path (Join-Path $root "core/version.py"))) { throw "Missing core/version.py" }
+          Compress-Archive -Path (Join-Path $root "*") -DestinationPath $archive -CompressionLevel Optimal
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.1
+          name: JARVIS v0.1.1 - update system test
+          body: |
+            Test release for the JARVIS updater.
+            Built from satichik-dev with version 0.1.1.
+          files: ${{ runner.temp }}/jarvis.zip
+          generate_release_notes: false
