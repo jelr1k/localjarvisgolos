@@ -10,10 +10,17 @@ ipcMain.handle("load-page", async (_event, page, interfaceName = "classic") => {
   if (!allowedPages.has(page)) throw new Error("Unknown page");
 
   const safeInterfaceName = String(interfaceName).match(/^[a-z0-9_-]+$/i)?.[0];
+
   if (safeInterfaceName && safeInterfaceName !== "classic") {
-    const customRoot = path.resolve(interfacesDir, safeInterfaceName, "pages");
-    const customPage = path.resolve(customRoot, page + ".html");
-    if (customPage.startsWith(customRoot + path.sep)) {
+    const interfaceRoot = path.resolve(interfacesDir, safeInterfaceName);
+    const candidates = [
+      path.resolve(interfaceRoot, "pages", page + ".html"),
+      path.resolve(interfaceRoot, page + ".html")
+    ];
+
+    for (const customPage of candidates) {
+      if (!customPage.startsWith(interfaceRoot + path.sep)) continue;
+
       try {
         return await fs.readFile(customPage, "utf8");
       } catch (error) {
