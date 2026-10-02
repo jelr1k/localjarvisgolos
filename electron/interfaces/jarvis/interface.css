@@ -1,587 +1,750 @@
-/* JARVIS / custom interface
-   Geometry and atmosphere live here. Palette is inherited from the global
-   theme tokens, so Settings remains the single source of truth for color. */
+/* JARVIS // sovereign custom interface
+   Layout is intentionally unrelated to the legacy interfaces.
+   Color is inherited from the global theme tokens selected in Settings. */
 
-:root{
-  --j-radius: 14px;
-  --j-radius-small: 9px;
-  --j-gap: 12px;
-  --j-glow: color-mix(in srgb, var(--accent) 18%, transparent);
+body.interface-jarvis {
+  --jx-accent: var(--accent);
+  --jx-bg: var(--bg);
+  --jx-surface: var(--surface);
+  --jx-surface2: var(--surface-alt);
+  --jx-text: var(--text);
+  --jx-muted: var(--text-muted);
+  --jx-border: var(--border);
+  background:
+    radial-gradient(circle at 50% 44%, color-mix(in srgb, var(--jx-accent) 10%, transparent), transparent 30%),
+    var(--jx-bg);
+  color: var(--jx-text);
+  overflow: hidden;
 }
 
-body.interface-jarvis{
-  background: var(--bg);
-  color: var(--text);
+body.interface-jarvis .sidebar,
+body.interface-jarvis .topbar {
+  display: none !important;
 }
 
-body.interface-jarvis .app{
-  grid-template-columns: 248px minmax(0,1fr);
-  gap: 0;
+body.interface-jarvis .app,
+body.interface-jarvis .main {
+  display: block;
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
   background: transparent;
 }
 
-body.interface-jarvis .sidebar{
-  position:relative;
-  z-index:20;
-  padding:20px 14px;
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  border-right:1px solid var(--border);
-  backdrop-filter: blur(22px);
+body.interface-jarvis #pageContainer {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
-body.interface-jarvis .brand{
-  padding:4px 8px 26px;
-  gap:12px;
+body.interface-jarvis .page {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 104px 54px 116px;
+  overflow: auto;
+  background: transparent;
 }
 
-body.interface-jarvis .brand-mark{
-  width:42px;
-  height:42px;
-  border-radius:12px 5px 12px 5px;
-  background:var(--surface-alt);
-  box-shadow:0 0 28px var(--j-glow);
-  font-family:Georgia,serif;
+/* Floating command/navigation bar. No sidebar. */
+
+.jx-header {
+  position: fixed;
+  z-index: 100;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, calc(100vw - 36px));
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 10px 0 18px;
+  box-sizing: border-box;
+  border: 1px solid var(--jx-border);
+  border-radius: 100px;
+  background: color-mix(in srgb, var(--jx-surface) 82%, transparent);
+  backdrop-filter: blur(24px) saturate(1.25);
+  box-shadow: 0 18px 60px color-mix(in srgb, var(--shadow) 42%, transparent);
 }
 
-body.interface-jarvis .brand strong{
-  letter-spacing:3px;
-  font-size:13px;
+.jx-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+  white-space: nowrap;
 }
 
-body.interface-jarvis .brand small{
-  margin-top:5px;
-  color:var(--text-muted);
+.jx-brand-mark {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--jx-accent) 70%, var(--jx-border));
+  border-radius: 50%;
+  color: var(--jx-accent);
+  font: 16px Georgia, serif;
+  box-shadow: 0 0 22px color-mix(in srgb, var(--jx-accent) 20%, transparent);
 }
 
-body.interface-jarvis .nav{
-  gap:5px;
+.jx-brand-name {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 3px;
 }
 
-body.interface-jarvis .nav-item{
-  position:relative;
-  min-height:48px;
-  padding:10px 12px;
-  border:1px solid transparent;
-  border-radius:10px 4px 10px 4px;
-  gap:11px;
-  color:var(--text-muted);
+.jx-nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
 }
 
-body.interface-jarvis .nav-item span{
-  width:22px;
-  color:var(--accent);
-  opacity:.78;
+.jx-nav button,
+.jx-header-action,
+.jx-dock button {
+  border: 0;
+  background: transparent;
+  color: var(--jx-muted);
+  cursor: pointer;
+  font: inherit;
 }
 
-body.interface-jarvis .nav-item:hover,
-body.interface-jarvis .nav-item.active{
-  background:color-mix(in srgb,var(--surface-alt) 88%,transparent);
-  border-color:var(--border);
-  color:var(--text);
-  box-shadow:inset 3px 0 0 var(--accent), 0 7px 22px color-mix(in srgb,var(--shadow) 50%,transparent);
+.jx-nav button {
+  padding: 8px 11px;
+  border-radius: 100px;
+  font-size: 11px;
+  transition: .18s ease;
 }
 
-body.interface-jarvis .sidebar-bottom{
-  display:grid;
-  gap:10px;
+.jx-nav button:hover,
+.jx-nav button.active {
+  color: var(--jx-text);
+  background: color-mix(in srgb, var(--jx-accent) 12%, transparent);
 }
 
-body.interface-jarvis .status{
-  padding:11px 10px;
-  border:1px solid var(--border);
-  border-radius:9px 3px 9px 3px;
-  background:var(--surface-alt);
-  color:var(--text-muted);
+.jx-nav button.active {
+  box-shadow: inset 0 -1px var(--jx-accent);
 }
 
-body.interface-jarvis .status i{
-  background:var(--accent);
-  box-shadow:0 0 12px var(--j-glow);
+.jx-header-action {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--jx-border);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--jx-text);
 }
 
-body.interface-jarvis .profile-wrap{
-  padding-top:2px;
+.jx-header-action:hover {
+  border-color: var(--jx-accent);
+  color: var(--jx-accent);
 }
 
-body.interface-jarvis .profile{
-  border:1px solid var(--border);
-  border-radius:10px 4px 10px 4px;
-  background:var(--surface-alt);
-  padding:10px;
+/* Bottom command dock */
+
+.jx-dock {
+  position: fixed;
+  z-index: 100;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(720px, calc(100vw - 36px));
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px;
+  box-sizing: border-box;
+  border: 1px solid var(--jx-border);
+  border-radius: 100px;
+  background: color-mix(in srgb, var(--jx-surface) 88%, transparent);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 18px 60px color-mix(in srgb, var(--shadow) 45%, transparent);
 }
 
-body.interface-jarvis .avatar{
-  border-radius:8px 3px 8px 3px;
-  background:var(--surface);
+.jx-dock-command {
+  flex: 1;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 15px;
+  border: 1px solid var(--jx-border);
+  border-radius: 100px;
+  background: var(--jx-surface2);
 }
 
-body.interface-jarvis .profile-menu{
-  left:0;
-  bottom:58px;
-  width:220px;
-  border-radius:12px 4px 12px 4px;
-  border-color:var(--border-strong);
-  backdrop-filter:blur(18px);
+.jx-dock-command span:first-child {
+  color: var(--jx-accent);
 }
 
-body.interface-jarvis .main{
-  position:relative;
-  background:transparent;
+.jx-dock-command span:last-child {
+  color: var(--jx-muted);
+  font-size: 11px;
 }
 
-body.interface-jarvis .topbar{
-  position:relative;
-  z-index:10;
-  flex:0 0 66px;
-  height:66px;
-  padding:0 26px;
-  background:color-mix(in srgb,var(--surface) 76%,transparent);
-  border-bottom:1px solid var(--border);
-  backdrop-filter:blur(18px);
+.jx-dock button {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--jx-surface2);
+  border: 1px solid var(--jx-border);
 }
 
-body.interface-jarvis .topbar:after{
-  content:"";
-  position:absolute;
-  left:26px;
-  right:26px;
-  bottom:-1px;
-  height:1px;
-  background:linear-gradient(90deg,transparent,var(--accent),transparent);
-  opacity:.25;
+.jx-dock button:hover {
+  color: var(--jx-accent);
+  border-color: var(--jx-accent);
 }
 
-body.interface-jarvis #pageName{
-  color:var(--text);
+.jx-status {
+  position: fixed;
+  z-index: 90;
+  top: 86px;
+  right: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--jx-muted);
+  font-size: 10px;
+  letter-spacing: .7px;
+  text-transform: uppercase;
 }
 
-body.interface-jarvis #pageContainer{
-  overflow:hidden;
+.jx-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--jx-accent);
+  box-shadow: 0 0 13px color-mix(in srgb, var(--jx-accent) 70%, transparent);
 }
 
-body.interface-jarvis .page{
-  height:100%;
-  padding:18px;
-  background:transparent;
+/* Shared primitives */
+
+.jx-page {
+  width: min(1240px, 100%);
+  min-height: 100%;
+  margin: 0 auto;
 }
 
-body.interface-jarvis .panel{
-  border-radius:var(--j-radius) 5px var(--j-radius) 5px;
-  background:color-mix(in srgb,var(--surface) 92%,transparent);
-  border-color:var(--border);
-  box-shadow:0 14px 38px color-mix(in srgb,var(--shadow) 35%,transparent);
+.jx-eyebrow {
+  color: var(--jx-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
 }
 
-body.interface-jarvis .jarvis-page{
-  height:100%;
-  min-height:0;
-  display:flex;
-  flex-direction:column;
-  gap:var(--j-gap);
-  overflow:auto;
-  padding:2px 2px 22px;
+.jx-title {
+  margin: 7px 0 0;
+  font: clamp(38px, 6vw, 76px)/.92 Georgia, serif;
+  letter-spacing: -3px;
 }
 
-body.interface-jarvis .jarvis-kicker{
-  color:var(--accent);
-  text-transform:uppercase;
-  letter-spacing:2px;
-  font-size:10px;
-  font-weight:700;
+.jx-subtitle {
+  max-width: 620px;
+  margin: 14px 0 0;
+  color: var(--jx-muted);
+  line-height: 1.65;
+  font-size: 13px;
 }
 
-body.interface-jarvis .jarvis-heading{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-end;
-  gap:20px;
-  padding:7px 4px 5px;
+.jx-surface {
+  border: 1px solid var(--jx-border);
+  background: color-mix(in srgb, var(--jx-surface) 72%, transparent);
+  backdrop-filter: blur(15px);
 }
 
-body.interface-jarvis .jarvis-heading h1{
-  margin:4px 0 0;
-  font:clamp(32px,4vw,54px)/.98 Georgia,serif;
-  letter-spacing:-1.5px;
+.jx-kicker {
+  color: var(--jx-muted);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
 }
 
-body.interface-jarvis .jarvis-heading p{
-  margin:8px 0 0;
-  color:var(--text-muted);
-  max-width:720px;
-  line-height:1.5;
+.jx-value {
+  color: var(--jx-text);
+  font-size: 14px;
 }
 
-body.interface-jarvis .jarvis-chip{
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  padding:8px 10px;
-  border:1px solid var(--border);
-  border-radius:9px 3px 9px 3px;
-  background:var(--surface-alt);
-  color:var(--text-muted);
-  white-space:nowrap;
-  font-size:11px;
+.jx-accent {
+  color: var(--jx-accent);
 }
 
-body.interface-jarvis .jarvis-chip i{
-  width:6px;height:6px;border-radius:50%;background:var(--accent);
-  box-shadow:0 0 12px var(--j-glow);
+.jx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--jx-border);
+  border-radius: 100px;
+  padding: 8px 11px;
+  color: var(--jx-muted);
+  font-size: 10px;
 }
 
-body.interface-jarvis .jarvis-grid{
-  display:grid;
-  gap:var(--j-gap);
+.jx-pill i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--jx-accent);
 }
 
-body.interface-jarvis .jarvis-grid.two{grid-template-columns:1.45fr .85fr}
-body.interface-jarvis .jarvis-grid.three{grid-template-columns:repeat(3,1fr)}
-
-body.interface-jarvis .jarvis-card{
-  position:relative;
-  min-width:0;
-  padding:18px;
-  overflow:hidden;
+.jx-action {
+  border: 1px solid var(--jx-border);
+  background: var(--jx-surface2);
+  color: var(--jx-text);
+  border-radius: 100px;
+  padding: 10px 14px;
+  cursor: pointer;
 }
 
-body.interface-jarvis .jarvis-card:before{
-  content:"";
-  position:absolute;
-  top:0;left:18px;right:18px;height:1px;
-  background:linear-gradient(90deg,var(--accent),transparent);
-  opacity:.32;
+.jx-action:hover {
+  border-color: var(--jx-accent);
+  color: var(--jx-accent);
 }
 
-body.interface-jarvis .jarvis-card h2{
-  margin:0;
-  font-size:16px;
+/* Home: central core, deliberately no cards grid. */
+
+.jx-home {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  align-items: center;
+  gap: 70px;
 }
 
-body.interface-jarvis .jarvis-card p{
-  color:var(--text-muted);
-  line-height:1.5;
+.jx-core {
+  position: relative;
+  min-height: 580px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-body.interface-jarvis .jarvis-button{
-  min-height:38px;
-  border-radius:9px 3px 9px 3px;
+.jx-orbit {
+  position: absolute;
+  width: min(48vw, 560px);
+  aspect-ratio: 1;
+  border: 1px solid color-mix(in srgb, var(--jx-accent) 30%, transparent);
+  border-radius: 50%;
+  transform: rotate(-18deg) scaleY(.34);
+  box-shadow: 0 0 70px color-mix(in srgb, var(--jx-accent) 7%, transparent);
 }
 
-body.interface-jarvis .jarvis-button.primary{
-  box-shadow:0 7px 24px var(--j-glow);
+.jx-orbit:nth-child(2) {
+  width: min(39vw, 450px);
+  transform: rotate(62deg) scaleY(.23);
+  opacity: .65;
 }
 
-body.interface-jarvis .jarvis-home{
-  display:grid;
-  grid-template-columns:minmax(0,1.55fr) minmax(270px,.75fr);
-  gap:var(--j-gap);
-  min-height:0;
-  flex:1;
+.jx-orbit:nth-child(3) {
+  width: min(55vw, 640px);
+  transform: rotate(3deg) scaleY(.14);
+  opacity: .35;
 }
 
-body.interface-jarvis .jarvis-core{
-  position:relative;
-  min-height:420px;
-  display:flex;
-  flex-direction:column;
-  justify-content:flex-end;
-  overflow:hidden;
-  padding:28px;
-  background:
-    radial-gradient(circle at 50% 45%,var(--j-glow),transparent 30%),
-    color-mix(in srgb,var(--surface) 94%,transparent);
-}
-
-body.interface-jarvis .jarvis-core:before{
-  content:"";
-  position:absolute;
-  width:min(46vw,520px);
-  aspect-ratio:1;
-  left:50%;
-  top:45%;
-  transform:translate(-50%,-50%);
-  border:1px solid color-mix(in srgb,var(--accent) 42%,transparent);
-  border-radius:50%;
+.jx-blackhole {
+  position: relative;
+  z-index: 2;
+  width: min(25vw, 270px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 48% 45%, var(--jx-bg) 0 27%, transparent 28%);
   box-shadow:
-    0 0 45px var(--j-glow),
-    inset 0 0 50px color-mix(in srgb,var(--accent) 8%,transparent);
-  opacity:.75;
+    0 0 0 1px color-mix(in srgb, var(--jx-accent) 55%, transparent),
+    0 0 55px color-mix(in srgb, var(--jx-accent) 28%, transparent),
+    inset 0 0 45px color-mix(in srgb, var(--jx-accent) 20%, transparent);
 }
 
-body.interface-jarvis .jarvis-core:after{
-  content:"";
-  position:absolute;
-  width:min(25vw,290px);
-  aspect-ratio:1;
-  left:50%;
-  top:45%;
-  transform:translate(-50%,-50%);
-  border-radius:50%;
-  background:radial-gradient(circle,var(--bg) 0 32%,transparent 33%);
-  box-shadow:0 0 60px var(--j-glow);
+.jx-blackhole:before,
+.jx-blackhole:after {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--jx-accent) 55%, transparent);
+  transform: scaleY(.25);
 }
 
-body.interface-jarvis .jarvis-core-content{
-  position:relative;
-  z-index:2;
+.jx-blackhole:after {
+  inset: 6%;
+  transform: scaleY(.12);
+  opacity: .45;
 }
 
-body.interface-jarvis .jarvis-core-title{
-  font:clamp(38px,5vw,72px)/.9 Georgia,serif;
-  margin:0;
-  letter-spacing:-2px;
+.jx-core-copy {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  bottom: 4px;
 }
 
-body.interface-jarvis .jarvis-core-sub{
-  color:var(--text-muted);
-  margin:11px 0 18px;
+.jx-core-copy h1 {
+  margin: 5px 0;
+  font: clamp(40px, 5vw, 68px)/.9 Georgia, serif;
+  letter-spacing: -2px;
 }
 
-body.interface-jarvis .jarvis-commandbar{
-  display:flex;
-  gap:8px;
-  max-width:760px;
+.jx-core-copy p {
+  margin: 0;
+  color: var(--jx-muted);
+  font-size: 12px;
 }
 
-body.interface-jarvis .jarvis-commandbar input{
-  flex:1;
-  min-width:0;
-  background:var(--input-bg);
-  color:var(--text);
-  border:1px solid var(--border-strong);
-  border-radius:10px 3px 10px 3px;
-  padding:12px 14px;
-  outline:none;
+.jx-overview {
+  display: grid;
+  gap: 1px;
+  border-top: 1px solid var(--jx-border);
+  border-bottom: 1px solid var(--jx-border);
 }
 
-body.interface-jarvis .jarvis-side-stack{
-  display:grid;
-  grid-template-rows:auto auto 1fr;
-  gap:var(--j-gap);
-  min-height:0;
+.jx-overview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--jx-border);
 }
 
-body.interface-jarvis .jarvis-metric{
+.jx-overview-row:last-child {
+  border-bottom: 0;
+}
+
+.jx-home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* Chat */
+
+.jx-chat {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.jx-chat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+  padding: 8px 0 20px;
+  border-bottom: 1px solid var(--jx-border);
+}
+
+.jx-chat-head h1 {
+  margin: 6px 0 0;
+  font: 42px Georgia, serif;
+}
+
+.jx-messages {
+  overflow: auto;
+  padding: 30px 4px;
+}
+
+.jx-message {
+  max-width: 720px;
+  margin: 0 0 25px;
+}
+
+.jx-message.user {
+  margin-left: auto;
+  text-align: right;
+}
+
+.jx-message label {
+  display: block;
+  color: var(--jx-accent);
+  font-size: 9px;
+  letter-spacing: 1.8px;
+  margin-bottom: 7px;
+}
+
+.jx-message p {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 2px solid var(--jx-accent);
+  background: color-mix(in srgb, var(--jx-surface) 65%, transparent);
+  color: var(--jx-text);
+  line-height: 1.6;
+}
+
+.jx-message.user p {
+  border-left: 0;
+  border-right: 2px solid var(--jx-accent);
+}
+
+.jx-composer {
+  display: flex;
+  gap: 7px;
+  padding-top: 12px;
+  border-top: 1px solid var(--jx-border);
+}
+
+.jx-composer input {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  box-sizing: border-box;
+  border: 1px solid var(--jx-border);
+  border-radius: 100px;
+  background: var(--jx-surface2);
+  color: var(--jx-text);
+  padding: 0 17px;
+  outline: none;
+}
+
+.jx-composer button {
+  height: 46px;
+  min-width: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--jx-border);
+  background: var(--jx-surface2);
+  color: var(--jx-text);
+  cursor: pointer;
+}
+
+/* Commands: radial-looking constellation */
+
+.jx-command-page {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 60px;
+  align-items: center;
+}
+
+.jx-command-intro {
+  position: sticky;
+  top: 0;
+}
+
+.jx-command-map {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 2px;
+}
+
+.jx-command-node {
+  min-height: 170px;
+  padding: 22px;
+  border: 1px solid var(--jx-border);
+  background: color-mix(in srgb, var(--jx-surface) 55%, transparent);
+  transition: .2s ease;
+}
+
+.jx-command-node:hover {
+  transform: translateY(-3px);
+  border-color: var(--jx-accent);
+  background: color-mix(in srgb, var(--jx-accent) 7%, var(--jx-surface));
+}
+
+.jx-command-node strong {
+  display: block;
+  margin: 28px 0 8px;
+  font: 23px Georgia, serif;
+}
+
+.jx-command-node p {
+  margin: 0;
+  color: var(--jx-muted);
+  line-height: 1.5;
+  font-size: 11px;
+}
+
+.jx-node-mark {
+  color: var(--jx-accent);
+  font-size: 23px;
+}
+
+/* Workspace */
+
+.jx-workspace {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  gap: 3px;
+}
+
+.jx-file-field {
+  position: relative;
+  min-height: 560px;
+  border: 1px solid var(--jx-border);
+  overflow: hidden;
+  background:
+    linear-gradient(color-mix(in srgb, var(--jx-border) 25%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--jx-border) 25%, transparent) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+
+.jx-file-field:after {
+  content: "WORKSPACE / LOCAL";
+  position: absolute;
+  right: 18px;
+  top: 16px;
+  color: var(--jx-muted);
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.jx-folder {
+  position: absolute;
+  left: 15%;
+  top: 27%;
+  width: 180px;
+  height: 100px;
+  border: 1px solid var(--jx-accent);
+  background: color-mix(in srgb, var(--jx-accent) 7%, var(--jx-surface));
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.jx-folder:nth-child(2) { left: 48%; top: 52%; }
+.jx-folder:nth-child(3) { left: 62%; top: 20%; width: 135px; height: 75px; }
+
+.jx-folder b { font-size: 12px; }
+.jx-folder small { display:block; margin-top:8px; color:var(--jx-muted); }
+
+.jx-workspace-side {
+  border-top: 1px solid var(--jx-border);
+  border-bottom: 1px solid var(--jx-border);
+  padding: 22px;
+}
+
+.jx-resource {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--jx-border);
+}
+.jx-resource:last-child { border-bottom: 0; }
+
+/* AI */
+
+.jx-ai {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 50px;
+  align-items: center;
+}
+
+.jx-ai-model {
+  border-left: 1px solid var(--jx-accent);
+  padding-left: 25px;
+}
+
+.jx-ai-model h1 {
+  margin: 8px 0;
+  font: clamp(40px, 5vw, 66px) Georgia, serif;
+}
+
+.jx-ai-model p {
+  max-width: 540px;
+  color: var(--jx-muted);
+  line-height: 1.7;
+}
+
+.jx-telemetry {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border: 1px solid var(--jx-border);
+}
+
+.jx-telemetry div {
+  min-height: 110px;
+  padding: 18px;
+  border-right: 1px solid var(--jx-border);
+  border-bottom: 1px solid var(--jx-border);
+}
+.jx-telemetry div:nth-child(2n) { border-right: 0; }
+.jx-telemetry div:nth-last-child(-n+2) { border-bottom: 0; }
+.jx-telemetry strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 23px;
+}
+
+/* Settings */
+
+.jx-settings {
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.jx-settings-head {
   display:flex;
   justify-content:space-between;
-  gap:16px;
-  padding:13px 0;
-  border-bottom:1px solid var(--border);
+  align-items:end;
+  gap:30px;
+  padding-bottom:20px;
+  border-bottom:1px solid var(--jx-border);
 }
 
-body.interface-jarvis .jarvis-metric:last-child{border-bottom:0}
-body.interface-jarvis .jarvis-metric span{color:var(--text-muted)}
-body.interface-jarvis .jarvis-metric b{color:var(--text)}
-
-body.interface-jarvis .jarvis-ring{
-  width:78px;height:78px;
-  border:1px solid var(--accent);
-  border-radius:50%;
-  display:grid;place-items:center;
-  margin:10px auto 13px;
-  box-shadow:0 0 28px var(--j-glow);
-  color:var(--accent);
-  font-size:11px;
-  letter-spacing:1px;
+.jx-settings-block {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--jx-border);
 }
 
-body.interface-jarvis .jarvis-list{
-  display:grid;
+.jx-settings-block h2 {
+  margin: 5px 0 18px;
+  font: 26px Georgia, serif;
+}
+
+.jx-theme-list {
+  display:flex;
+  flex-wrap:wrap;
   gap:6px;
 }
 
-body.interface-jarvis .jarvis-list-item{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:11px;
-  border:1px solid var(--border);
-  border-radius:9px 3px 9px 3px;
-  background:var(--surface-alt);
+.jx-theme-list button {
+  border:1px solid var(--jx-border);
+  background:var(--jx-surface2);
+  color:var(--jx-muted);
+  border-radius:100px;
+  padding:9px 13px;
+  cursor:pointer;
+}
+.jx-theme-list button:hover,
+.jx-theme-list button.selected {
+  border-color:var(--jx-accent);
+  color:var(--jx-text);
+  box-shadow:0 0 18px color-mix(in srgb,var(--jx-accent) 10%,transparent);
 }
 
-body.interface-jarvis .jarvis-list-item i{
-  width:7px;height:7px;border-radius:50%;background:var(--accent);
-  flex:0 0 7px;
-}
-
-body.interface-jarvis .jarvis-list-item small{
-  display:block;color:var(--text-muted);margin-top:3px;
-}
-
-body.interface-jarvis .jarvis-section-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:var(--j-gap);
-}
-
-body.interface-jarvis .jarvis-stat-grid{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:1px;
-  background:var(--border);
-  border:1px solid var(--border);
-  border-radius:10px 3px 10px 3px;
-  overflow:hidden;
-}
-
-body.interface-jarvis .jarvis-stat{
-  padding:14px;
-  background:var(--surface);
-}
-
-body.interface-jarvis .jarvis-stat small{color:var(--text-muted)}
-body.interface-jarvis .jarvis-stat strong{display:block;margin-top:7px;font-size:22px}
-
-body.interface-jarvis .jarvis-command-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:var(--j-gap);
-}
-
-body.interface-jarvis .jarvis-command{
-  padding:16px;
-  min-height:120px;
-}
-
-body.interface-jarvis .jarvis-command .icon{
-  color:var(--accent);
-  font-size:20px;
-}
-
-body.interface-jarvis .jarvis-command h3{
-  margin:11px 0 5px;
-  font-size:15px;
-}
-
-body.interface-jarvis .jarvis-command p{
-  margin:0;
-  font-size:12px;
-}
-
-body.interface-jarvis .jarvis-chat{
-  flex:1;
-  min-height:0;
-  display:grid;
-  grid-template-rows:auto 1fr auto;
-}
-
-body.interface-jarvis .jarvis-chat-head{
+.jx-setting-line {
   display:flex;
   justify-content:space-between;
-  gap:20px;
-  padding:18px 20px;
-  border-bottom:1px solid var(--border);
+  gap:30px;
+  padding:13px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--jx-border) 65%,transparent);
+}
+.jx-setting-line:last-child { border-bottom:0; }
+.jx-setting-line small { display:block; color:var(--jx-muted); margin-top:4px; }
+.jx-setting-line b { font-size:12px; }
+
+@media (max-width: 900px) {
+  body.interface-jarvis .page { padding: 92px 24px 100px; }
+  .jx-home, .jx-workspace, .jx-ai { grid-template-columns: 1fr; gap: 30px; }
+  .jx-core { min-height: 480px; }
+  .jx-command-page { grid-template-columns: 1fr; }
+  .jx-command-intro { position: static; }
+  .jx-nav button { font-size: 0; padding: 10px; }
+  .jx-nav button::first-letter { font-size: 14px; }
 }
 
-body.interface-jarvis .jarvis-messages{
-  min-height:0;
-  overflow:auto;
-  padding:24px;
-}
-
-body.interface-jarvis .jarvis-message{
-  max-width:760px;
-  margin:0 0 18px;
-}
-
-body.interface-jarvis .jarvis-message.user{margin-left:auto;text-align:right}
-body.interface-jarvis .jarvis-message label{
-  display:block;color:var(--text-muted);font-size:9px;letter-spacing:1.5px;margin-bottom:6px;
-}
-body.interface-jarvis .jarvis-message p{
-  display:inline-block;
-  margin:0;
-  padding:12px 14px;
-  border:1px solid var(--border);
-  border-radius:12px 4px 12px 4px;
-  background:var(--surface-alt);
-  line-height:1.55;
-}
-body.interface-jarvis .jarvis-message.user p{
-  background:var(--accent);
-  color:var(--accent-text);
-  border-color:var(--accent);
-}
-body.interface-jarvis .jarvis-composer{
-  display:flex;
-  gap:8px;
-  padding:12px;
-  border-top:1px solid var(--border);
-}
-body.interface-jarvis .jarvis-composer input{
-  flex:1;
-  min-width:0;
-  background:var(--input-bg);
-  border:1px solid var(--border-strong);
-  color:var(--text);
-  border-radius:10px 3px 10px 3px;
-  padding:12px;
-}
-
-body.interface-jarvis .jarvis-settings-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:var(--j-gap);
-}
-
-body.interface-jarvis .jarvis-setting{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:20px;
-  padding:15px 16px;
-}
-
-body.interface-jarvis .jarvis-setting small{
-  display:block;
-  color:var(--text-muted);
-  margin-top:5px;
-  line-height:1.4;
-}
-
-body.interface-jarvis .jarvis-setting .value{
-  color:var(--accent);
-  white-space:nowrap;
-  font-size:12px;
-}
-
-body.interface-jarvis .jarvis-footer-note{
-  color:var(--text-muted);
-  font-size:11px;
-  padding:3px 4px;
-}
-
-@media(max-width:1050px){
-  body.interface-jarvis .app{grid-template-columns:210px minmax(0,1fr)}
-  body.interface-jarvis .jarvis-home{grid-template-columns:1fr}
-  body.interface-jarvis .jarvis-side-stack{grid-template-columns:repeat(3,1fr);grid-template-rows:auto}
-  body.interface-jarvis .jarvis-command-grid,
-  body.interface-jarvis .jarvis-settings-grid{grid-template-columns:1fr}
-}
-
-@media(max-width:760px){
-  body.interface-jarvis .app{grid-template-columns:1fr}
-  body.interface-jarvis .sidebar{
-    height:58px;
-    position:relative;
-    flex-direction:row;
-    align-items:center;
-    border-right:0;
-    border-bottom:1px solid var(--border);
-    padding:8px;
-  }
-  body.interface-jarvis .brand{padding:0;flex:0 0 auto}
-  body.interface-jarvis .brand>div{display:none}
-  body.interface-jarvis .brand-mark{width:38px;height:38px}
-  body.interface-jarvis .nav{display:flex;overflow:auto;flex:1}
-  body.interface-jarvis .nav-item{min-width:44px;justify-content:center}
-  body.interface-jarvis .nav-item:not(.active){font-size:0}
-  body.interface-jarvis .nav-item span{width:auto}
-  body.interface-jarvis .sidebar-bottom{display:none}
-  body.interface-jarvis .topbar{height:52px;flex-basis:52px}
-  body.interface-jarvis .page{padding:10px}
-  body.interface-jarvis .jarvis-heading{align-items:flex-start;flex-direction:column}
-  body.interface-jarvis .jarvis-side-stack{grid-template-columns:1fr}
-  body.interface-jarvis .jarvis-stat-grid{grid-template-columns:repeat(2,1fr)}
+@media (max-width: 620px) {
+  .jx-header { gap: 8px; }
+  .jx-brand-name { display:none; }
+  .jx-nav { flex:1; justify-content:center; }
+  .jx-title { font-size: 46px; }
+  .jx-command-map { grid-template-columns: 1fr; }
+  .jx-core { min-height: 410px; }
+  .jx-orbit { width: 80vw; }
+  .jx-blackhole { width: 42vw; }
+  .jx-status { display:none; }
 }
