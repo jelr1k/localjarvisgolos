@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import warnings
 import zipfile
 
 import pytest
@@ -76,9 +77,11 @@ def test_validator_rejects_absolute_path(tmp_path):
 
 def test_validator_rejects_duplicate_entries(tmp_path):
     archive = tmp_path / "duplicate.zip"
-    with zipfile.ZipFile(archive, "w") as zf:
-        zf.writestr("file.txt", b"one")
-        zf.writestr("file.txt", b"two")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("file.txt", b"one")
+            zf.writestr("file.txt", b"two")
 
     with pytest.raises(UpdateValidationError, match="дубликат"):
         UpdateValidator().validate(archive)
