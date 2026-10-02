@@ -42,6 +42,7 @@ class SettingsController(QObject):
         self._update_backup = update_backup or UpdateBackupService()
         self._update_relauncher = update_relauncher or UpdateRelauncher()
         self._download_result = None
+        self._backup_result = None
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
@@ -133,6 +134,7 @@ class SettingsController(QObject):
     def _update_backup_done(self, future):
         try:
             result = future.result()
+            self._backup_result = result
             self.update_backup_finished.emit({"success": True, "result": result})
             if self._download_result is not None:
                 restart_future = self._tasks.submit(self._launch_update_relauncher)
@@ -144,13 +146,17 @@ class SettingsController(QObject):
 
     def _launch_update_relauncher(self):
         download = self._download_result
+        backup = self._backup_result
         if download is None:
             raise UpdateRelaunchError("Архив обновления не подготовлен для перезапуска.")
+        if backup is None:
+            raise UpdateRelaunchError("Резервная копия для возможного отката не подготовлена.")
 
         plan = self._update_relauncher.prepare(
             APP_ROOT,
             download.archive_path,
             download.expected_size,
+            backup_application=backup.application_backup,
         )
         process = self._update_relauncher.launch(plan)
         return {"plan": plan, "process": process}
