@@ -10,6 +10,11 @@ ipcMain.handle("load-page", async (_event, page) => {
   return fs.readFile(path.join(pagesDir, page + ".html"), "utf8");
 });
 
+ipcMain.handle("restart-app", () => {
+  app.relaunch();
+  app.exit(0);
+});
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
