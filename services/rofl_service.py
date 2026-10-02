@@ -347,27 +347,10 @@ class RoflService:
 
     @staticmethod
     def _router_action(command_text: str, router=None) -> str | None:
-        if router is not None:
-            action = router._resolve_action(command_text)
-            if action:
-                return action[0]
-
         text = " ".join(str(command_text).casefold().split())
-        if re.match(r"^(?:открой|открыть|запусти|запустить|включи|включить|стартуй|стартовать|запускай|вруби|врубить)\s+", text):
-            return "launch"
-        if re.match(r"^(?:закрой|закрыть|останови|остановить|выключи|выключить|заверши|завершить|выруби|вырубить)\s+", text):
-            return "close"
-        if re.match(r"^(?:найди|найти|поищи|поискать|отыщи|отыскать|разыщи|разыскать|покажи|показать)\s+", text):
-            return "search"
-        if re.match(r"^(?:прочитай|прочесть|прочитать|прочти|зачитай|зачитать|озвучь|озвучить)\s+", text):
-            return "read"
-        if re.match(r"^(?:удали|удалить|стереть|сотри|убери|убрать)\s+", text):
-            return "delete"
-        if re.match(r"^(?:проверь|проверить)\s+", text):
-            return "status"
-        if re.match(r"^(?:сверни|свернуть|сворачивай)\s+", text):
-            return "minimize"
 
+        # Расширенные команды проверяем первыми: например, «найди приложение»
+        # иначе общий алиас «найди» ошибочно классифицируется как поиск файла.
         extended = (
             ("create_file", r"^(?:создай|создать)\s+(?:новый\s+)?файл\s+"),
             ("create_folder", r"^(?:создай|создать)\s+(?:новую\s+)?папку\s+"),
@@ -382,6 +365,26 @@ class RoflService:
         for action, pattern in extended:
             if re.search(pattern, text, flags=re.IGNORECASE):
                 return action
+
+        if router is not None:
+            action = router._resolve_action(command_text)
+            if action:
+                return action[0]
+
+        if re.match(r"^(?:открой|открыть|запусти|запустить|включи|включить|стартуй|стартовать|запускай|вруби|врубить)\s+", text):
+            return "launch"
+        if re.match(r"^(?:закрой|закрыть|останови|остановить|выключи|выключить|заверши|завершить|выруби|вырубить)\s+", text):
+            return "close"
+        if re.match(r"^(?:найди|найти|поищи|поискать|отыщи|отыскать|разыщи|разыскать|покажи|показать)\s+", text):
+            return "search"
+        if re.match(r"^(?:прочитай|прочесть|прочитать|прочти|зачитай|зачитать|озвучь|озвучить)\s+", text):
+            return "read"
+        if re.match(r"^(?:удали|удалить|стереть|сотри|убери|убрать)\s+", text):
+            return "delete"
+        if re.match(r"^(?:проверь|проверить)\s+", text):
+            return "status"
+        if re.match(r"^(?:сверни|свернуть|сворачивай)\s+", text):
+            return "minimize"
         return None
 
     def maybe_router_response(self, command_text: str, response: str, router=None, action: str | None = None):
