@@ -1,0 +1,29 @@
+<section class="page active jarvis-page" id="chat">
+  <div class="panel jarvis-chat">
+    <header class="jarvis-chat-head">
+      <div>
+        <span class="jarvis-kicker">Разговор</span>
+        <h1 style="margin:6px 0 0;font:34px Georgia,serif">Jarvis</h1>
+      </div>
+      <div class="jarvis-chip"><i></i>qwen3:1.7b • мысли выключены</div>
+    </header>
+    <div class="jarvis-messages" id="messages">
+      <div class="jarvis-message"><label>JARVIS</label><p>Готов. Быстрые команды обработаю напрямую, для остальных задач подключу локальную модель.</p></div>
+      <div class="jarvis-message user"><label>ВЫ</label><p>Открой Discord</p></div>
+      <div class="jarvis-message"><label>JARVIS</label><p>Команда передана локальному роутеру.</p></div>
+    </div>
+    <div>
+      <div style="padding:10px 16px;color:var(--text-muted);font-size:11px;border-top:1px solid var(--border)">Wake word: <b style="color:var(--accent)">Jarvis</b> · Vosk слушает · Whisper загружается по необходимости</div>
+      <form class="jarvis-composer" id="chatForm">
+        <button type="button" class="jarvis-button" id="micButton" aria-label="Голосовой ввод">●</button>
+        <input id="chatInput" autocomplete="off" placeholder="Введите команду…">
+        <label class="think-toggle" title="Включить размышления">
+          <input id="thinkingToggle" type="checkbox">
+          <span class="toggle-track"><i></i></span>
+          <span>Размышления</span>
+        </label>
+        <button class="primary jarvis-button" type="submit">Отправить</button>
+      </form>
+    </div>
+  </div>
+</section>
