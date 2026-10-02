@@ -2,13 +2,14 @@
 
 The backup is a filesystem copy. It never changes the application and does
 not delete user data, configuration, logs, workspace files, or model caches.
+Only the previous backup is removed after a new backup has been created
+successfully.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -26,7 +27,9 @@ class UpdateBackupResult:
 
 
 class UpdateBackupService:
-    """Create an isolated backup of the current installation."""
+    """Create an isolated backup and keep only the newest successful one."""
+
+    BACKUP_PREFIX = "jarvis-backup-"
 
     def __init__(self, backup_root: Path | None = None):
         self._backup_root = Path(backup_root) if backup_root is not None else None
@@ -49,7 +52,7 @@ class UpdateBackupService:
         backup_root.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-        backup_directory = backup_root / f"jarvis-backup-{timestamp}"
+        backup_directory = backup_root / f"{self.BACKUP_PREFIX}{timestamp}"
         application_backup = backup_directory / "application"
 
         try:
@@ -72,17 +75,43 @@ class UpdateBackupService:
                     shutil.copy2(source_path, destination)
                 copied_preserved.append(source_path)
 
-            return UpdateBackupResult(
+            result = UpdateBackupResult(
                 backup_directory=backup_directory,
                 application_backup=application_backup,
                 preserved_paths=tuple(copied_preserved),
             )
+
+            # Do not remove the previous backup until the new backup is
+            # complete. This way a failed backup never destroys the only
+            # known rollback copy.
+            self._remove_previous_backups(backup_root, keep=backup_directory)
+            return result
         except (OSError, shutil.Error) as exc:
             shutil.rmtree(backup_directory, ignore_errors=True)
             raise UpdateBackupError(f"Не удалось создать резервную копию: {exc}") from exc
         except Exception:
             shutil.rmtree(backup_directory, ignore_errors=True)
             raise
+
+    def _remove_previous_backups(self, backup_root: Path, *, keep: Path) -> None:
+        try:
+            candidates = sorted(
+                (
+                    item
+                    for item in backup_root.iterdir()
+                    if item.is_dir()
+                    and item.name.startswith(self.BACKUP_PREFIX)
+                    and item.resolve() != keep.resolve()
+                ),
+                key=lambda item: item.name,
+                reverse=True,
+            )
+            for item in candidates:
+                shutil.rmtree(item)
+        except (OSError, shutil.Error) as exc:
+            raise UpdateBackupError(
+                f"Новая резервная копия создана, но старую удалить не удалось: {exc}"
+            ) from exc
 
     @staticmethod
     def _copy_tree(source: Path, destination: Path, *, excluded_roots: tuple[Path, ...]) -> None:
