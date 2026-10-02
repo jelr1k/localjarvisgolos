@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import QObject, Signal
 
 from services.update_checker import UpdateCheckError, UpdateChecker
+from services.update_service import UpdateService, UpdateServiceError
 
 
 class SettingsController(QObject):
@@ -15,7 +16,7 @@ class SettingsController(QObject):
     refresh_finished = Signal(object)
     update_check_finished = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -24,12 +25,13 @@ class SettingsController(QObject):
         self._events = event_bus
         self._voice = voice_service
         self._update_checker = update_checker or UpdateChecker()
+        self._update_service = update_service or UpdateService()
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
         
     def _background_update_finished(self, result):
-        self.update_check_finished.emit(result)
+        self.update_check_finished.emit(self._prepare_update_result(result))
 
     def check_for_update(self):
         future = self._tasks.submit(self._check_for_update)
@@ -38,11 +40,27 @@ class SettingsController(QObject):
 
     def _check_for_update(self):
         try:
-            return {"success": True, "info": self._update_checker.check()}
+            info = self._update_checker.check()
+            return self._prepare_update_result({"success": True, "info": info})
         except UpdateCheckError as exc:
             return {"success": False, "error": str(exc)}
         except Exception as exc:
             return {"success": False, "error": "Не удалось проверить обновления: " + str(exc)}
+
+    def _prepare_update_result(self, result):
+        if not result.get("success") or "info" not in result:
+            return result
+
+        info = result["info"]
+        if not info.update_available:
+            return result
+
+        try:
+            plan = self._update_service.prepare(info)
+        except UpdateServiceError as exc:
+            return {"success": False, "error": str(exc), "info": info}
+
+        return {**result, "plan": plan}
 
     def _update_check_done(self, future):
         try:
