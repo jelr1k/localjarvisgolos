@@ -56,7 +56,7 @@ def main():
         voice_controller = VoiceController(backend.voice_service, backend.events)
         wake_word_controller = WakeWordController(backend.wake_word_detector, backend.events)
         dependency_controller = DependencyController(backend.dependency_manager, backend.events)
-        settings_controller = SettingsController(backend.config, ModelService(backend.provider), dependency_controller, backend.tasks, backend.events, backend.voice_service, update_checker=backend.update_checker)
+        settings_controller = SettingsController(backend.config, ModelService(backend.provider), dependency_controller, backend.tasks, backend.events, backend.voice_service, update_checker=backend.update_checker, update_service=backend.update_service)
         alias_controller = AliasController(backend.alias_manager)
         tools_controller = ToolsController(backend.permission_manager, TOOLS)
         ollama_controller = OllamaController(backend.ollama_manager, backend.tasks)
