@@ -9,7 +9,7 @@ const pageNames = {
 
 const pageContainer = document.querySelector("#pageContainer");
 const themeClasses = ["theme-light", "theme-mono-slate", "theme-mono-graphite", "theme-mono-silver", "theme-mono-cream", "theme-gradient-amber", "theme-gradient-blue", "theme-gradient-purple", "theme-gradient-cyan", "theme-gradient-green", "theme-gradient-red", "theme-gradient-sunset"];
-const interfaceClasses = ["interface-minimal", "interface-dashboard", "interface-atlas", "interface-journal", "interface-commandroom", "interface-wave"];
+const interfaceClasses = ["interface-minimal", "interface-dashboard", "interface-atlas", "interface-journal", "interface-commandroom", "interface-wave", "interface-jarvis"];
 const densityClasses = ["interface-density-comfortable", "interface-density-compact", "interface-density-dense"];
 const cornerClasses = ["interface-corners-sharp", "interface-corners-soft", "interface-corners-round"];
 const motionClasses = ["interface-motion-full", "interface-motion-reduced", "interface-motion-off"];
@@ -44,6 +44,7 @@ function setInterfaceClass(name) {
   if (name === "journal") document.body.classList.add("interface-journal");
   if (name === "commandroom") document.body.classList.add("interface-commandroom");
   if (name === "wave") document.body.classList.add("interface-wave");
+  if (name === "jarvis") document.body.classList.add("interface-jarvis");
 }
 
 function applyInterface(name) {
