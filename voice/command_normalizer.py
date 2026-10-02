@@ -110,6 +110,8 @@ def normalize_voice_command(text: str) -> str:
     text = re.sub(r"\s+\.", ".", text)
     text = re.sub(r"\s*([_\\/-])\s*", r"\1", text)
     text = re.sub(r"\s+([,;:!?])", r"\1", text)
-    text = re.sub(r"([,;:!?])(?=\S)", r"\1 ", text)
+    # Do not insert a space after a colon: colons are part of common URLs
+    # such as https://example.com and localhost:11434.
+    text = re.sub(r"([,;!?])(?=\S)", r"\1 ", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
     return text
