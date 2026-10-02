@@ -736,6 +736,7 @@
   function setHiddenNav(list) {
     localStorage.setItem("nexus-hidden-nav", JSON.stringify(list));
     applyNavVisibility();
+    updatePageState();
   }
 
   function applyNavVisibility() {
@@ -1272,11 +1273,129 @@
     render();
   }
 
+
+  function showNexusToast(message) {
+    let toast = document.querySelector(".nx-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "nx-toast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.remove("show"), 1800);
+  }
+
+  function bindPageInteractions() {
+    const container = document.querySelector("#pageContainer");
+    if (!container || container.dataset.nexusPageBound === "true") return;
+    container.dataset.nexusPageBound = "true";
+
+    container.addEventListener("click", event => {
+      const nav = event.target.closest("[data-go]");
+      if (nav) {
+        event.preventDefault();
+        go(nav.dataset.go);
+        return;
+      }
+
+      const command = event.target.closest(".command-item");
+      if (command) {
+        const phrase = command.querySelector("span")?.textContent?.replace(/[«»]/g, "").split(",")[0].trim();
+        if (phrase) {
+          go("chat");
+          setTimeout(() => {
+            const input = document.querySelector("#chatInput");
+            if (input) {
+              input.value = phrase;
+              input.focus();
+              showNexusToast("Команда перенесена в чат");
+            }
+          }, 40);
+        }
+        return;
+      }
+
+      const saveButton = event.target.closest(".primary");
+      if (saveButton && saveButton.id !== "saveAllButton" && saveButton.closest("#workspace")) {
+        showNexusToast("Добавление ресурсов требует подключения Workspace");
+        return;
+      }
+
+      if (event.target.closest("#interfaceButton")) {
+        go("workspace");
+        return;
+      }
+
+      if (event.target.closest(".theme-switcher")) {
+        const dropdown = document.querySelector("#themeDropdown");
+        if (dropdown) dropdown.hidden = !dropdown.hidden;
+        return;
+      }
+
+      const theme = event.target.closest("[data-theme]");
+      if (theme && typeof window.applyTheme === "function") {
+        window.applyTheme(theme.dataset.theme);
+        setSetting("jarvis-theme", theme.dataset.theme);
+        showNexusToast("Тема применена");
+      }
+    });
+
+    container.addEventListener("submit", event => {
+      const form = event.target.closest("#chatForm");
+      if (!form) return;
+      event.preventDefault();
+      const input = form.querySelector("#chatInput");
+      const text = input?.value.trim();
+      if (!text) return;
+
+      const messages = document.querySelector("#messages");
+      if (messages) {
+        const item = document.createElement("div");
+        item.className = "message user";
+        item.innerHTML = "<span>ВЫ</span><p></p>";
+        item.querySelector("p").textContent = text;
+        messages.appendChild(item);
+        messages.scrollTop = messages.scrollHeight;
+      }
+      input.value = "";
+      showNexusToast("Команда добавлена в локальный журнал. Backend пока не подключён.");
+    });
+
+    container.addEventListener("change", event => {
+      const think = event.target.closest("#thinkingToggle");
+      if (think) {
+        const stateEl = document.querySelector("#thinkingState");
+        if (stateEl) stateEl.textContent = think.checked ? "размышления вкл." : "размышления выкл.";
+      }
+
+      const language = event.target.closest("#languageSelect");
+      if (language) {
+        setSetting("jarvis-language", language.value);
+        if (typeof window.applyLanguage === "function") window.applyLanguage(language.value);
+        showNexusToast("Язык сохранён");
+      }
+    });
+
+    applyNavVisibility();
+  }
+
+  function updatePageState() {
+    applyNavVisibility();
+    const hidden = new Set(getHiddenNav());
+    const current = document.querySelector(".nx-nav button.active")?.dataset.nxPage;
+    if (current && hidden.has(current)) go("home");
+  }
+
   function bindDynamicPage() {
     if (document.querySelector(".nx-viewport")) bindWorkspace();
+    bindPageInteractions();
+    applyNavVisibility();
   }
 
   installShell();
+  bindPageInteractions();
 
   const pageContainer = document.querySelector("#pageContainer");
   new MutationObserver(bindDynamicPage).observe(pageContainer || document.body, {
