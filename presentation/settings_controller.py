@@ -26,7 +26,11 @@ class SettingsController(QObject):
         self._update_checker = update_checker or UpdateChecker()
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
+        self._events.subscribe("application.update_check_finished", self._background_update_finished)
         
+    def _background_update_finished(self, result):
+        self.update_check_finished.emit(result)
+
     def check_for_update(self):
         future = self._tasks.submit(self._check_for_update)
         future.add_done_callback(self._update_check_done)
@@ -120,5 +124,9 @@ class SettingsController(QObject):
         return self._config.get("model"), self._config.get("assistant_name", "JARVIS")
 
     def close(self):
-        for name, handler in (("dependency.progress", self.whisper_progress.emit), ("dependency.state_changed", self.whisper_state_changed.emit)):
+        for name, handler in (
+            ("dependency.progress", self.whisper_progress.emit),
+            ("dependency.state_changed", self.whisper_state_changed.emit),
+            ("application.update_check_finished", self._background_update_finished),
+        ):
             self._events.unsubscribe(name, handler)
