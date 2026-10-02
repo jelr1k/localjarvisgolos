@@ -712,7 +712,9 @@
     pan: false,
     pointerX: 0,
     pointerY: 0,
-    nodes: new Map()
+    nodes: new Map(),
+    map: "root",
+    mapStack: []
   };
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -779,6 +781,42 @@
     });
   }
 
+  function getMapDefs() {
+    if (state.map === "root") return NODE_DEFS.filter(def => def.kind === "core" || !def.parent);
+    return NODE_DEFS.filter(def => def.id === state.map || def.parent === state.map);
+  }
+
+  function getMapLinks() {
+    const visible = new Set(getMapDefs().map(def => def.id));
+    return LINK_DEFS.filter(([from, to]) => visible.has(from) && visible.has(to));
+  }
+
+  function openSettingsMap(id) {
+    const def = NODE_DEFS.find(item => item.id === id);
+    if (!def || !["interface","theme","navigation","application","voice","workspace","system"].includes(def.kind)) return;
+    state.mapStack.push(state.map);
+    state.map = id;
+    state.selected = null;
+    bindWorkspace();
+  }
+
+  function updateMapChrome() {
+    const viewport = document.querySelector(".nx-viewport");
+    if (!viewport) return;
+    let head = viewport.querySelector(".nx-map-head");
+    if (!head) { head = document.createElement("div"); head.className = "nx-map-head"; viewport.appendChild(head); }
+    if (state.map === "root") {
+      head.innerHTML = '<span class="nx-label">SETTINGS / ROOT MAP</span><strong>Основные настройки</strong>';
+    } else {
+      const parent = NODE_DEFS.find(def => def.id === state.map);
+      head.innerHTML = '<span class="nx-label">SETTINGS / NODE MAP</span><strong>' + (parent?.title || "Настройки") + '</strong><button type="button" data-nx-back>← Назад</button>';
+      head.querySelector("[data-nx-back]").addEventListener("click", () => {
+        state.map = state.mapStack.pop() || "root";
+        state.selected = null;
+        bindWorkspace();
+      });
+    }
+  }
   function bindWorkspace() {
     const viewport = document.querySelector(".nx-viewport");
     const world = document.querySelector(".nx-world");
@@ -793,7 +831,9 @@
     nodesRoot.innerHTML = "";
     linksRoot.innerHTML = "";
 
-    NODE_DEFS.forEach(def => {
+    const visibleDefs = getMapDefs();
+
+    visibleDefs.forEach(def => {
       const node = document.createElement("button");
       node.type = "button";
       node.className = "nx-node";
@@ -816,8 +856,10 @@
         const startY = event.clientY;
         const originX = def.x;
         const originY = def.y;
+        let moved = false;
 
         const move = moveEvent => {
+          moved = true;
           def.x = originX + (moveEvent.clientX - startX) / state.scale;
           def.y = originY + (moveEvent.clientY - startY) / state.scale;
           node.style.left = `${def.x}px`;
@@ -830,6 +872,7 @@
           node.classList.remove("dragging");
           node.removeEventListener("pointermove", move);
           node.removeEventListener("pointerup", up);
+          if (!moved && ["interface","theme","navigation","application","voice","workspace","system"].includes(def.kind)) openSettingsMap(def.id);
         };
 
         node.classList.add("dragging");
@@ -841,15 +884,16 @@
       state.nodes.set(def.id, { def, element: node });
     });
 
-    LINK_DEFS.forEach(([from, to]) => {
+    getMapLinks().forEach(([from, to]) => {
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
       line.dataset.from = from;
       line.dataset.to = to;
       linksRoot.appendChild(line);
     });
 
-    document.querySelector("[data-nx-node-count]").textContent = NODE_DEFS.length;
-    document.querySelector("[data-nx-link-count]").textContent = LINK_DEFS.length;
+    document.querySelector("[data-nx-node-count]").textContent = visibleDefs.length;
+    document.querySelector("[data-nx-link-count]").textContent = getMapLinks().length;
+    updateMapChrome();
 
     viewport.addEventListener("pointerdown", event => {
       if (event.target.closest(".nx-node") || event.target.closest(".nx-hud") || event.target.closest(".nx-zoom")) return;
@@ -894,7 +938,9 @@
     document.querySelector("[data-nx-open]").addEventListener("click", () => {
       if (!state.selected) return;
       const entry = state.nodes.get(state.selected);
-      if (entry) focusSettingsNode(entry.def.id);
+      if (!entry) return;
+      if (["interface","theme","navigation","application","voice","workspace","system"].includes(entry.def.kind)) openSettingsMap(entry.def.id);
+      else focusSettingsNode(entry.def.id);
     });
 
     document.querySelector("[data-nx-inspector]").addEventListener("click", handleInspectorClick);
@@ -922,7 +968,7 @@
 
     state.nodes.forEach(({ element, def }) => {
       const selected = def.id === id;
-      const related = LINK_DEFS.some(([a, b]) =>
+      const related = getMapLinks().some(([a, b]) =>
         (a === id && b === def.id) || (b === id && a === def.id)
       );
 
@@ -1088,7 +1134,7 @@
     toggle.disabled = def.kind === "core";
     toggle.textContent = def.state === "off" ? "Включить узел" : "Отключить узел";
     open.disabled = def.kind === "core";
-    open.textContent = "Центрировать";
+    open.textContent = ["interface","theme","navigation","application","voice","workspace","system"].includes(def.kind) ? "Открыть настройки" : "Центрировать";
   }
 
   function handleInspectorClick(event) {
@@ -1166,10 +1212,10 @@
       const to = state.nodes.get(line.dataset.to);
       if (!from || !to) return;
 
-      const ax = from.def.x + from.element.offsetWidth / 2;
-      const ay = from.def.y + from.element.offsetHeight / 2;
-      const bx = to.def.x + to.element.offsetWidth / 2;
-      const by = to.def.y + to.element.offsetHeight / 2;
+      const ax = parseFloat(from.element.style.left || "0") + from.element.offsetWidth / 2;
+      const ay = parseFloat(from.element.style.top || "0") + from.element.offsetHeight / 2;
+      const bx = parseFloat(to.element.style.left || "0") + to.element.offsetWidth / 2;
+      const by = parseFloat(to.element.style.top || "0") + to.element.offsetHeight / 2;
 
       line.setAttribute("x1", ax);
       line.setAttribute("y1", ay);
