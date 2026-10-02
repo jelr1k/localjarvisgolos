@@ -1,44 +1,23 @@
-<section class="page active jarvis-page" id="ai">
-  <header class="jarvis-heading">
-    <div><span class="jarvis-kicker">Local AI</span><h1>Интеллект</h1><p>Модель здесь не главный герой. Она подключается тогда, когда локального действия недостаточно.</p></div>
-    <div class="jarvis-chip"><i></i>Ollama • локально</div>
-  </header>
-  <div class="jarvis-grid two">
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Модель</span>
-      <h2 style="font:30px Georgia,serif;margin:10px 0">qwen3:1.7b</h2>
-      <div class="jarvis-metric"><span>Статус</span><b>Готова</b></div>
-      <div class="jarvis-metric"><span>Размышления</span><b>Выкл. по умолчанию</b></div>
-      <div class="jarvis-metric"><span>Ollama</span><b>localhost:11434</b></div>
-      <div class="jarvis-metric"><span>Назначение</span><b>Fallback</b></div>
-    </section>
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Система</span>
-      <div class="jarvis-stat-grid" style="margin-top:13px">
-        <div class="jarvis-stat"><small>CPU</small><strong>—</strong></div>
-        <div class="jarvis-stat"><small>GPU</small><strong>—</strong></div>
-        <div class="jarvis-stat"><small>ОЗУ</small><strong>—</strong></div>
-        <div class="jarvis-stat"><small>VRAM</small><strong>—</strong></div>
-      </div>
-      <p>Реальные значения подключаются из системной статистики, когда backend отдаёт их интерфейсу.</p>
-    </section>
+<section class="page" id="ai"><div class="jx-page jx-ai">
+  <div class="jx-ai-model">
+    <span class="jx-eyebrow">Local intelligence</span>
+    <h1>Интеллект<br>без облака.</h1>
+    <p>Ollama работает локально. qwen3:1.7b используется как fallback, а не как обязательный посредник между человеком и кнопкой «Открыть приложение».</p>
+    <div class="jx-pill"><i></i>localhost:11434</div>
   </div>
-  <div class="jarvis-grid two">
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Голосовой контур</span>
-      <h2 style="margin-top:9px">Wake word → Whisper → Router</h2>
-      <div class="jarvis-metric"><span>Wake word</span><b>Jarvis</b></div>
-      <div class="jarvis-metric"><span>Распознавание</span><b>Whisper Medium</b></div>
-      <div class="jarvis-metric"><span>Загрузка Whisper</span><b>по необходимости</b></div>
-    </section>
-    <section class="panel jarvis-card">
-      <span class="jarvis-kicker">Инструменты</span>
-      <h2 style="margin-top:9px">Минимальный набор</h2>
-      <div class="jarvis-list" style="margin-top:12px">
-        <div class="jarvis-list-item"><i></i><span>Файлы<small>В пределах Workspace</small></span></div>
-        <div class="jarvis-list-item"><i></i><span>Приложения<small>Запуск и управление</small></span></div>
-        <div class="jarvis-list-item"><i></i><span>Система<small>Только доступные команды</small></span></div>
-      </div>
-    </section>
+  <div>
+    <div class="jx-telemetry">
+      <div><span class="jx-kicker">Model</span><strong>qwen3:1.7b</strong></div>
+      <div><span class="jx-kicker">Thinking</span><strong>OFF</strong></div>
+      <div><span class="jx-kicker">CPU</span><strong>—</strong></div>
+      <div><span class="jx-kicker">GPU</span><strong>—</strong></div>
+      <div><span class="jx-kicker">RAM</span><strong>—</strong></div>
+      <div><span class="jx-kicker">VRAM</span><strong>—</strong></div>
+    </div>
+    <div class="jx-overview" style="margin-top:28px">
+      <div class="jx-overview-row"><span class="jx-kicker">Voice</span><b>Vosk → Whisper → Router</b></div>
+      <div class="jx-overview-row"><span class="jx-kicker">Whisper</span><b>Medium / lazy load</b></div>
+      <div class="jx-overview-row"><span class="jx-kicker">Purpose</span><b>Fallback</b></div>
+    </div>
   </div>
-</section>
+</div></section>
