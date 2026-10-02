@@ -8,6 +8,10 @@
   ];
 
   function go(page) {
+    if (typeof window.go === "function") {
+      window.go(page);
+      return;
+    }
     const target = document.querySelector(`.nav-item[data-page="${page}"]`);
     target?.click();
   }
