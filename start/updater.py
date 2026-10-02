@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import time
@@ -11,10 +12,11 @@ import time
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+    sys.path.insert(0, PROJECT_ROOT)
 
 from services.update_install_policy import UpdateInstallPolicy
 from services.update_installer import UpdateInstallError, UpdateInstaller
+from services.update_rollback import UpdateRollbackError, UpdateRollbackService
 
 
 POLL_INTERVAL_SECONDS = 0.5
@@ -26,6 +28,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--pid", type=int, required=True)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--archive", type=Path, required=True)
+    parser.add_argument("--backup", type=Path, required=True)
     parser.add_argument("--expected-size", type=int, required=True)
     return parser.parse_args()
 
@@ -70,10 +73,15 @@ def _restart(application_root: Path) -> subprocess.Popen:
     )
 
 
+def _cleanup_archive(archive: Path) -> None:
+    shutil.rmtree(archive.parent, ignore_errors=True)
+
+
 def main() -> int:
     args = _parse_args()
     root = args.root.resolve()
     archive = args.archive.resolve()
+    backup = args.backup.resolve()
 
     log_dir = root / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -90,20 +98,40 @@ def main() -> int:
         _wait_for_process_exit(args.pid)
 
         policy = UpdateInstallPolicy(root)
-        result = UpdateInstaller().install(
-            archive,
-            root,
-            policy=policy,
-            expected_size=args.expected_size,
-        )
-        logger.info("Update installed: %s files", result.installed_files)
+        try:
+            result = UpdateInstaller().install(
+                archive,
+                root,
+                policy=policy,
+                expected_size=args.expected_size,
+            )
+        except (UpdateInstallError, OSError) as install_error:
+            logger.exception("Update installation failed: %s", install_error)
+            logger.info("Starting rollback from %s", backup)
+            try:
+                rollback = UpdateRollbackService().restore(
+                    backup,
+                    root,
+                    policy=policy,
+                )
+                logger.info("Rollback completed: %s files restored", rollback.restored_files)
+            except (UpdateRollbackError, OSError) as rollback_error:
+                logger.exception("Rollback failed: %s", rollback_error)
+                return 2
 
+            _restart(root)
+            logger.info("JARVIS restarted after rollback")
+            return 1
+
+        logger.info("Update installed: %s files", result.installed_files)
         _restart(root)
         logger.info("JARVIS restart requested")
         return 0
-    except (TimeoutError, FileNotFoundError, UpdateInstallError, OSError) as exc:
-        logger.exception("Update failed: %s", exc)
+    except (TimeoutError, FileNotFoundError, UpdateInstallError, UpdateRollbackError, OSError) as exc:
+        logger.exception("Updater failed before installation recovery: %s", exc)
         return 1
+    finally:
+        _cleanup_archive(archive)
 
 
 if __name__ == "__main__":
