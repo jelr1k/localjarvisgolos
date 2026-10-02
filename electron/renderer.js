@@ -66,7 +66,7 @@ async function go(page) {
     document.body.classList.toggle("page-settings", page === "settings");
     const settingsSaveButton = document.querySelector("#saveAllButton");
     const topbar = document.querySelector(".topbar");
-    if (page === "settings" && settingsSaveButton && topbar) {
+    if (page === "settings" && settingsSaveButton && topbar && !document.body.classList.contains("interface-jarvis")) {
       settingsSaveButton.classList.add("settings-save-button");
       topbar.appendChild(settingsSaveButton);
     }
