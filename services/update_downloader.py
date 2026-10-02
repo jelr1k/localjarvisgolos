@@ -41,12 +41,12 @@ class UpdateDownloader:
         temp_root: Path | None = None,
         timeout: tuple[float, float] = (10.0, 60.0),
         chunk_size: int = 1024 * 1024,
-        max_size: int = 2 * 1024 * 1024 * 1024,
+        max_size: int | None = None,
         session=None,
     ):
         if chunk_size <= 0:
             raise ValueError("Размер блока загрузки должен быть больше нуля.")
-        if max_size <= 0:
+        if max_size is not None and max_size <= 0:
             raise ValueError("Максимальный размер архива должен быть больше нуля.")
 
         self._temp_root = Path(temp_root) if temp_root is not None else None
@@ -73,7 +73,7 @@ class UpdateDownloader:
             response.raise_for_status()
 
             content_length = self._content_length(response)
-            if content_length is not None and content_length > self._max_size:
+            if self._max_size is not None and content_length is not None and content_length > self._max_size:
                 raise UpdateDownloadError("Размер архива превышает допустимый лимит.")
             if content_length is not None and content_length != plan.asset_size:
                 raise UpdateDownloadError(
@@ -90,7 +90,7 @@ class UpdateDownloader:
                     if not chunk:
                         continue
                     downloaded += len(chunk)
-                    if downloaded > self._max_size:
+                    if self._max_size is not None and downloaded > self._max_size:
                         raise UpdateDownloadError("Загрузка остановлена: архив слишком большой.")
                     destination.write(chunk)
                     if progress_callback is not None:
@@ -130,7 +130,7 @@ class UpdateDownloader:
             raise UpdateDownloadError("Для загрузки нужен корректный план обновления.")
         if plan.asset_size <= 0:
             raise UpdateDownloadError("Размер архива обновления некорректен.")
-        if plan.asset_size > self._max_size:
+        if self._max_size is not None and plan.asset_size > self._max_size:
             raise UpdateDownloadError("Размер архива превышает допустимый лимит.")
         if not plan.download_url.lower().startswith("https://"):
             raise UpdateDownloadError("Скачивание обновления разрешено только по HTTPS.")
