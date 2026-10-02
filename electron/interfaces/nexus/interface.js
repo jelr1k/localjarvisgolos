@@ -1,29 +1,34 @@
 (() => {
   const pages = [
-    ["home", "Обзор", "◈"],
+    ["home", "Главная", "◈"],
     ["chat", "Чат", "◌"],
     ["commands", "Команды", "⌘"],
-    ["workspace", "Workspace", "◎"],
+    ["workspace", "Настройки", "⚙"],
     ["ai", "ИИ", "◇"]
   ];
 
+  const NAV_SETTINGS = [
+    ["home", "Главная"],
+    ["chat", "Чат"],
+    ["commands", "Команды"],
+    ["ai", "ИИ"]
+  ];
+
   const NODE_DEFS = [
-    { id: "core", title: "WORKSPACE CORE", tag: "CORE", description: "Центральный слой пространства. Связывает возможности Jarvis между собой.", x: 0, y: 0, state: "core", page: "workspace" },
-    { id: "voice", title: "VOICE", tag: "01", description: "Запись, тишина, Whisper и голосовой контур.", x: -390, y: -250, state: "active", page: "settings" },
-    { id: "wake", title: "WAKE WORD", tag: "02", description: "Vosk и фраза пробуждения Jarvis.", x: -620, y: -480, state: "active", page: "settings" },
-    { id: "model", title: "MODEL", tag: "03", description: "Локальная модель и параметры генерации.", x: 390, y: -250, state: "active", page: "ai" },
-    { id: "stats", title: "AI STATS", tag: "04", description: "Метрики модели, CPU, RAM, VRAM и времени обработки.", x: 680, y: 0, state: "active", page: "ai" },
-    { id: "files", title: "FILES", tag: "05", description: "Файловые ресурсы и объекты Workspace.", x: -400, y: 280, state: "active", page: "workspace" },
-    { id: "aliases", title: "ALIASES", tag: "06", description: "Связанные имена и пользовательские объекты.", x: -680, y: 500, state: "active", page: "workspace" },
-    { id: "tools", title: "TOOLS", tag: "07", description: "Инструменты и разрешения, доступные Jarvis.", x: -100, y: 510, state: "active", page: "commands" },
-    { id: "chat", title: "CHAT", tag: "08", description: "Текстовый канал взаимодействия с локальной моделью.", x: 400, y: 310, state: "active", page: "chat" }
+    { id: "core", title: "SETTINGS CORE", tag: "CORE", description: "Центр настроек NEXUS. Все параметры находятся внутри этого пространства.", x: 0, y: 0, state: "core", kind: "core" },
+    { id: "interface", title: "INTERFACE", tag: "01", description: "Выбор оболочки Jarvis. Custom-интерфейсы применяются после перезапуска.", x: -410, y: -310, state: "active", kind: "interface" },
+    { id: "theme", title: "THEME", tag: "02", description: "Цветовая схема приложения. Применяется сразу.", x: 0, y: -410, state: "active", kind: "theme" },
+    { id: "navigation", title: "NAVIGATION", tag: "03", description: "Управление вкладками верхней навигации. Скрытые вкладки не удаляются.", x: 430, y: -290, state: "active", kind: "navigation" },
+    { id: "application", title: "APPLICATION", tag: "04", description: "Имя ассистента и режим тестирования команд.", x: -470, y: 260, state: "active", kind: "application" },
+    { id: "voice", title: "VOICE", tag: "05", description: "Параметры голосового контура и текущие значения голосовых настроек.", x: 0, y: 390, state: "active", kind: "voice" },
+    { id: "workspace", title: "WORKSPACE", tag: "06", description: "Рабочая область, алиасы и ограничения файловых операций.", x: 470, y: 240, state: "active", kind: "workspace" },
+    { id: "system", title: "SYSTEM", tag: "07", description: "Системные параметры приложения и язык интерфейса.", x: 780, y: 500, state: "active", kind: "system" }
   ];
 
   const LINK_DEFS = [
-    ["core", "voice"], ["voice", "wake"],
-    ["core", "model"], ["model", "stats"],
-    ["core", "files"], ["files", "aliases"], ["files", "tools"],
-    ["core", "chat"], ["model", "chat"]
+    ["core", "interface"], ["core", "theme"], ["core", "navigation"],
+    ["core", "application"], ["core", "voice"], ["core", "workspace"],
+    ["core", "system"]
   ];
 
   const state = {
@@ -38,27 +43,51 @@
   };
 
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const getSetting = (key, fallback = "") => localStorage.getItem(key) ?? fallback;
+  const setSetting = (key, value) => localStorage.setItem(key, String(value));
 
   function go(page) {
     if (typeof window.go === "function") window.go(page);
   }
 
+  function getHiddenNav() {
+    try {
+      return JSON.parse(localStorage.getItem("nexus-hidden-nav") || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function setHiddenNav(list) {
+    localStorage.setItem("nexus-hidden-nav", JSON.stringify(list));
+    applyNavVisibility();
+  }
+
+  function applyNavVisibility() {
+    const hidden = new Set(getHiddenNav());
+    document.querySelectorAll(".nx-nav [data-nx-page]").forEach(button => {
+      button.hidden = hidden.has(button.dataset.nxPage);
+    });
+  }
+
   function installShell() {
-    if (document.querySelector(".nx-shell")) return;
+    if (document.querySelector(".nx-shell")) {
+      applyNavVisibility();
+      return;
+    }
 
     const shell = document.createElement("header");
     shell.className = "nx-shell";
     shell.innerHTML = `
       <div class="nx-brand">
         <span class="nx-logo">N</span>
-        <div><b>NEXUS</b><small>JARVIS WORKSPACE</small></div>
+        <div><b>NEXUS</b><small>JARVIS SETTINGS</small></div>
       </div>
       <nav class="nx-nav">
         ${pages.map(([id, label, icon]) =>
           `<button type="button" data-nx-page="${id}"><i>${icon}</i>${label}</button>`
         ).join("")}
       </nav>
-      <button class="nx-shell-action" type="button" data-nx-page="settings" title="Настройки">⚙</button>
     `;
 
     document.body.appendChild(shell);
@@ -66,11 +95,14 @@
     shell.querySelectorAll("[data-nx-page]").forEach(button => {
       button.addEventListener("click", () => go(button.dataset.nxPage));
     });
+
+    applyNavVisibility();
   }
 
   function sync(page) {
+    const target = page === "settings" ? "workspace" : page;
     document.querySelectorAll("[data-nx-page]").forEach(button => {
-      button.classList.toggle("active", button.dataset.nxPage === page);
+      button.classList.toggle("active", button.dataset.nxPage === target);
     });
   }
 
@@ -180,21 +212,36 @@
     document.querySelector("[data-nx-toggle]").addEventListener("click", () => {
       if (!state.selected) return;
       const entry = state.nodes.get(state.selected);
-      if (!entry) return;
-
+      if (!entry || entry.def.kind === "core") return;
       entry.def.state = entry.def.state === "off" ? "active" : "off";
       entry.element.dataset.state = entry.def.state;
       updateInspector();
-      renderLinks();
     });
 
     document.querySelector("[data-nx-open]").addEventListener("click", () => {
       if (!state.selected) return;
       const entry = state.nodes.get(state.selected);
-      if (entry) go(entry.def.page);
+      if (entry) focusSettingsNode(entry.def.id);
     });
 
+    document.querySelector("[data-nx-inspector]").addEventListener("click", handleInspectorClick);
+    document.querySelector("[data-nx-inspector]").addEventListener("change", handleInspectorChange);
+
     resetView();
+  }
+
+  function focusSettingsNode(id) {
+    const entry = state.nodes.get(id);
+    if (!entry) return;
+
+    const viewport = document.querySelector(".nx-viewport");
+    if (!viewport) return;
+
+    state.scale = 1;
+    state.x = viewport.clientWidth / 2 - entry.def.x;
+    state.y = viewport.clientHeight / 2 - entry.def.y;
+    selectNode(id);
+    render();
   }
 
   function selectNode(id) {
@@ -214,6 +261,53 @@
     renderLinks();
   }
 
+  function interfaceOptions() {
+    const current = localStorage.getItem("jarvis-interface") || "classic";
+    const names = {
+      classic: "Классический",
+      minimal: "Минималистичный",
+      dashboard: "Dashboard",
+      atlas: "Atlas",
+      journal: "Journal",
+      commandroom: "Command Room",
+      wave: "Wave",
+      jarvis: "JARVIS",
+      nexus: "NEXUS"
+    };
+
+    return Object.entries(names).map(([id, label]) =>
+      `<button type="button" class="nx-choice ${id === current ? "selected" : ""}" data-nx-interface="${id}">
+        <b>${label}</b><small>${id === current ? "Текущий" : id === "nexus" || id === "jarvis" ? "Требует перезапуска" : "Применяется сразу"}</small>
+      </button>`
+    ).join("");
+  }
+
+  function themeOptions() {
+    const current = localStorage.getItem("jarvis-theme") || "dark";
+    const names = {
+      dark: "Тёмная", light: "Светлая", "gradient-amber": "Янтарный",
+      "gradient-blue": "Синий", "gradient-purple": "Фиолетовый",
+      "mono-slate": "Сланец", "mono-graphite": "Графит", "mono-silver": "Серебро",
+      "mono-cream": "Кремовый", "gradient-cyan": "Циан", "gradient-green": "Изумруд",
+      "gradient-red": "Красный", "gradient-sunset": "Закат"
+    };
+
+    return Object.entries(names).map(([id, label]) =>
+      `<button type="button" class="nx-choice ${id === current ? "selected" : ""}" data-nx-theme="${id}">${label}</button>`
+    ).join("");
+  }
+
+  function navigationControls() {
+    const hidden = new Set(getHiddenNav());
+
+    return NAV_SETTINGS.map(([id, label]) => `
+      <label class="nx-setting-row">
+        <span><b>${label}</b><small>Верхняя вкладка</small></span>
+        <input type="checkbox" data-nx-nav="${id}" ${hidden.has(id) ? "" : "checked"}>
+      </label>
+    `).join("");
+  }
+
   function updateInspector() {
     const inspector = document.querySelector("[data-nx-inspector]");
     const toggle = document.querySelector("[data-nx-toggle]");
@@ -223,9 +317,9 @@
 
     if (!state.selected) {
       inspector.innerHTML = `
-        <span class="nx-label">NO SELECTION</span>
+        <span class="nx-label">SETTINGS</span>
         <strong>Выбери узел</strong>
-        <p>Кликни объект в пространстве. Его связи и состояние появятся здесь.</p>
+        <p>Здесь находятся все настройки приложения. Узлы можно таскать, а поле можно масштабировать и перемещать.</p>
       `;
       toggle.disabled = true;
       open.disabled = true;
@@ -234,25 +328,137 @@
 
     const entry = state.nodes.get(state.selected);
     if (!entry) return;
-
     const { def } = entry;
-    const stateLabel = def.state === "off" ? "ОТКЛЮЧЁН" : def.state === "core" ? "CORE" : "АКТИВЕН";
 
-    inspector.innerHTML = `
-      <span class="nx-label">${def.tag} / ${stateLabel}</span>
+    let content = `
+      <span class="nx-label">${def.tag} / ${def.state === "off" ? "ОТКЛЮЧЁН" : "АКТИВЕН"}</span>
       <strong>${def.title}</strong>
       <p>${def.description}</p>
     `;
 
-    toggle.disabled = def.state === "core";
-    toggle.textContent = def.state === "off" ? "Включить" : "Отключить";
-    open.disabled = false;
+    if (def.kind === "interface") {
+      content += `<div class="nx-control-block"><span class="nx-control-title">Оболочка</span><div class="nx-choice-grid">${interfaceOptions()}</div></div>`;
+    }
+
+    if (def.kind === "theme") {
+      content += `<div class="nx-control-block"><span class="nx-control-title">Тема</span><div class="nx-choice-grid theme-grid-nx">${themeOptions()}</div></div>`;
+    }
+
+    if (def.kind === "navigation") {
+      content += `<div class="nx-control-block"><span class="nx-control-title">Верхние вкладки</span>${navigationControls()}<small class="nx-note">Настройки остаются доступны всегда.</small></div>`;
+    }
+
+    if (def.kind === "application") {
+      content += `
+        <div class="nx-control-block">
+          <label class="nx-field"><span>Имя ассистента</span><input data-nx-setting="assistant-name" value="${getSetting("jarvis-assistant-name", "Jarvis")}"></label>
+          <label class="nx-setting-row"><span><b>Режим тестирования</b><small>Только Command Router, без вызова ИИ</small></span><input type="checkbox" data-nx-setting="testing" ${getSetting("jarvis-testing-mode","false") === "true" ? "checked" : ""}></label>
+        </div>`;
+    }
+
+    if (def.kind === "voice") {
+      content += `
+        <div class="nx-control-block">
+          <div class="nx-readonly"><span>Wake word</span><b>Jarvis</b></div>
+          <div class="nx-readonly"><span>Микрофон</span><b>Системный</b></div>
+          <label class="nx-field"><span>Тишина до автоотправки</span><input type="number" min="0.2" max="10" step="0.1" data-nx-setting="silence" value="${getSetting("jarvis-silence-threshold","1.2")}"><small>сек.</small></label>
+        </div>`;
+    }
+
+    if (def.kind === "workspace") {
+      content += `
+        <div class="nx-control-block">
+          <div class="nx-readonly"><span>Рабочая область</span><b>Только Workspace</b></div>
+          <button type="button" class="nx-wide-action" data-nx-action="aliases">Открыть алиасы</button>
+          <small class="nx-note">Функция алиасов открывает существующий раздел команд/ресурсов, не создавая отдельную страницу.</small>
+        </div>`;
+    }
+
+    if (def.kind === "system") {
+      content += `
+        <div class="nx-control-block">
+          <label class="nx-field"><span>Язык</span><select data-nx-setting="language"><option value="ru">Русский</option><option value="en">English</option></select></label>
+          <div class="nx-readonly"><span>Интерфейс</span><b>NEXUS</b></div>
+        </div>`;
+    }
+
+    inspector.innerHTML = content;
+
+    const language = inspector.querySelector('[data-nx-setting="language"]');
+    if (language) language.value = getSetting("jarvis-language", "ru");
+
+    toggle.disabled = def.kind === "core";
+    toggle.textContent = def.state === "off" ? "Включить узел" : "Отключить узел";
+    open.disabled = def.kind === "core";
+    open.textContent = "Центрировать";
+  }
+
+  function handleInspectorClick(event) {
+    const interfaceButton = event.target.closest("[data-nx-interface]");
+    if (interfaceButton) {
+      const name = interfaceButton.dataset.nxInterface;
+      localStorage.setItem("jarvis-interface", name);
+
+      if (window.JarvisInterfaceManager) {
+        const save = document.createElement("button");
+        save.id = "saveAllButton";
+        save.hidden = true;
+        document.body.appendChild(save);
+        interfaceButton.closest(".nx-choice-grid").querySelectorAll(".nx-choice").forEach(item => item.classList.remove("selected"));
+        interfaceButton.classList.add("selected");
+        save.click();
+        save.remove();
+      } else {
+        setInterfaceClass(name);
+        location.reload();
+      }
+      return;
+    }
+
+    const themeButton = event.target.closest("[data-nx-theme]");
+    if (themeButton) {
+      const theme = themeButton.dataset.nxTheme;
+      if (typeof window.applyTheme === "function") window.applyTheme(theme);
+      else {
+        localStorage.setItem("jarvis-theme", theme);
+        document.body.className = document.body.className.replace(/theme-[^ ]+/g, "");
+      }
+      themeButton.closest(".nx-choice-grid").querySelectorAll(".nx-choice").forEach(item => item.classList.remove("selected"));
+      themeButton.classList.add("selected");
+      return;
+    }
+
+    const action = event.target.closest("[data-nx-action]");
+    if (action?.dataset.nxAction === "aliases") {
+      go("commands");
+    }
+  }
+
+  function handleInspectorChange(event) {
+    const nav = event.target.closest("[data-nx-nav]");
+    if (nav) {
+      const id = nav.dataset.nxNav;
+      const hidden = new Set(getHiddenNav());
+      if (nav.checked) hidden.delete(id);
+      else hidden.add(id);
+      setHiddenNav([...hidden]);
+      return;
+    }
+
+    const setting = event.target.closest("[data-nx-setting]");
+    if (!setting) return;
+
+    const key = setting.dataset.nxSetting;
+    if (key === "assistant-name") setSetting("jarvis-assistant-name", setting.value);
+    if (key === "testing") setSetting("jarvis-testing-mode", setting.checked);
+    if (key === "silence") setSetting("jarvis-silence-threshold", setting.value);
+    if (key === "language") {
+      setSetting("jarvis-language", setting.value);
+      if (typeof window.applyLanguage === "function") window.applyLanguage(setting.value);
+    }
   }
 
   function renderLinks() {
-    const world = document.querySelector(".nx-world");
-    if (!world) return;
-
     const lines = [...document.querySelectorAll(".nx-links line")];
 
     lines.forEach(line => {
@@ -284,15 +490,13 @@
     world.style.transform = `translate3d(${state.x}px, ${state.y}px, 0) scale(${state.scale})`;
     const zoom = document.querySelector("[data-nx-zoom]");
     if (zoom) zoom.textContent = `${Math.round(state.scale * 100)}%`;
-
     renderLinks();
   }
 
   function resetView() {
     const viewport = document.querySelector(".nx-viewport");
     if (!viewport) return;
-
-    state.scale = 1;
+    state.scale = 0.92;
     state.x = viewport.clientWidth / 2;
     state.y = viewport.clientHeight / 2;
     render();
@@ -305,7 +509,6 @@
     const rect = viewport.getBoundingClientRect();
     const localX = clientX - rect.left;
     const localY = clientY - rect.top;
-
     const oldScale = state.scale;
     const nextScale = clamp(oldScale * multiplier, 0.35, 2.5);
     if (nextScale === oldScale) return;
@@ -316,33 +519,11 @@
     state.scale = nextScale;
     state.x = localX - worldX * nextScale;
     state.y = localY - worldY * nextScale;
-
     render();
   }
 
   function bindDynamicPage() {
     if (document.querySelector(".nx-viewport")) bindWorkspace();
-
-    const form = document.querySelector("#nxChatForm");
-    const input = document.querySelector("#nxChatInput");
-    const messages = document.querySelector("#nxMessages");
-
-    if (form && input && messages && !form.dataset.bound) {
-      form.dataset.bound = "true";
-      form.addEventListener("submit", event => {
-        event.preventDefault();
-        const value = input.value.trim();
-        if (!value) return;
-
-        const item = document.createElement("div");
-        item.className = "nx-msg user";
-        item.innerHTML = "<label>ВЫ</label><p></p>";
-        item.querySelector("p").textContent = value;
-        messages.appendChild(item);
-        messages.scrollTop = messages.scrollHeight;
-        input.value = "";
-      });
-    }
   }
 
   installShell();
@@ -358,7 +539,7 @@
     if (button) sync(button.dataset.nxPage);
   });
 
-  window.NexusInterface = Object.freeze({ go, sync, resetView });
+  window.NexusInterface = Object.freeze({ go, sync, resetView, selectNode });
   window.addEventListener("resize", () => {
     if (document.querySelector(".nx-viewport")) render();
   });
