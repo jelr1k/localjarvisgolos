@@ -180,3 +180,50 @@ def test_settings_controller_requests_confirmation_for_prepared_update():
     controller.check_for_update()
 
     assert received == [plan]
+
+
+def test_settings_controller_downloads_confirmed_update_and_emits_progress():
+    from services.update_service import UpdatePlan
+
+    plan = UpdatePlan(
+        current_version="0.1.0",
+        target_version="0.2.0",
+        release_url="https://github.com/jelr1k/localjarvisgolos/releases/tag/v0.2.0",
+        asset_name="JARVIS.zip",
+        download_url="https://example.com/JARVIS.zip",
+        asset_size=100,
+    )
+    download_result = object()
+    downloader = FakeUpdateDownloader(result=download_result)
+    controller = make_controller(FakeChecker(), update_downloader=downloader)
+    progress = []
+    finished = []
+
+    controller.update_download_progress.connect(lambda current, total, speed: progress.append((current, total, speed)))
+    controller.update_download_finished.connect(finished.append)
+
+    controller.download_update(plan)
+
+    assert downloader.calls == [plan]
+    assert progress == [(50, 100, 25.0)]
+    assert finished == [{"success": True, "result": download_result}]
+
+
+def test_settings_controller_reports_download_error():
+    from services.update_service import UpdatePlan
+
+    plan = UpdatePlan(
+        current_version="0.1.0",
+        target_version="0.2.0",
+        release_url="https://github.com/jelr1k/localjarvisgolos/releases/tag/v0.2.0",
+        asset_name="JARVIS.zip",
+        download_url="https://example.com/JARVIS.zip",
+        asset_size=100,
+    )
+    controller = make_controller(FakeChecker(), update_downloader=FakeUpdateDownloader(error="network"))
+    finished = []
+    controller.update_download_finished.connect(finished.append)
+
+    controller.download_update(plan)
+
+    assert finished == [{"success": False, "error": "network"}]
