@@ -12,6 +12,12 @@
       requiresRestart: true,
       css: "interfaces/jarvis/interface.css",
       js: "interfaces/jarvis/interface.js"
+    },
+    nexus: {
+      mode: "custom",
+      requiresRestart: true,
+      css: "interfaces/nexus/interface.css",
+      js: "interfaces/nexus/interface.js"
     }
   };
 
