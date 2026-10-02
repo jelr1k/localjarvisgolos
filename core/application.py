@@ -14,6 +14,7 @@ from llm.ollama import OllamaProvider
 from services.chat_service import ChatService
 from services.update_checker import UpdateChecker
 from services.update_monitor import UpdateMonitor
+from services.update_service import UpdateService
 from tools.paths import prepare_tool_workspace
 from voice.controller import VoiceService
 from voice.wake_word import WakeWordDetector
@@ -64,6 +65,7 @@ class JarvisApplication:
         self._started = False
         self._shutdown_started = False
         self.update_checker = UpdateChecker()
+        self.update_service = UpdateService()
         self.update_monitor = UpdateMonitor(
             checker=self.update_checker,
             on_result=lambda result: self.events.emit("application.update_check_finished", result),
