@@ -1,0 +1,57 @@
+<section class="page active jarvis-page" id="settings">
+  <header class="jarvis-heading">
+    <div><span class="jarvis-kicker">Configuration</span><h1>Настройки</h1><p>Здесь выбирается характер интерфейса и палитра. Функции Jarvis остаются теми же.</p></div>
+    <button class="primary jarvis-button" id="saveAllButton" type="button">Сохранить всё</button>
+  </header>
+
+  <section class="panel jarvis-card">
+    <span class="jarvis-kicker">Внешний вид</span>
+    <h2 style="margin-top:9px">JARVIS interface</h2>
+    <p>Выбранная палитра применяется ко всему этому интерфейсу через общие цветовые токены. Новый дизайн не захардкожен под один цвет.</p>
+    <div class="jarvis-setting panel" style="margin-top:12px"><div><b>Текущий интерфейс</b><small>JARVIS • отдельная структура страниц</small></div><span class="value">Custom</span></div>
+    <div class="jarvis-setting panel"><div><b>Палитра</b><small>Управляется глобальным выбором темы ниже.</small></div><span class="value" id="jarvisThemeLabel">из настроек</span></div>
+  </section>
+
+  <div class="jarvis-settings-grid">
+    <section class="panel jarvis-card">
+      <span class="jarvis-kicker">Приложение</span>
+      <div class="jarvis-setting panel" style="margin-top:12px"><div><b>Название</b><small>Название приложения</small></div><span class="value">JARVIS</span></div>
+      <div class="jarvis-setting panel"><div><b>Ассистент</b><small>Имя в чате и интерфейсе</small></div><span class="value">Jarvis</span></div>
+      <div class="jarvis-setting panel"><div><b>Язык</b><small>Язык интерфейса</small></div><select class="control setting-select" id="languageSelect"><option value="ru">Русский</option><option value="en">English</option></select></div>
+    </section>
+    <section class="panel jarvis-card">
+      <span class="jarvis-kicker">Голос</span>
+      <div class="jarvis-setting panel" style="margin-top:12px"><div><b>Wake word</b><small>Активация голосового контура</small></div><span class="value">Jarvis</span></div>
+      <div class="jarvis-setting panel"><div><b>Whisper</b><small>Распознавание речи</small></div><span class="value">Medium</span></div>
+      <div class="jarvis-setting panel"><div><b>Тишина</b><small>Автоотправка после паузы</small></div><span class="value">настраивается</span></div>
+    </section>
+  </div>
+
+  <section class="panel jarvis-card">
+    <span class="jarvis-kicker">Тема</span>
+    <h2 style="margin-top:9px">Палитра интерфейса</h2>
+    <p>Выбор меняет цвета, акценты, поверхности и контраст JARVIS, не меняя его компоновку.</p>
+    <div class="theme-grid" id="themePicker" style="margin-top:14px">
+      <button class="theme-option theme-option-dark" data-theme="dark" type="button"><span>Тёмная</span><small>Базовая</small></button>
+      <button class="theme-option theme-option-light" data-theme="light" type="button"><span>Светлая</span><small>Светлый интерфейс</small></button>
+      <button class="theme-option theme-option-amber" data-theme="gradient-amber" type="button"><span>Янтарный</span><small>Тёплый</small></button>
+      <button class="theme-option theme-option-blue" data-theme="gradient-blue" type="button"><span>Синий</span><small>Холодный</small></button>
+      <button class="theme-option theme-option-purple" data-theme="gradient-purple" type="button"><span>Фиолетовый</span><small>Глубокий</small></button>
+      <button class="theme-option theme-option-cyan" data-theme="gradient-cyan" type="button"><span>Циан</span><small>Неон</small></button>
+      <button class="theme-option theme-option-green" data-theme="gradient-green" type="button"><span>Изумруд</span><small>Зелёный</small></button>
+      <button class="theme-option theme-option-red" data-theme="gradient-red" type="button"><span>Красный</span><small>Контраст</small></button>
+      <button class="theme-option theme-option-sunset" data-theme="gradient-sunset" type="button"><span>Закат</span><small>Тёплый градиент</small></button>
+      <button class="theme-option theme-option-graphite" data-theme="mono-graphite" type="button"><span>Графит</span><small>Монохром</small></button>
+      <button class="theme-option theme-option-slate" data-theme="mono-slate" type="button"><span>Сланец</span><small>Монохром</small></button>
+      <button class="theme-option theme-option-cream" data-theme="mono-cream" type="button"><span>Кремовый</span><small>Мягкий</small></button>
+      <button class="theme-option theme-option-silver" data-theme="mono-silver" type="button"><span>Серебро</span><small>Светлый</small></button>
+    </div>
+  </section>
+
+  <section class="panel jarvis-card">
+    <span class="jarvis-kicker">Рабочая область</span>
+    <h2 style="margin-top:9px">Ограничения остаются простыми</h2>
+    <div class="jarvis-setting panel" style="margin-top:12px"><div><b>Файлы</b><small>Разрешённая область</small></div><span class="value">Workspace</span></div>
+    <div class="jarvis-setting panel"><div><b>Алиасы</b><small>Короткие имена ресурсов</small></div><button class="jarvis-button" type="button">Управление</button></div>
+  </section>
+</section>
