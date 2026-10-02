@@ -797,6 +797,8 @@
     state.mapStack.push(state.map);
     state.map = id;
     state.selected = null;
+    const viewport = document.querySelector(".nx-viewport");
+    if (viewport) delete viewport.dataset.bound;
     bindWorkspace();
   }
 
@@ -813,6 +815,8 @@
       head.querySelector("[data-nx-back]").addEventListener("click", () => {
         state.map = state.mapStack.pop() || "root";
         state.selected = null;
+        const viewport = document.querySelector(".nx-viewport");
+        if (viewport) delete viewport.dataset.bound;
         bindWorkspace();
       });
     }
