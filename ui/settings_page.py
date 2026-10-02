@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import webbrowser
+
+from core.version import APP_VERSION
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar
 
@@ -35,12 +38,54 @@ class SettingsPage(QWidget):
         self.whisper_progress=QProgressBar();self.whisper_progress.hide();self.whisper_progress_label=QLabel();self.whisper_progress_label.hide()
         self.wake_word_enabled=QCheckBox("Включить wake word");self.wake_word_enabled.setChecked(bool(voice.get("wake_word_enabled",True)));self.wake_word=QLineEdit(voice.get("wake_word","Jarvis"))
         self.silence_duration=QDoubleSpinBox();self.silence_duration.setRange(.5,10);self.silence_duration.setSingleStep(.1);self.silence_duration.setValue(float(voice.get("silence_duration",2)))
-        self.status_label=QLabel();self.status_label.setWordWrap(True);self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
+        self.status_label=QLabel();self.status_label.setWordWrap(True)
+        self.update_status=QLabel(f"Текущая версия: {APP_VERSION}");self.update_status.setWordWrap(True)
+        self.update_check_button=QPushButton("Проверить обновления");self.update_check_button.clicked.connect(self._check_for_update)
+        self.update_details_button=QPushButton("Открыть страницу релиза");self.update_details_button.clicked.connect(self._open_release);self.update_details_button.hide()
+        update_row=QHBoxLayout();update_row.setContentsMargins(0,0,0,0);update_row.addWidget(self.update_check_button);update_row.addWidget(self.update_details_button)
+        update_box=QGroupBox("Обновления");update_layout=QVBoxLayout(update_box);update_layout.addWidget(self.update_status);update_layout.addLayout(update_row)
+        self._latest_release_url=""
+        self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
         form=QFormLayout()
         for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace)]:form.addRow(label,widget)
-        box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
-        controller.refresh_finished.connect(self._refresh_finished);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
+        box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(update_box);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
+        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
         self._refresh_whisper_statuses();self._load_microphones();self._set_status("Готово",False)
+
+    def _check_for_update(self):
+        if self.update_check_button.text() == "Проверка…":
+            return
+        self.update_check_button.setEnabled(False)
+        self.update_check_button.setText("Проверка…")
+        self.update_details_button.hide()
+        self.update_status.setText(f"Текущая версия: {APP_VERSION}\nПроверяю GitHub Releases…")
+        self.controller.check_for_update()
+
+    def _update_check_finished(self, result):
+        self.update_check_button.setEnabled(True)
+        self.update_check_button.setText("Проверить обновления")
+        if not result.get("success"):
+            self.update_status.setText(
+                f"Текущая версия: {APP_VERSION}\n⚠ {result.get('error', 'Не удалось проверить обновления')}"
+            )
+            return
+
+        info = result["info"]
+        self._latest_release_url = info.release_url
+        if info.update_available:
+            self.update_status.setText(
+                f"Текущая версия: {info.current_version}\n"
+                f"Доступна новая версия: {info.latest_version}\n"
+                f"{info.release_name}"
+            )
+            self.update_details_button.setVisible(bool(info.release_url))
+        else:
+            message = "Релизов пока нет." if not info.tag_name else "Установлена последняя версия."
+            self.update_status.setText(f"Текущая версия: {info.current_version}\n✓ {message}")
+
+    def _open_release(self):
+        if self._latest_release_url:
+            webbrowser.open(self._latest_release_url)
 
     def _set_status(self,text,error):self.status_label.setText(text);self.status_label.setProperty("status_error",bool(error));self.status_label.style().unpolish(self.status_label);self.status_label.style().polish(self.status_label)
 
