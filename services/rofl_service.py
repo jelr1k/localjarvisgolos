@@ -51,8 +51,8 @@ class RoflService:
         target = str(arguments.get("target") or result.get("path") or "объект").strip().strip(""'")
         if not target:
             return "объект"
-        if "/" in target or "\\" in target:
-            name = PurePath(target.replace("\\", "/")).name
+        if "/" in target or "\" in target:
+            name = PurePath(target.replace("\", "/")).name
             if name:
                 return name
         return target
