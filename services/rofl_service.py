@@ -328,14 +328,15 @@ class RoflService:
         ),
     }
 
-    def __init__(self, event_bus, config):
+    def __init__(self, event_bus, config=None):
         self.events = event_bus
+        rofl_config = config.get("rofl", {}) if config is not None else {}
         self.rofl_chance = self._clamp_chance(
-            config.get("rofl", {}).get("chance", self.DEFAULT_ROFL_CHANCE),
+            rofl_config.get("chance", self.DEFAULT_ROFL_CHANCE),
             self.DEFAULT_ROFL_CHANCE,
         )
         self.demon_chance = self._clamp_chance(
-            config.get("rofl", {}).get("demon_chance", self.DEFAULT_DEMON_CHANCE),
+            rofl_config.get("demon_chance", self.DEFAULT_DEMON_CHANCE),
             self.DEFAULT_DEMON_CHANCE,
         )
         event_bus.subscribe("tool.executed", self._on_tool_executed)
