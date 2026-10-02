@@ -1,0 +1,356 @@
+/* JARVIS ORBIT — отдельный интерфейс.
+   Не меняет существующие темы и не требует backend.
+   Подключается поверх базового styles.css только для .interface-orbit. */
+
+body.interface-orbit{
+  --orbit-bg:#08070f;
+  --orbit-panel:rgba(18,14,31,.88);
+  --orbit-panel-2:rgba(25,19,43,.92);
+  --orbit-border:rgba(174,122,255,.22);
+  --orbit-border-strong:rgba(190,142,255,.48);
+  --orbit-text:#f5f0ff;
+  --orbit-muted:#9588aa;
+  --orbit-accent:#b77cff;
+  --orbit-accent-2:#6e5cff;
+  --orbit-glow:rgba(154,92,255,.24);
+  background:var(--orbit-bg);
+  color:var(--orbit-text);
+}
+
+/* Narrow command rail: deliberately unlike the existing wide sidebar. */
+body.interface-orbit .app{
+  grid-template-columns:82px minmax(0,1fr);
+  background:
+    radial-gradient(circle at 78% 14%,rgba(137,83,255,.13),transparent 28%),
+    radial-gradient(circle at 18% 88%,rgba(87,72,255,.10),transparent 24%),
+    var(--orbit-bg);
+}
+
+body.interface-orbit .sidebar{
+  width:82px;
+  padding:16px 10px;
+  background:rgba(8,7,15,.82);
+  border-right:1px solid var(--orbit-border);
+  backdrop-filter:blur(20px);
+  z-index:20;
+}
+
+body.interface-orbit .brand{
+  justify-content:center;
+  padding:2px 0 26px;
+}
+body.interface-orbit .brand-mark{
+  width:44px;
+  height:44px;
+  border-radius:14px;
+  border:1px solid var(--orbit-border-strong);
+  background:linear-gradient(145deg,rgba(183,124,255,.22),rgba(92,76,255,.08));
+  color:#fff;
+  box-shadow:0 0 28px var(--orbit-glow);
+}
+body.interface-orbit .brand>div:not(.brand-mark){display:none}
+
+body.interface-orbit .nav{gap:9px}
+body.interface-orbit .nav-item{
+  width:60px;
+  min-height:58px;
+  margin:auto;
+  padding:0;
+  border:1px solid transparent;
+  border-radius:16px;
+  justify-content:center;
+  background:transparent;
+  color:var(--orbit-muted);
+  position:relative;
+  transition:.18s ease;
+}
+body.interface-orbit .nav-item span{
+  width:auto;
+  font-size:19px;
+  color:inherit;
+}
+body.interface-orbit .nav-item::after{
+  content:attr(data-page);
+  position:absolute;
+  left:72px;
+  top:50%;
+  transform:translateY(-50%);
+  padding:7px 10px;
+  border:1px solid var(--orbit-border);
+  border-radius:9px;
+  background:#161126;
+  color:var(--orbit-text);
+  font-size:11px;
+  opacity:0;
+  pointer-events:none;
+  white-space:nowrap;
+  transition:.15s;
+  box-shadow:0 10px 28px #0007;
+}
+body.interface-orbit .nav-item:hover::after{opacity:1}
+body.interface-orbit .nav-item:hover{
+  background:rgba(183,124,255,.09);
+  border-color:var(--orbit-border);
+  color:#fff;
+}
+body.interface-orbit .nav-item.active{
+  background:linear-gradient(145deg,rgba(183,124,255,.24),rgba(99,79,255,.12));
+  border-color:var(--orbit-border-strong);
+  color:#fff;
+  box-shadow:inset 0 0 18px rgba(183,124,255,.06),0 8px 28px #0005;
+}
+body.interface-orbit .nav-item.active::before{
+  content:"";
+  position:absolute;
+  left:-11px;
+  width:3px;
+  height:24px;
+  border-radius:3px;
+  background:var(--orbit-accent);
+  box-shadow:0 0 14px var(--orbit-accent);
+}
+
+body.interface-orbit .sidebar-bottom{
+  display:grid;
+  gap:10px;
+  justify-items:center;
+}
+body.interface-orbit .status{
+  width:46px;
+  height:46px;
+  padding:0;
+  border:1px solid var(--orbit-border);
+  border-radius:14px;
+  justify-content:center;
+}
+body.interface-orbit .status span{display:none}
+body.interface-orbit .status i{
+  width:9px;height:9px;
+  box-shadow:0 0 14px #72f5a5;
+}
+body.interface-orbit .profile{
+  width:46px;
+  height:46px;
+  padding:0;
+  border:1px solid var(--orbit-border);
+  border-radius:14px;
+  background:rgba(18,14,31,.9);
+  justify-content:center;
+}
+body.interface-orbit .profile-name,
+body.interface-orbit .profile-chevron{display:none}
+body.interface-orbit .avatar{
+  width:30px;height:30px;
+  border-radius:10px;
+  background:linear-gradient(145deg,var(--orbit-accent),var(--orbit-accent-2));
+  color:#fff;
+  display:grid;
+  place-items:center;
+}
+
+body.interface-orbit .main{
+  position:relative;
+  background:transparent;
+}
+body.interface-orbit .topbar{
+  height:72px;
+  flex-basis:72px;
+  padding:0 30px;
+  background:rgba(8,7,15,.55);
+  border-bottom:1px solid var(--orbit-border);
+  backdrop-filter:blur(18px);
+}
+body.interface-orbit .topbar::after{
+  content:"ORBIT";
+  margin-left:auto;
+  color:var(--orbit-muted);
+  font-size:10px;
+  letter-spacing:2.5px;
+}
+body.interface-orbit .eyebrow{color:var(--orbit-accent)}
+body.interface-orbit .crumb{color:var(--orbit-muted)}
+
+body.interface-orbit #pageContainer{
+  background:
+    radial-gradient(circle at 70% 20%,rgba(116,82,255,.07),transparent 30%);
+}
+body.interface-orbit .page{
+  padding:26px;
+  scrollbar-color:rgba(183,124,255,.35) transparent;
+}
+body.interface-orbit .panel,
+body.interface-orbit .setting,
+body.interface-orbit .workspace-main,
+body.interface-orbit .info-card,
+body.interface-orbit .model-card{
+  border-color:var(--orbit-border);
+  background:var(--orbit-panel);
+  border-radius:20px;
+  box-shadow:0 18px 50px rgba(0,0,0,.18);
+  backdrop-filter:blur(18px);
+}
+body.interface-orbit .page-head{
+  padding:22px 24px;
+  border-color:var(--orbit-border);
+}
+body.interface-orbit .page-head h2,
+body.interface-orbit .command-card h3,
+body.interface-orbit .model-card h3{
+  font-family:Inter,Segoe UI,system-ui,sans-serif;
+  letter-spacing:-.5px;
+}
+body.interface-orbit .page-head h2{font-size:34px}
+body.interface-orbit .page-head p,
+body.interface-orbit .setting small,
+body.interface-orbit .command-card p,
+body.interface-orbit .model-card p{color:var(--orbit-muted)}
+
+body.interface-orbit button{
+  border-radius:12px;
+  border-color:var(--orbit-border);
+  background:rgba(25,19,43,.72);
+  color:var(--orbit-text);
+}
+body.interface-orbit button:hover{
+  background:rgba(183,124,255,.12);
+  border-color:var(--orbit-border-strong);
+}
+body.interface-orbit button.primary{
+  background:linear-gradient(135deg,var(--orbit-accent),var(--orbit-accent-2));
+  border-color:transparent;
+  color:#fff;
+  box-shadow:0 8px 28px var(--orbit-glow);
+}
+
+body.interface-orbit .home-stage{
+  border:1px solid var(--orbit-border);
+  border-radius:26px;
+  background:
+    radial-gradient(circle at 50% 42%,rgba(146,92,255,.10),transparent 25%),
+    rgba(10,8,18,.48);
+  box-shadow:inset 0 0 80px rgba(111,74,255,.05);
+}
+body.interface-orbit .black-hole{opacity:.9}
+body.interface-orbit .home-help{
+  top:20px;right:20px;
+  border-radius:50%;
+  border-color:var(--orbit-border);
+  background:rgba(18,14,31,.7);
+  color:var(--orbit-accent);
+}
+body.interface-orbit .home-status-cards{
+  left:22px;right:22px;bottom:22px;
+  max-width:none;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+body.interface-orbit .home-status-card{
+  padding:13px 14px;
+  border-radius:15px;
+  border-color:var(--orbit-border);
+  background:rgba(18,14,31,.72);
+}
+body.interface-orbit .home-status-card-dot{
+  background:#9c7cff;
+  box-shadow:0 0 14px #9c7cff;
+}
+body.interface-orbit .home-status-card small{color:var(--orbit-muted)}
+body.interface-orbit .home-status-card strong{color:var(--orbit-text)}
+
+body.interface-orbit .message p{
+  border-radius:16px;
+  border-color:var(--orbit-border);
+  background:var(--orbit-panel-2);
+}
+body.interface-orbit .message.user p{
+  background:linear-gradient(135deg,var(--orbit-accent),var(--orbit-accent-2));
+  color:#fff;
+  border-color:transparent;
+}
+body.interface-orbit .composer{
+  padding:14px;
+  border-color:var(--orbit-border);
+}
+body.interface-orbit .composer input{
+  border-radius:14px;
+  border-color:var(--orbit-border);
+  background:rgba(8,7,15,.72);
+  color:var(--orbit-text);
+}
+body.interface-orbit .chat-meta{border-color:var(--orbit-border);color:var(--orbit-muted)}
+
+body.interface-orbit .settings-section{
+  border:1px solid var(--orbit-border);
+  border-radius:20px;
+  background:rgba(18,14,31,.5);
+  padding:20px;
+  margin-bottom:14px;
+}
+body.interface-orbit .settings-section-head h3{color:var(--orbit-text)}
+body.interface-orbit .settings-section-head p{color:var(--orbit-muted)}
+body.interface-orbit .interface-grid{gap:12px}
+body.interface-orbit .interface-option{
+  min-height:150px;
+  border-radius:17px;
+  background:rgba(25,19,43,.65);
+  border-color:var(--orbit-border);
+}
+body.interface-orbit .interface-option:hover,
+body.interface-orbit .interface-option.selected{
+  border-color:var(--orbit-accent);
+  box-shadow:0 0 0 1px var(--orbit-accent),0 12px 32px var(--orbit-glow);
+}
+body.interface-orbit .interface-option i{
+  border-radius:12px;
+  background:linear-gradient(145deg,rgba(183,124,255,.16),rgba(92,76,255,.08));
+  border-color:var(--orbit-border);
+}
+body.interface-orbit .interface-option span{color:var(--orbit-text)}
+body.interface-orbit .interface-option small{color:var(--orbit-muted)}
+
+body.interface-orbit .theme-switcher,
+body.interface-orbit .control{
+  border-radius:12px;
+  background:rgba(25,19,43,.72);
+  border-color:var(--orbit-border);
+}
+body.interface-orbit .theme-dropdown{
+  border-radius:18px;
+  border-color:var(--orbit-border-strong);
+  background:rgba(12,9,22,.96);
+  box-shadow:0 20px 60px #0009;
+}
+body.interface-orbit .theme-option{
+  border-radius:12px;
+}
+
+body.interface-orbit .profile-menu,
+body.interface-orbit .home-help-popover{
+  border-radius:16px;
+  border-color:var(--orbit-border-strong);
+  background:rgba(12,9,22,.96);
+}
+
+body.interface-orbit .command-card,
+body.interface-orbit .model-card,
+body.interface-orbit .workspace-main,
+body.interface-orbit .info-card{
+  padding:22px;
+}
+body.interface-orbit .resource{border-color:var(--orbit-border)}
+body.interface-orbit .tool-tags span{
+  border-radius:999px;
+  border-color:var(--orbit-border);
+  background:rgba(183,124,255,.06);
+}
+
+@media(max-width:900px){
+  body.interface-orbit .home-status-cards{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:650px){
+  body.interface-orbit .app{grid-template-columns:68px minmax(0,1fr)}
+  body.interface-orbit .sidebar{width:68px}
+  body.interface-orbit .nav-item{width:48px;height:48px;min-height:48px}
+  body.interface-orbit .page{padding:14px}
+  body.interface-orbit .home-status-cards{grid-template-columns:1fr 1fr;left:12px;right:12px;bottom:12px}
+}
