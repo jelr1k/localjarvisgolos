@@ -87,7 +87,21 @@ class FakeUpdateDownloader:
         self.cleaned.append(result)
 
 
-def make_controller(checker, update_service=None, update_downloader=None, update_validator=None):
+class FakeUpdateBackup:
+    def __init__(self, result=None, error=None):
+        self.result = result
+        self.error = error
+        self.calls = []
+
+    def create_backup(self, application_root, *, preserve_paths=()):
+        self.calls.append((application_root, preserve_paths))
+        if self.error:
+            from services.update_backup import UpdateBackupError
+            raise UpdateBackupError(self.error)
+        return self.result
+
+
+def make_controller(checker, update_service=None, update_downloader=None, update_validator=None, update_backup=None):
     return SettingsController(
         config=None,
         model_service=None,
@@ -99,6 +113,7 @@ def make_controller(checker, update_service=None, update_downloader=None, update
         update_service=update_service,
         update_downloader=update_downloader,
         update_validator=update_validator,
+        update_backup=update_backup,
     )
 
 
@@ -315,3 +330,49 @@ def test_settings_controller_reports_archive_validation_error():
     assert received == [{"success": False, "error": "опасный путь"}]
     assert len(validator.calls) == 1
     assert controller._update_downloader.cleaned
+
+
+def test_settings_controller_creates_backup_after_archive_validation():
+    from services.update_backup import UpdateBackupResult
+    from pathlib import Path
+
+    backup_result = UpdateBackupResult(
+        backup_directory=Path("backup"),
+        application_backup=Path("backup/application"),
+        preserved_paths=(),
+    )
+    backup = FakeUpdateBackup(result=backup_result)
+    validator = FakeUpdateValidator(result=object())
+    controller = make_controller(
+        FakeChecker(),
+        update_downloader=FakeUpdateDownloader(
+            result=type("Download", (), {"archive_path": Path("JARVIS.zip"), "expected_size": 100})()
+        ),
+        update_validator=validator,
+        update_backup=backup,
+    )
+    received = []
+    controller.update_backup_finished.connect(received.append)
+
+    controller.download_update(object())
+
+    assert backup.calls
+    assert received == [{"success": True, "result": backup_result}]
+
+
+def test_settings_controller_reports_backup_error():
+    backup = FakeUpdateBackup(error="disk full")
+    controller = make_controller(
+        FakeChecker(),
+        update_downloader=FakeUpdateDownloader(
+            result=type("Download", (), {"archive_path": "JARVIS.zip", "expected_size": 100})()
+        ),
+        update_validator=FakeUpdateValidator(result=object()),
+        update_backup=backup,
+    )
+    received = []
+    controller.update_backup_finished.connect(received.append)
+
+    controller.download_update(object())
+
+    assert received == [{"success": False, "error": "disk full"}]
