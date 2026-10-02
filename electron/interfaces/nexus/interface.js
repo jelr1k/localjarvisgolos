@@ -397,19 +397,27 @@
     const interfaceButton = event.target.closest("[data-nx-interface]");
     if (interfaceButton) {
       const name = interfaceButton.dataset.nxInterface;
-      localStorage.setItem("jarvis-interface", name);
+      interfaceButton.closest(".nx-choice-grid").querySelectorAll(".nx-choice").forEach(item => item.classList.remove("selected"));
+      interfaceButton.classList.add("selected");
 
       if (window.JarvisInterfaceManager) {
+        const bridgeOption = document.createElement("button");
+        bridgeOption.type = "button";
+        bridgeOption.dataset.interface = name;
+        bridgeOption.hidden = true;
+        document.body.appendChild(bridgeOption);
+        bridgeOption.click();
+
         const save = document.createElement("button");
         save.id = "saveAllButton";
         save.hidden = true;
         document.body.appendChild(save);
-        interfaceButton.closest(".nx-choice-grid").querySelectorAll(".nx-choice").forEach(item => item.classList.remove("selected"));
-        interfaceButton.classList.add("selected");
         save.click();
+        bridgeOption.remove();
         save.remove();
       } else {
-        setInterfaceClass(name);
+        localStorage.setItem("jarvis-interface", name);
+        if (typeof window.setInterfaceClass === "function") window.setInterfaceClass(name);
         location.reload();
       }
       return;
