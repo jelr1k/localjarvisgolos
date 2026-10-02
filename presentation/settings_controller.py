@@ -98,16 +98,22 @@ class SettingsController(QObject):
         try:
             result = future.result()
             self.update_download_finished.emit({"success": True, "result": result})
-            validation_future = self._tasks.submit(
-                self._update_validator.validate,
-                result.archive_path,
-                result.expected_size,
-            )
+            validation_future = self._tasks.submit(self._validate_download_result, result)
             validation_future.add_done_callback(self._update_validation_done)
         except UpdateDownloadError as exc:
             self.update_download_finished.emit({"success": False, "error": str(exc)})
         except Exception as exc:
             self.update_download_finished.emit({"success": False, "error": "Не удалось скачать обновление: " + str(exc)})
+
+    def _validate_download_result(self, download_result):
+        try:
+            return self._update_validator.validate(
+                download_result.archive_path,
+                download_result.expected_size,
+            )
+        except UpdateValidationError:
+            self._update_downloader.cleanup(download_result)
+            raise
 
     def _update_validation_done(self, future):
         try:
