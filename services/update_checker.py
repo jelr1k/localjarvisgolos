@@ -17,6 +17,7 @@ from core.version import APP_VERSION
 
 DEFAULT_REPOSITORY = "jelr1k/localjarvisgolos"
 GITHUB_RELEASES_API = "https://api.github.com/repos/{repository}/releases/latest"
+GITHUB_RELEASES_LIST_API = "https://api.github.com/repos/{repository}/releases?per_page=20"
 _REQUEST_TIMEOUT = 10.0
 _VERSION_RE = re.compile(
     r"^v?(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
@@ -128,6 +129,78 @@ class UpdateChecker:
     def release_api_url(self) -> str:
         return GITHUB_RELEASES_API.format(repository=self.repository)
 
+    @property
+    def release_list_api_url(self) -> str:
+        return GITHUB_RELEASES_LIST_API.format(repository=self.repository)
+
+    def _get_latest_release_from_list(self) -> dict[str, Any] | None:
+        """Fallback for environments where GitHub's /releases/latest returns 404."""
+        try:
+            response = self.session.get(
+                self.release_list_api_url,
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "User-Agent": "JARVIS-Updater",
+                },
+                timeout=self.timeout,
+            )
+            logger.info(
+                "update_check_fallback_http_response status=%s reason=%s",
+                getattr(response, "status_code", None),
+                getattr(response, "reason", ""),
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            logger.exception("update_check_fallback_request_failed error=%s", exc)
+            raise UpdateCheckError(
+                f"Не удалось получить список релизов GitHub: {exc}"
+            ) from exc
+        except ValueError as exc:
+            logger.exception("update_check_fallback_invalid_response error=%s", exc)
+            raise UpdateCheckError("GitHub вернул некорректный список релизов.") from exc
+
+        if not isinstance(payload, list):
+            logger.error(
+                "update_check_fallback_unexpected_payload_type type=%s",
+                type(payload).__name__,
+            )
+            raise UpdateCheckError("GitHub вернул неожиданный формат списка релизов.")
+
+        stable_releases = [
+            item
+            for item in payload
+            if isinstance(item, dict)
+            and not bool(item.get("draft", False))
+            and not bool(item.get("prerelease", False))
+            and str(item.get("tag_name") or "").strip()
+        ]
+        logger.info(
+            "update_check_fallback_releases_received total=%s stable=%s tags=%s",
+            len(payload),
+            len(stable_releases),
+            [str(item.get("tag_name") or "") for item in stable_releases],
+        )
+
+        if not stable_releases:
+            return None
+
+        stable_releases.sort(
+            key=lambda item: (
+                _parse_version(
+                    _normalize_release_version(str(item.get("tag_name") or ""))
+                )
+            ),
+            reverse=True,
+        )
+        selected = stable_releases[0]
+        logger.info(
+            "update_check_fallback_release_selected tag=%s name=%s",
+            str(selected.get("tag_name") or ""),
+            str(selected.get("name") or ""),
+        )
+        return selected
+
     def check(self, current_version: str = APP_VERSION) -> UpdateInfo:
         """Fetch the latest release and compare it with the installed version."""
         current_version = str(current_version).strip()
@@ -165,20 +238,27 @@ class UpdateChecker:
 
             if getattr(response, "status_code", None) == 404:
                 logger.warning(
-                    "update_check_no_release status=404 current_version=%s",
+                    "update_check_latest_endpoint_404 current_version=%s fallback_url=%s",
                     current_version,
+                    self.release_list_api_url,
                 )
-                return UpdateInfo(
-                    current_version=current_version,
-                    latest_version=current_version,
-                    update_available=False,
-                    release_url="",
-                    tag_name="",
-                    release_name="Релизов пока нет",
-                )
-
-            response.raise_for_status()
-            payload = response.json()
+                payload = self._get_latest_release_from_list()
+                if payload is None:
+                    logger.warning(
+                        "update_check_no_release current_version=%s",
+                        current_version,
+                    )
+                    return UpdateInfo(
+                        current_version=current_version,
+                        latest_version=current_version,
+                        update_available=False,
+                        release_url="",
+                        tag_name="",
+                        release_name="Релизов пока нет",
+                    )
+            else:
+                response.raise_for_status()
+                payload = response.json()
         except requests.RequestException as exc:
             logger.exception("update_check_request_failed error=%s", exc)
             raise UpdateCheckError(f"Не удалось проверить обновления: {exc}") from exc
