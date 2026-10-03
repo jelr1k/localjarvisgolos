@@ -185,15 +185,22 @@ class UpdateChecker:
         if not stable_releases:
             return None
 
-        stable_releases.sort(
-            key=lambda item: (
-                _parse_version(
-                    _normalize_release_version(str(item.get("tag_name") or ""))
+        versioned_releases = []
+        for item in stable_releases:
+            try:
+                version = _normalize_release_version(str(item.get("tag_name") or ""))
+                versioned_releases.append((_parse_version(version), item))
+            except ValueError:
+                logger.warning(
+                    "update_check_fallback_invalid_release_skipped tag=%s",
+                    str(item.get("tag_name") or ""),
                 )
-            ),
-            reverse=True,
-        )
-        selected = stable_releases[0]
+
+        if not versioned_releases:
+            return None
+
+        versioned_releases.sort(key=lambda pair: pair[0], reverse=True)
+        selected = versioned_releases[0][1]
         logger.info(
             "update_check_fallback_release_selected tag=%s name=%s",
             str(selected.get("tag_name") or ""),
