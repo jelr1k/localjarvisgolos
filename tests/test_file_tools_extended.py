@@ -112,3 +112,53 @@ def test_file_tools_reject_empty_or_outside_paths(workspace):
     result = files.read_file(str(outside))
     assert result["success"] is False
     assert outside.exists()
+
+
+def test_resolve_workspace_path_handles_nested_file(workspace):
+    nested = workspace / "notes" / "draft.txt"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("draft", encoding="utf-8")
+
+    target, matches = paths.resolve_workspace_path("draft.txt", categories=("files",), fuzzy=False)
+
+    assert target == nested.resolve()
+    assert matches == [nested.resolve()]
+
+
+def test_resolve_workspace_path_rejects_absolute_outside_workspace(workspace):
+    outside = workspace.parent / "secret.txt"
+    outside.write_text("secret", encoding="utf-8")
+
+    target, matches = paths.resolve_workspace_path(str(outside), categories=("files",), fuzzy=False)
+
+    assert target is None
+    assert matches == []
+
+
+def test_resolve_workspace_path_uses_fuzzy_workspace_match(workspace):
+    target = workspace / "configuration.txt"
+    target.write_text("cfg", encoding="utf-8")
+
+    resolved, matches = paths.resolve_workspace_path("configuraton.txt", categories=("files",), fuzzy=True)
+
+    assert resolved == target.resolve()
+    assert matches == [target.resolve()]
+
+
+def test_add_file_to_workspace_rejects_duplicate_destination(workspace, tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("source", encoding="utf-8")
+    (workspace / "source.txt").write_text("existing", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="уже существует"):
+        paths.add_file_to_workspace(source)
+
+
+def test_add_file_to_workspace_copies_external_file(workspace, tmp_path):
+    source = tmp_path / "source.txt"
+    source.write_text("source", encoding="utf-8")
+
+    target = paths.add_file_to_workspace(source)
+
+    assert target == (workspace / "source.txt").resolve()
+    assert target.read_text(encoding="utf-8") == "source"
