@@ -1,10 +1,12 @@
 from core.alias_manager import AliasManager
 from services.command_router import CommandRouter
+from tools.registry import TOOLS
 
 
 def make_router(tmp_path):
     aliases = AliasManager(tmp_path / "aliases.json")
-    return CommandRouter({}, None, aliases)
+    config = {"tools": {name: True for name in TOOLS}}
+    return CommandRouter(config, None, aliases)
 
 
 def test_where_question_is_not_file_search(tmp_path):
