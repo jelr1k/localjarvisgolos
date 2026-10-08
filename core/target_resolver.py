@@ -13,7 +13,7 @@ logger = logging.getLogger("jarvis.target_resolver")
 class TargetResolver:
     """Разрешает объект из естественной фразы, не превращая всю фразу в алиас."""
 
-    _TOKEN_RE = re.compile(r"[^\\s]+")
+    _TOKEN_RE = re.compile(r"[^\s]+")
     _TRIM_CHARS = " ,:;.!?\"'«»()[]{}"
 
     def __init__(self, alias_manager: AliasManager, workspace_index_getter: Callable[[], Any] | None = None):
