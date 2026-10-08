@@ -19,6 +19,7 @@ def _close_logger(name: str) -> None:
 
 def test_configured_handler_writes_to_requested_file(tmp_path):
     path = tmp_path / "nested" / "commands.log"
+    path.parent.mkdir()
     handler = logging_config._handler(path, logging.INFO)
     logger = logging.getLogger("test.handler")
     logger.handlers.clear()
