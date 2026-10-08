@@ -35,7 +35,8 @@ class WorkspaceFileTests(unittest.TestCase):
             source.write_bytes(b"shortcut")
 
             with patch("tools.paths.prepare_tool_workspace", return_value=workspace), \
-                 patch("tools.paths.resolve_inside_sandbox", return_value=source):
+                 patch("tools.paths.resolve_inside_sandbox", return_value=source), \
+                 patch("tools.paths.TOOL_WORKSPACE", workspace):
                 result = add_file_to_workspace(source)
 
             self.assertEqual(result, source.resolve())
