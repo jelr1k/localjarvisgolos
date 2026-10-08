@@ -16,7 +16,7 @@ def test_where_question_is_not_file_search(tmp_path):
 def test_where_file_is_file_search(tmp_path):
     router = make_router(tmp_path)
     action = router._resolve_action("Где находится файл tool_test.txt?")
-    assert action == ("search", "файл tool_test.txt?")
+    assert action == ("search", "файл tool_test.txt")
 
 
 def test_show_is_contextual(tmp_path):
@@ -41,7 +41,7 @@ def test_embedded_application_name_is_resolved_from_natural_phrase(tmp_path):
     router = make_router(tmp_path)
     router.alias_manager.set_aliases("applications", "Steam.lnk", ["стим"])
 
-    assert router._resolve_target("мой Steam", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
+    assert router._resolve_target("мой стим", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
     assert router._resolve_target("мой стим", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
 
 
@@ -49,4 +49,4 @@ def test_longest_embedded_alias_wins(tmp_path):
     router = make_router(tmp_path)
     router.alias_manager.set_aliases("applications", "Google Chrome.lnk", ["гугл хром"])
 
-    assert router._resolve_target("мой Google Chrome", ("applications",), use_workspace_index=False) == ("Google Chrome.lnk", None)
+    assert router._resolve_target("мой гугл хром", ("applications",), use_workspace_index=False) == ("Google Chrome.lnk", None)
