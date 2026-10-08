@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -60,7 +60,7 @@ def test_sandbox_blocks_parent_escape_and_outside_symlink(tmp_path):
     outside.write_text("secret", encoding="utf-8")
 
     with pytest.raises(SandboxError):
-        with __import__("unittest").mock.patch("security.sandbox.WORKSPACE_DIR", root):
+        with patch("security.sandbox.WORKSPACE_DIR", root):
             resolve_inside_sandbox("../secret.txt")
 
     link = root / "link.txt"
