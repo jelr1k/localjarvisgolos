@@ -176,6 +176,7 @@ class ApplicationToolTests(unittest.TestCase):
 
     def test_installed_application_is_blocked_without_outside_workspace_permission(self):
         outside = Path(tempfile.gettempdir()) / "Steam.lnk"
+        outside.write_text("placeholder", encoding="utf-8")
         with patch("tools.applications.find_application", return_value={"success": True, "path": str(outside)}), \
              patch("tools.applications.os.startfile") as startfile:
             result = applications.launch_application("Steam")
