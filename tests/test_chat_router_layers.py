@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from services.chat_service import ChatService
+from llm.request import ChatRequest
 from llm.response import GenerationStats, StreamChunk
 from services.command_router import CommandRouter
 from tools.registry import TOOLS
@@ -266,6 +267,7 @@ def test_router_search_read_and_delete_actions_use_expected_targets(tmp_path, mo
     ]
     monkeypatch.setattr(router, "_executor", lambda: executor)
 
+    router._route_extended_tools = Mock(return_value=None)
     router._resolve_action = Mock(side_effect=[
         ("search", "файл x.txt"),
         ("read", "файл x.txt"),
@@ -287,6 +289,7 @@ def test_router_launch_reports_already_running_without_starting_again(tmp_path, 
     executor._is_enabled.return_value = True
     executor.execute.return_value = {"success": True, "running": True}
     monkeypatch.setattr(router, "_executor", lambda: executor)
+    router._route_extended_tools = Mock(return_value=None)
     router._resolve_action = Mock(return_value=("launch", "Steam"))
     router._resolve_target = Mock(return_value=("Steam.exe", None))
 
@@ -297,6 +300,7 @@ def test_router_launch_reports_already_running_without_starting_again(tmp_path, 
 
 def test_router_close_generic_target_requests_clarification(tmp_path):
     router = make_router(tmp_path)
+    router._route_extended_tools = Mock(return_value=None)
     router._resolve_action = Mock(return_value=("close", "приложение"))
     assert router.route("закрой приложение") == "Какое приложение закрыть?"
 
@@ -331,17 +335,15 @@ def test_chat_service_runs_llm_generation_and_stores_final_answer():
     )
     service.router.tools_for_message = Mock(return_value=set())
 
-    service._run_generation(
-        service._request_for_test() if hasattr(service, "_request_for_test") else __import__("llm.request", fromlist=["ChatRequest"]).ChatRequest(
-            model="qwen",
-            messages=[],
-            thinking=False,
-            temperature=0.7,
-            context_length=4096,
-            max_tokens=128,
-            tools=[],
-        )
-    )
+    service._run_generation(ChatRequest(
+        model="qwen",
+        messages=[],
+        thinking=False,
+        temperature=0.7,
+        context_length=4096,
+        max_tokens=128,
+        tools=[],
+    ))
 
     assert service.conversation.messages[-1].role == "assistant"
     assert service.conversation.messages[-1].content == "Привет"
@@ -363,7 +365,7 @@ def test_chat_service_executes_llm_tool_call_and_returns_to_generation():
     provider.stream_chat.side_effect = [iter(first), iter(second)]
 
     service = make_service()
-    request = __import__("llm.request", fromlist=["ChatRequest"]).ChatRequest(
+    request = ChatRequest(
         model="qwen",
         messages=[],
         thinking=False,
