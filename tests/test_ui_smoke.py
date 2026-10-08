@@ -43,6 +43,7 @@ def make_settings_controller():
     }
     controller.get.side_effect = lambda key, default=None: values.get(key, default)
     controller.ollama_url = "http://localhost:11434"
+    controller.list_microphones.return_value = {"success": False, "error": "smoke"}
     return controller
 
 
