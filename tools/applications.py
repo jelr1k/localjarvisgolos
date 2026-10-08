@@ -393,7 +393,24 @@ def get_process_status(name: str) -> dict:
 
 def _selection_index(target: str) -> int | None:
     value = target.strip().lower().strip('"').rstrip(".")
-    words = {"первый": 1, "первая": 1, "1": 1, "второй": 2, "вторая": 2, "2": 2, "третий": 3, "третья": 3, "3": 3, "четвёртый": 4, "четвертый": 4, "четвёртая": 4, "четвертая": 4, "4": 4, "пятый": 5, "пятая": 5, "5": 5}
+    if value.isdigit():
+        index = int(value)
+        return index if index > 0 else None
+
+    words = {
+        "первый": 1,
+        "первая": 1,
+        "второй": 2,
+        "вторая": 2,
+        "третий": 3,
+        "третья": 3,
+        "четвёртый": 4,
+        "четвертый": 4,
+        "четвёртая": 4,
+        "четвертая": 4,
+        "пятый": 5,
+        "пятая": 5,
+    }
     return words.get(value)
 
 
