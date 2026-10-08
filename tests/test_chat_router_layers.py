@@ -250,8 +250,8 @@ def test_router_ui_actions_are_abstract_and_optional(tmp_path):
     router.set_ui_actions({name: (lambda name=name: calls.append(name)) for name in ("shutdown", "minimize", "maximize", "restore")})
 
     assert router.route("закрой себя") == "Полностью закрываю Jarvis."
-    assert router.route("сверни окно") == "Сворачиваю окно."
-    assert router.route("разверни окно") == "Разворачиваю окно."
+    assert router.route("свернись") == "Сворачиваю окно."
+    assert router.route("развернись") == "Разворачиваю окно."
     assert router.route("восстанови окно") == "Восстанавливаю обычный размер окна."
     assert calls == ["shutdown", "minimize", "maximize", "restore"]
 
@@ -365,6 +365,7 @@ def test_chat_service_executes_llm_tool_call_and_returns_to_generation():
     provider.stream_chat.side_effect = [iter(first), iter(second)]
 
     service = make_service()
+    service.provider = provider
     request = ChatRequest(
         model="qwen",
         messages=[],
@@ -401,6 +402,7 @@ def test_chat_service_stops_after_five_tool_rounds():
         StreamChunk(done=True, stats=GenerationStats(model="qwen")),
     ])
     service = make_service()
+    service.provider = provider
     executor = Mock()
     executor.execute.return_value = {"success": True, "matches": []}
     request = ChatRequest(
