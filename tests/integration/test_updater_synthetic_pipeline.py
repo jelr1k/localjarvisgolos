@@ -216,4 +216,4 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
     assert (app / "stable.txt").read_text(encoding="utf-8") == "keep\n"
     assert not (app / "z_new.py").exists()
     assert (workspace / "notes.txt").read_text(encoding="utf-8") == "user\n"
-\n
+
