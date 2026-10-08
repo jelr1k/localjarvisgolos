@@ -261,5 +261,86 @@ class ApplicationToolTests(unittest.TestCase):
         self.assertTrue(applications.has_pending_launch_choices())
 
 
+    def test_selection_index_accepts_numeric_and_word_forms(self):
+        self.assertEqual(applications._selection_index("9"), 9)
+        self.assertEqual(applications._selection_index("четвёртый"), 4)
+        self.assertIsNone(applications._selection_index("0"))
+        self.assertIsNone(applications._selection_index("что-то"))
+
+    def test_get_process_status_rejects_empty_name(self):
+        result = applications.get_process_status("   ")
+        self.assertFalse(result["success"])
+        self.assertIn("название приложения", result["error"])
+
+    def test_close_application_reports_process_creation_failure(self):
+        with patch("tools.applications._resolve_application", return_value={
+            "success": True,
+            "identity": {"normalized_executable": r"c:\apps\test.exe"},
+        }),              patch("tools.applications._running_process_matches", return_value=[{"pid": 123}]),              patch("tools.applications.psutil.Process", side_effect=OSError("denied")):
+            result = applications.close_application("Test")
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["details"]["failed"])
+        self.assertEqual(result["running"], False)
+
+    def test_close_application_reports_processes_that_stay_alive(self):
+        fake = FakeProcess(123)
+        with patch("tools.applications._resolve_application", return_value={
+            "success": True,
+            "identity": {"normalized_executable": r"c:\apps\test.exe"},
+        }),              patch("tools.applications._running_process_matches", return_value=[{"pid": 123}]),              patch("tools.applications.psutil.Process", return_value=fake),              patch("tools.applications.psutil.wait_procs", return_value=([], [fake])):
+            result = applications.close_application("Test")
+
+        self.assertFalse(result["success"])
+        self.assertTrue(result["running"])
+        self.assertTrue(result["details"]["failed"])
+        self.assertTrue(fake.terminated)
+
+    def test_minimize_application_fails_cleanly_without_win32(self):
+        with patch("tools.applications.win32gui", None):
+            result = applications.minimize_application("Steam")
+
+        self.assertFalse(result["success"])
+        self.assertIn("pywin32", result["error"])
+
+    def test_open_url_rejects_invalid_scheme_before_startfile(self):
+        with patch("tools.applications.os.startfile") as startfile:
+            result = applications.open_url("ftp://example.com")
+
+        self.assertFalse(result["success"])
+        startfile.assert_not_called()
+
+    def test_shortcut_resolution_returns_target_executable(self):
+        class Shortcut:
+            TargetPath = r"C:\Apps\Steam\steam.exe"
+            WorkingDirectory = r"C:\Apps\Steam"
+            Arguments = ""
+
+        shell = Mock()
+        shell.CreateShortcut.return_value = Shortcut()
+        fake_win32com = Mock()
+        fake_win32com.client.Dispatch.return_value = shell
+
+        with patch("tools.applications.win32com", fake_win32com):
+            result = applications._resolve_shortcut_target(Path(r"C:\Apps\Steam.lnk"))
+
+        self.assertEqual(result, Path(r"C:\Apps\Steam\steam.exe").resolve())
+        shell.CreateShortcut.assert_called_once()
+
+    def test_shortcut_resolution_handles_missing_target(self):
+        class Shortcut:
+            TargetPath = ""
+
+        shell = Mock()
+        shell.CreateShortcut.return_value = Shortcut()
+        fake_win32com = Mock()
+        fake_win32com.client.Dispatch.return_value = shell
+
+        with patch("tools.applications.win32com", fake_win32com):
+            result = applications._resolve_shortcut_target(Path(r"C:\Apps\Steam.lnk"))
+
+        self.assertIsNone(result)
+
+
 if __name__ == "__main__":
     unittest.main()
