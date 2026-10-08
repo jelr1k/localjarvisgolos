@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import zipfile
 from unittest.mock import patch
 
 import pytest
@@ -131,7 +132,7 @@ def test_download_model_rejects_invalid_extraction(tmp_path):
         response.read.side_effect = [b"broken", b""]
         opener.open.return_value = response
 
-        with pytest.raises((RuntimeError, Exception)):
+        with pytest.raises(zipfile.BadZipFile):
             wake_word._download_model(model_dir)
 
 
