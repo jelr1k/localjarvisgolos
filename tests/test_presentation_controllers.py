@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from core.events import EventBus
 from presentation.alias_controller import AliasController
@@ -26,8 +27,10 @@ from services.statistics_service import StatisticsService
 
 @pytest.fixture(scope="session", autouse=True)
 def qapp():
-    app = QCoreApplication.instance() or QCoreApplication([])
-    return app
+    app = QApplication.instance()
+    if app is not None:
+        return app
+    return QApplication([])
 
 
 class ImmediateRunner:
