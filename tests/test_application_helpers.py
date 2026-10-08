@@ -31,8 +31,10 @@ def test_process_cmdline_matches_path_and_normalized_label():
 def test_find_application_uses_start_menu_and_deduplicates_by_executable(tmp_path):
     root = tmp_path / "Programs"
     root.mkdir()
-    shortcut = root / "Steam.lnk"
-    duplicate = root / "Steam (2).lnk"
+    shortcut = root / "one" / "Steam.lnk"
+    duplicate = root / "two" / "Steam.lnk"
+    shortcut.parent.mkdir()
+    duplicate.parent.mkdir()
     shortcut.write_text("x", encoding="utf-8")
     duplicate.write_text("x", encoding="utf-8")
     exe = tmp_path / "Steam.exe"
