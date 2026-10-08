@@ -110,5 +110,5 @@ def test_target_resolver_rejects_close_fuzzy_suggestions_as_ambiguous():
 
     assert target is None
     assert error is not None
-    assert "варианты" in error
+    assert "Варианты" in error
     aliases.add_alias.assert_not_called()
