@@ -403,7 +403,7 @@ def test_chat_service_stops_after_five_tool_rounds():
     service = make_service()
     executor = Mock()
     executor.execute.return_value = {"success": True, "matches": []}
-    request = __import__("llm.request", fromlist=["ChatRequest"]).ChatRequest(
+    request = ChatRequest(
         model="qwen",
         messages=[],
         thinking=False,
