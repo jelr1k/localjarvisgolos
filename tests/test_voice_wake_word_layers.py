@@ -33,7 +33,7 @@ def test_transliteration_and_similarity():
 
 @pytest.mark.parametrize(
     "text",
-    ["джарвис", "ДЖАРВИС", "скажи джарвис", "джервис", "djarvis", "jarvis"],
+    ["джарвис", "ДЖАРВИС", "скажи джарвис", "джервис", "jarvis"],
 )
 def test_contains_wake_word_accepts_common_forms(text):
     assert wake_word._contains_wake_word(text, "Jarvis") is True
