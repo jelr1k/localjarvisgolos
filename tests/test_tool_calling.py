@@ -66,7 +66,7 @@ def test_chat_service_executes_tool_then_continues(monkeypatch):
         lambda self, *args, **kwargs: tool_result,
     )
 
-    service.send("Найди файл tool_test.txt")
+    service.send("Что находится в файле tool_test.txt?")
     future = service._generation_future
     assert future is not None
     stats = future.result(timeout=5)
