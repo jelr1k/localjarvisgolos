@@ -58,7 +58,7 @@ def voice_service():
         }
     }
 
-    with patch("voice.controller.find_supported_sample_rate", return_value=16000),          patch("voice.controller.MicrophoneRecorder", return_value=recorder),          patch("voice.controller.SpeechRecognizer", return_value=recognizer):
+    with patch("voice.controller.find_supported_sample_rate", return_value=16000), patch("voice.controller.MicrophoneRecorder", return_value=recorder), patch("voice.controller.SpeechRecognizer", return_value=recognizer):
         service = VoiceService(config, EventBus(), runner)
 
     service.recorder = recorder
@@ -119,8 +119,8 @@ def test_transcribe_normalizes_text_and_emits_stats_and_transcript(voice_service
     assert function == recognizer.transcribe
     assert args[1] == 16000
 
-    future.set_result(function(*args))
-    service._transcription_done(future)
+    result = function(*args)
+    future.set_result(result)
 
     assert transcripts == ["найди файл report.txt"]
     assert stats == [{"model": "small"}]
@@ -141,7 +141,6 @@ def test_transcription_failure_emits_error(voice_service):
     except RuntimeError:
         pass
     future.set_exception(RuntimeError("broken"))
-    service._transcription_done(future)
 
     assert any("Не удалось распознать речь" in item for item in errors)
 
@@ -150,7 +149,7 @@ def test_test_microphone_returns_peak_and_rms(voice_service):
     service, _, _, _ = voice_service
     audio = np.asarray([[0.0], [0.5], [-0.5], [1.0]], dtype=np.float32)
 
-    with patch("voice.controller.find_supported_sample_rate", return_value=48000),          patch("voice.controller.sd.rec", return_value=audio):
+    with patch("voice.controller.find_supported_sample_rate", return_value=48000), patch("voice.controller.sd.rec", return_value=audio):
         result = service.test_microphone(7)
 
     assert result["success"] is True
@@ -170,7 +169,7 @@ def test_list_microphones_returns_default_and_selects_named_device(voice_service
     ]
     hostapis = [{"name": "Windows WASAPI"}]
 
-    with patch("voice.controller.sd.query_devices", return_value=devices),          patch("voice.controller.sd.query_hostapis", return_value=hostapis):
+    with patch("voice.controller.sd.query_devices", return_value=devices), patch("voice.controller.sd.query_hostapis", return_value=hostapis):
         result = service.list_microphones()
 
     assert result["success"] is True
@@ -181,7 +180,7 @@ def test_apply_config_reuses_compatible_recognizer_and_updates_settings(voice_se
     service, _, recognizer, _ = voice_service
     service.recognizer = recognizer
 
-    with patch("voice.controller.find_supported_sample_rate", return_value=16000),          patch("voice.controller.MicrophoneRecorder", return_value=service.recorder):
+    with patch("voice.controller.find_supported_sample_rate", return_value=16000), patch("voice.controller.MicrophoneRecorder", return_value=service.recorder):
         service.apply_config({
             "voice": {
                 "sample_rate": 16000,
