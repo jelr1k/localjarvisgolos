@@ -38,9 +38,12 @@ class ManualRunner:
 
 
 def test_router_reply_handles_success_content_matches_path_and_errors():
-    assert CommandRouter._reply({"success": True, "content": "hello", "path": "x.txt"}) == "Содержимое x.txt:\nhello"
+    assert CommandRouter._reply({"success": True, "content": "hello", "path": "x.txt"}) == "Содержимое x.txt:
+hello"
     assert CommandRouter._reply({"success": True, "matches": []}) == "Ничего не найдено."
-    assert CommandRouter._reply({"success": True, "matches": ["a", "b"]}) == "Найдено:\na\nb"
+    assert CommandRouter._reply({"success": True, "matches": ["a", "b"]}) == "Найдено:
+a
+b"
     assert CommandRouter._reply({"success": True, "running": True}) == "Приложение запущено."
     assert CommandRouter._reply({"success": False, "error": "boom"}) == "Не выполнено: boom"
 
@@ -128,18 +131,29 @@ def test_chat_service_direct_router_response_does_not_start_llm():
     service.router.route = Mock(return_value="Готово.")
     service.send("сделай это")
 
-    assert service.conversation.messages[-1] == {"role": "assistant", "content": "Готово."}
+    message = service.conversation.messages[-1]
+    assert message.role == "assistant"
+    assert message.content == "Готово."
     assert service.router.route.called
     assert not service.tasks.submitted
 
 
 def test_chat_service_router_only_mode_returns_fallback_without_llm():
-    service = make_service({"model": "qwen", "tools": {}, "router_only_mode": True, "temperature": 0.7, "context_length": 4096, "max_tokens": 128})
+    service = make_service({
+        "model": "qwen",
+        "tools": {},
+        "router_only_mode": True,
+        "temperature": 0.7,
+        "context_length": 4096,
+        "max_tokens": 128,
+    })
     service.router.route = Mock(return_value=None)
 
     service.send("что-то обычное")
 
-    assert "LLM отключён" in service.conversation.messages[-1]["content"]
+    message = service.conversation.messages[-1]
+    assert "LLM отключён" in message.content
+    assert message.role == "assistant"
     assert not service.tasks.submitted
 
 
@@ -175,4 +189,4 @@ def test_chat_service_pending_router_confirmation_executes_or_cancels():
         "command_text": "удали x.txt",
     }
     service.send("нет")
-    assert service.conversation.messages[-1]["content"] == "Действие отменено."
+    assert service.conversation.messages[-1].content == "Действие отменено."
