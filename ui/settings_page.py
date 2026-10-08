@@ -6,6 +6,7 @@ import webbrowser
 from core.version import APP_VERSION
 from PySide6.QtCore import Signal, QTimer
 from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar
+from ui.rofl_settings_dialog import RoflSettingsDialog
 
 class SettingsPage(QWidget):
     settings_changed=Signal(str,str)
