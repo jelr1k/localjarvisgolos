@@ -41,11 +41,11 @@ def test_create_existing_file_is_rejected(workspace):
 
 def test_create_folder_and_file_info(workspace):
     folder = files.create_folder("docs")
-    assert folder["success"] is True
+    assert folder["success"] is True, folder
 
     (workspace / "docs" / "readme.md").write_text("abc", encoding="utf-8")
     info = files.file_info("readme.md")
-    assert info["success"] is True
+    assert info["success"] is True, info
     assert info["details"]["name"] == "readme.md"
     assert info["details"]["extension"] == ".md"
     assert info["details"]["size"] == 3
