@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import zipfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -126,7 +126,7 @@ def test_download_model_rejects_invalid_extraction(tmp_path):
     with patch("voice.wake_word.urllib.request.build_opener") as build_opener:
         opener = Mock()
         build_opener.return_value = opener
-        response = Mock()
+        response = MagicMock()
         response.__enter__ = Mock(return_value=response)
         response.__exit__ = Mock(return_value=False)
         response.read.side_effect = [b"broken", b""]
@@ -144,7 +144,9 @@ def test_detector_run_publishes_error_and_stops_cleanly():
         event_bus=events,
     )
 
-    with patch("voice.wake_word._download_model", side_effect=RuntimeError("model unavailable")):
+    with patch("voice.wake_word.resolve_shared_input_device", side_effect=lambda value: value), \
+         patch("voice.wake_word.find_supported_sample_rate", return_value=16000), \
+         patch("voice.wake_word._download_model", side_effect=RuntimeError("model unavailable")):
         detector._run()
 
     emitted = [call.args for call in events.emit.call_args_list]
