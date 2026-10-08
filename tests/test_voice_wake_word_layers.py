@@ -82,3 +82,70 @@ def test_detector_disabled_does_not_start_thread():
 
     thread.assert_not_called()
     detector.close()
+
+
+def test_detector_config_keeps_original_device_when_shared_resolution_fails():
+    config = {
+        "voice": {
+            "wake_word_enabled": True,
+            "wake_word": "Jarvis",
+            "input_device": 4,
+            "sample_rate": 16000,
+        }
+    }
+
+    with patch("voice.wake_word.resolve_shared_input_device", side_effect=RuntimeError("audio unavailable")):
+        detector = wake_word.WakeWordDetector(config)
+
+    assert detector.device == 4
+    assert detector.sample_rate == 16000
+    detector.close()
+
+
+def test_word_in_vocabulary_returns_false_when_model_vocabulary_is_missing(tmp_path):
+    assert wake_word._word_in_vocabulary(tmp_path, "Jarvis") is False
+
+
+def test_download_model_skips_network_when_model_is_already_present(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "am").mkdir()
+
+    with patch("voice.wake_word.urllib.request.build_opener") as build_opener:
+        assert wake_word._download_model(model_dir) == model_dir
+
+    build_opener.assert_not_called()
+
+
+def test_download_model_rejects_invalid_extraction(tmp_path):
+    model_dir = tmp_path / "model"
+    archive = model_dir.parent / f"{model_dir.name}.zip"
+    archive.write_bytes(b"not-a-real-zip")
+
+    with patch("voice.wake_word.urllib.request.build_opener") as build_opener:
+        opener = Mock()
+        build_opener.return_value = opener
+        response = Mock()
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        response.read.side_effect = [b"broken", b""]
+        opener.open.return_value = response
+
+        with pytest.raises((RuntimeError, Exception)):
+            wake_word._download_model(model_dir)
+
+
+def test_detector_run_publishes_error_and_stops_cleanly():
+    config = {"voice": {"wake_word_enabled": True}}
+    events = Mock()
+    detector = wake_word.WakeWordDetector(
+        config,
+        event_bus=events,
+    )
+
+    with patch("voice.wake_word._download_model", side_effect=RuntimeError("model unavailable")):
+        detector._run()
+
+    emitted = [call.args for call in events.emit.call_args_list]
+    assert any(item[0] == "wake_word.error" and "model unavailable" in item[1] for item in emitted)
+    assert any(item[0] == "wake_word.listening_changed" and item[1] is False for item in emitted)
