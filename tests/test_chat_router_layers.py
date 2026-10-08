@@ -444,3 +444,61 @@ def test_chat_service_background_router_rejects_parallel_ollama_operation():
 
     assert service.conversation.messages[-1].content == "Операция с Ollama уже выполняется."
     assert not service.tasks.submitted
+
+
+def test_chat_service_handles_llm_confirmation_result():
+    service = make_service()
+    event = Mock()
+    result = [False]
+    service._pending_confirmation = {
+        "mode": "llm",
+        "tool_name": "delete_file",
+        "arguments": {"path": "x.txt"},
+        "event": event,
+        "result": result,
+    }
+
+    assert service._handle_pending_confirmation("да") is True
+    assert result == [True]
+    event.set.assert_called_once()
+    assert service.conversation.messages[-1].content == "Подтверждение получено."
+
+
+def test_chat_service_generation_done_emits_error_and_clears_state():
+    service = make_service()
+    future = Future()
+    service._generation_future = future
+    seen = []
+    service.events = Mock()
+
+    future.set_exception(RuntimeError("generation boom"))
+    service._generation_done(future)
+
+    service.events.emit.assert_called_with("chat.error", "generation boom")
+    assert service._generation_future is None
+
+
+def test_chat_service_background_router_done_records_result_and_rofl_event():
+    service = make_service()
+    service.events = Mock()
+    future = Future()
+    service._ollama_task_running = True
+    future.set_result(("запусти ollama", "готово"))
+
+    service._background_router_done(future)
+
+    assert service._ollama_task_running is False
+    assert service.conversation.messages[-1].content == "готово"
+    service.events.emit.assert_called_with("chat.direct_response", "готово")
+    
+
+def test_chat_service_background_router_done_handles_exception():
+    service = make_service()
+    service.events = Mock()
+    future = Future()
+    future.set_exception(RuntimeError("background boom"))
+
+    service._background_router_done(future)
+
+    assert "background boom" in service.conversation.messages[-1].content
+    assert service._ollama_task_running is False
