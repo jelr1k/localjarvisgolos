@@ -11,10 +11,11 @@ def test_target_resolver_prefers_exact_longest_fragment():
     aliases.suggest_any.return_value = []
 
     index = Mock()
-    index.resolve.side_effect = [
-        (None, []),
-        (Mock(path="/workspace/Google Chrome.lnk", category="applications"), []),
-    ]
+    index.resolve.side_effect = lambda query, categories, alias_manager, fuzzy: (
+        (Mock(path="/workspace/Google Chrome.lnk", category="applications"), [])
+        if query == "Google Chrome"
+        else (None, [])
+    )
 
     resolver = TargetResolver(aliases, lambda: index)
 
