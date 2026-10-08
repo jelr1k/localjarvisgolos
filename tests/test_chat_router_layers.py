@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from services.chat_service import ChatService
+from llm.response import GenerationStats, StreamChunk
 from services.command_router import CommandRouter
 from tools.registry import TOOLS
 
@@ -298,3 +299,146 @@ def test_router_close_generic_target_requests_clarification(tmp_path):
     router = make_router(tmp_path)
     router._resolve_action = Mock(return_value=("close", "приложение"))
     assert router.route("закрой приложение") == "Какое приложение закрыть?"
+
+
+def test_chat_service_router_exception_becomes_direct_error():
+    service = make_service()
+    service.router.route = Mock(side_effect=RuntimeError("router boom"))
+
+    service.send("тест")
+
+    assert service.conversation.messages[-1].content == "Не удалось выполнить прямую команду: router boom"
+    assert not service.tasks.submitted
+
+
+def test_chat_service_runs_llm_generation_and_stores_final_answer():
+    provider = Mock()
+    provider.stream_chat.return_value = iter([
+        StreamChunk(text="Привет", done=False),
+        StreamChunk(done=True, stats=GenerationStats(model="qwen")),
+    ])
+    service = ChatService(
+        provider,
+        {
+            "model": "qwen",
+            "temperature": 0.7,
+            "context_length": 4096,
+            "max_tokens": 128,
+            "tools": {},
+            "router_only_mode": False,
+        },
+        task_runner=ManualRunner(),
+    )
+    service.router.tools_for_message = Mock(return_value=set())
+
+    service._run_generation(
+        service._request_for_test() if hasattr(service, "_request_for_test") else __import__("llm.request", fromlist=["ChatRequest"]).ChatRequest(
+            model="qwen",
+            messages=[],
+            thinking=False,
+            temperature=0.7,
+            context_length=4096,
+            max_tokens=128,
+            tools=[],
+        )
+    )
+
+    assert service.conversation.messages[-1].role == "assistant"
+    assert service.conversation.messages[-1].content == "Привет"
+
+
+def test_chat_service_executes_llm_tool_call_and_returns_to_generation():
+    provider = Mock()
+    first = [
+        StreamChunk(
+            tool_calls=[{"function": {"name": "search_files", "arguments": "{\"name\": \"report.txt\"}"}}],
+            raw={"message": {"role": "assistant", "content": ""}},
+        ),
+        StreamChunk(done=True, stats=GenerationStats(model="qwen")),
+    ]
+    second = [
+        StreamChunk(text="Нашёл файл.", done=False),
+        StreamChunk(done=True, stats=GenerationStats(model="qwen")),
+    ]
+    provider.stream_chat.side_effect = [iter(first), iter(second)]
+
+    service = make_service()
+    request = __import__("llm.request", fromlist=["ChatRequest"]).ChatRequest(
+        model="qwen",
+        messages=[],
+        thinking=False,
+        temperature=0.7,
+        context_length=4096,
+        max_tokens=128,
+        tools=[{"type": "function", "function": {"name": "search_files", "parameters": {}}}],
+    )
+
+    executor = Mock()
+    executor.execute.return_value = {"success": True, "matches": ["report.txt"]}
+    with patch("services.chat_service.ToolExecutor", return_value=executor):
+        stats = service._run_generation(request)
+
+    assert stats.model == "qwen"
+    executor.execute.assert_called_once_with(
+        "search_files",
+        {"name": "report.txt"},
+        service._confirm_tool,
+    )
+    assert service.conversation.messages[-1].content == "Нашёл файл."
+    assert len(provider.stream_chat.call_args_list) == 2
+    assert any(message["role"] == "tool" for message in provider.stream_chat.call_args_list[1].args[0].messages)
+
+
+def test_chat_service_stops_after_five_tool_rounds():
+    provider = Mock()
+    provider.stream_chat.side_effect = lambda request: iter([
+        StreamChunk(
+            tool_calls=[{"function": {"name": "search_files", "arguments": {"name": "x"}}}],
+            raw={"message": {"role": "assistant", "content": ""}},
+        ),
+        StreamChunk(done=True, stats=GenerationStats(model="qwen")),
+    ])
+    service = make_service()
+    executor = Mock()
+    executor.execute.return_value = {"success": True, "matches": []}
+    request = __import__("llm.request", fromlist=["ChatRequest"]).ChatRequest(
+        model="qwen",
+        messages=[],
+        thinking=False,
+        temperature=0.7,
+        context_length=4096,
+        max_tokens=128,
+        tools=[{"type": "function", "function": {"name": "search_files", "parameters": {}}}],
+    )
+
+    with patch("services.chat_service.ToolExecutor", return_value=executor):
+        with pytest.raises(RuntimeError, match="Слишком много"):
+            service._run_generation(request)
+
+    assert provider.stream_chat.call_count == 5
+    assert executor.execute.call_count == 5
+
+
+def test_chat_service_generation_done_processes_one_queued_message():
+    service = make_service()
+    future = Future()
+    service._generation_future = future
+    service._pending_messages.append(("queued", True))
+    service._process_message = Mock()
+
+    future.set_result(GenerationStats(model="qwen"))
+    service._generation_done(future)
+
+    service._process_message.assert_called_once_with("queued", True)
+    assert service._generation_future is None
+    assert not service._pending_messages
+
+
+def test_chat_service_background_router_rejects_parallel_ollama_operation():
+    service = make_service()
+    service._ollama_task_running = True
+
+    service._start_background_router("запусти ollama")
+
+    assert service.conversation.messages[-1].content == "Операция с Ollama уже выполняется."
+    assert not service.tasks.submitted
