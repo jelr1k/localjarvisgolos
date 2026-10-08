@@ -187,3 +187,114 @@ def test_chat_service_pending_router_confirmation_executes_or_cancels():
     }
     service.send("нет")
     assert service.conversation.messages[-1].content == "Действие отменено."
+
+
+@pytest.mark.parametrize(
+    ("text", "result"),
+    [
+        ("статус ollama", "status"),
+        ("запусти ollama", "start"),
+        ("останови ollama", "stop"),
+    ],
+)
+def test_router_handles_ollama_control_commands(tmp_path, text, result):
+    ollama = Mock()
+    ollama.server_status.return_value = "running"
+    ollama.get_loaded_models.return_value = ["qwen"]
+    ollama.stop_server.return_value = {"success": True}
+    router = make_router(tmp_path)
+    router.ollama_manager = ollama
+    
+    if result == "start":
+        response = router.route(text)
+        assert response == "Ollama Server запущен."
+        ollama.start.assert_called_once()
+    elif result == "stop":
+        response = router.route(text)
+        assert response == "Ollama Server остановлен."
+        ollama.stop_server.assert_called_once()
+    else:
+        response = router.route(text)
+        assert response == "Ollama Server: running. Загружено моделей: 1."
+        ollama.server_status.assert_called_once()
+        ollama.get_loaded_models.assert_called_once()
+
+
+def test_router_returns_ollama_start_error(tmp_path):
+    ollama = Mock()
+    ollama.start.side_effect = RuntimeError("boom")
+    router = make_router(tmp_path)
+    router.ollama_manager = ollama
+
+    assert router.route("запусти ollama") == "Не удалось запустить Ollama: boom"
+
+
+def test_router_pending_numeric_selection_is_forwarded_to_application_tool(tmp_path, monkeypatch):
+    router = make_router(tmp_path)
+    executor = Mock()
+    executor.execute.return_value = {"success": True, "path": "Steam.exe"}
+    monkeypatch.setattr(router, "_executor", lambda: executor)
+    monkeypatch.setattr("services.command_router.applications.has_pending_launch_choices", lambda: True)
+
+    result = router.route("9")
+
+    assert result == "Готово: Steam.exe"
+    executor.execute.assert_called_once_with("launch_application", {"target": "9"}, confirmation_callback=None)
+
+
+def test_router_ui_actions_are_abstract_and_optional(tmp_path):
+    router = make_router(tmp_path)
+    calls = []
+    router.set_ui_actions({name: (lambda name=name: calls.append(name)) for name in ("shutdown", "minimize", "maximize", "restore")})
+
+    assert router.route("закрой себя") == "Полностью закрываю Jarvis."
+    assert router.route("сверни окно") == "Сворачиваю окно."
+    assert router.route("разверни окно") == "Разворачиваю окно."
+    assert router.route("восстанови окно") == "Восстанавливаю обычный размер окна."
+    assert calls == ["shutdown", "minimize", "maximize", "restore"]
+
+
+def test_router_search_read_and_delete_actions_use_expected_targets(tmp_path, monkeypatch):
+    router = make_router(tmp_path)
+    executor = Mock()
+    executor._is_enabled.return_value = True
+    executor.execute.side_effect = [
+        {"success": True, "matches": ["x.txt"]},
+        {"success": True, "content": "hello"},
+        {"success": True, "path": "x.txt"},
+    ]
+    monkeypatch.setattr(router, "_executor", lambda: executor)
+
+    router._resolve_action = Mock(side_effect=[
+        ("search", "файл x.txt"),
+        ("read", "файл x.txt"),
+        ("delete", "файл x.txt"),
+    ])
+    router._resolve_target = Mock(return_value=("x.txt", None))
+
+    assert router.route("поиск") == "Найдено:\nx.txt"
+    assert router.route("прочитай") == "Содержимое файла:\nhello"
+    assert router.route("удали") == "Готово: x.txt"
+    assert executor.execute.call_args_list[0].args[0] == "search_files"
+    assert executor.execute.call_args_list[1].args[0] == "read_file"
+    assert executor.execute.call_args_list[2].args[0] == "delete_file"
+
+
+def test_router_launch_reports_already_running_without_starting_again(tmp_path, monkeypatch):
+    router = make_router(tmp_path)
+    executor = Mock()
+    executor._is_enabled.return_value = True
+    executor.execute.return_value = {"success": True, "running": True}
+    monkeypatch.setattr(router, "_executor", lambda: executor)
+    router._resolve_action = Mock(return_value=("launch", "Steam"))
+    router._resolve_target = Mock(return_value=("Steam.exe", None))
+
+    assert router.route("открой Steam") == "Steam уже запущен."
+    assert executor.execute.call_count == 1
+    assert executor.execute.call_args.args[0] == "get_process_status"
+
+
+def test_router_close_generic_target_requests_clarification(tmp_path):
+    router = make_router(tmp_path)
+    router._resolve_action = Mock(return_value=("close", "приложение"))
+    assert router.route("закрой приложение") == "Какое приложение закрыть?"
