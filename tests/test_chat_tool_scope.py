@@ -25,40 +25,40 @@ def make_service(tmp_path, enabled=None):
 
 def test_normal_chat_has_no_tools(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Расскажи анекдот") == set()
+    assert service.router.tools_for_message("Расскажи анекдот") == set()
 
 
 def test_question_with_where_phrase_has_no_tools(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Где находится Москва?") == set()
-    assert service._tools_for_message("Где находится, что делать, текстей?") == set()
+    assert service.router.tools_for_message("Где находится Москва?") == set()
+    assert service.router.tools_for_message("Где находится, что делать, текстей?") == set()
 
 
 def test_where_file_is_means_search_tool(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Где находится файл tool_test.txt?") == {"search_files"}
-    assert service._tools_for_message("Где лежит папка Downloads") == {"search_files"}
+    assert service.router.tools_for_message("Где находится файл tool_test.txt?") == {"search_files"}
+    assert service.router.tools_for_message("Где лежит папка Downloads") == {"search_files"}
 
 
 def test_show_file_is_search_but_show_general_text_is_chat(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Покажи файл tool_test.txt") == {"search_files"}
-    assert service._tools_for_message("Покажи мне пример") == set()
+    assert service.router.tools_for_message("Покажи файл tool_test.txt") == {"search_files"}
+    assert service.router.tools_for_message("Покажи мне пример") == set()
 
 
 def test_search_command_gets_only_search_tool(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Найди файл tool_test.txt") == {"search_files"}
+    assert service.router.tools_for_message("Найди файл tool_test.txt") == {"search_files"}
 
 
 def test_read_command_gets_only_read_tool(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Прочитай файл tool_test.txt") == {"read_file"}
+    assert service.router.tools_for_message("Прочитай файл tool_test.txt") == {"read_file"}
 
 
 def test_compound_search_and_read_gets_both_tools(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Найди файл tool_test.txt, прочитай его и перескажи") == {
+    assert service.router.tools_for_message("Найди файл tool_test.txt, прочитай его и перескажи") == {
         "search_files",
         "read_file",
     }
@@ -66,7 +66,7 @@ def test_compound_search_and_read_gets_both_tools(tmp_path):
 
 def test_delete_command_gets_delete_and_search(tmp_path):
     service = make_service(tmp_path)
-    assert service._tools_for_message("Удали файл tool_test.txt") == {
+    assert service.router.tools_for_message("Удали файл tool_test.txt") == {
         "delete_file",
         "search_files",
     }
@@ -74,4 +74,4 @@ def test_delete_command_gets_delete_and_search(tmp_path):
 
 def test_disabled_tools_are_filtered(tmp_path):
     service = make_service(tmp_path, {"search_files": True, "read_file": False})
-    assert service._tools_for_message("Найди файл tool_test.txt, прочитай его") == {"search_files"}
+    assert service.router.tools_for_message("Найди файл tool_test.txt, прочитай его") == {"search_files"}
