@@ -39,10 +39,10 @@ def test_tools_for_message_is_owned_by_router(tmp_path):
 
 def test_embedded_application_name_is_resolved_from_natural_phrase(tmp_path):
     router = make_router(tmp_path)
-    router.alias_manager.set_aliases("applications", "Steam.lnk", ["стим"])
+    router.alias_manager.set_aliases("applications", "Steam.lnk", ["стим", "Steam"])
 
     assert router._resolve_target("мой стим", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
-    assert router._resolve_target("мой стим", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
+    assert router._resolve_target("мой Steam", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
 
 
 def test_longest_embedded_alias_wins(tmp_path):
