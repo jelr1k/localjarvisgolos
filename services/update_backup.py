@@ -119,3 +119,22 @@ class UpdateBackupService:
     def _copy_tree(source: Path, destination: Path, *, excluded_roots: tuple[Path, ...]) -> None:
         destination.mkdir(parents=True, exist_ok=True)
         excluded = tuple(path.resolve() for path in excluded_roots)
+
+        for item in source.iterdir():
+            item_resolved = item.resolve()
+            if any(item_resolved == path or path.is_relative_to(item_resolved) for path in excluded):
+                continue
+            target = destination / item.name
+            if item.is_symlink():
+                continue
+            if item.is_dir():
+                shutil.copytree(item, target, symlinks=False)
+            else:
+                shutil.copy2(item, target)
+
+    @staticmethod
+    def _safe_name(path: Path) -> str:
+        drive = path.drive.replace(":", "") or "root"
+        parts = [part for part in path.parts if part not in (path.anchor, path.root)]
+        suffix = "__".join(parts[-4:]) if parts else "root"
+        return f"{drive}__{suffix}".replace(":", "_")
