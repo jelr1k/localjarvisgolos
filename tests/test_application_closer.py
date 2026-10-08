@@ -55,7 +55,8 @@ def test_close_application_records_process_access_failures():
     process = Mock(pid=10)
     process.terminate.side_effect = PermissionError("denied")
 
-    with patch.object(application_closer, "_resolve_executable", return_value=(Path("C:/Apps/Tool.exe"), [])),          patch.object(application_closer._applications, "_running_process_matches", return_value=[{"pid": 10}]),          patch("tools.application_closer.psutil.Process", return_value=process),          patch.object(application_closer._applications, "_select_process_roots", return_value=[process]),          patch.object(application_closer._applications, "_collect_process_tree", return_value=[(process, 0)]),          patch("tools.application_closer.psutil.wait_procs", return_value=([], [process])):
+    with patch.object(application_closer, "_resolve_executable", return_value=(Path("C:/Apps/Tool.exe"), [])),          patch.object(application_closer._applications, "_running_process_matches", return_value=[{"pid": 10}]),          patch("tools.application_closer.psutil.Process", return_value=process),          patch.object(application_closer._applications, "_select_process_roots", return_value=[process]),          patch.object(application_closer._applications, "_collect_process_tree", return_value=[(process, 0)]),          patch("tools.application_closer.psutil.wait_procs", side_effect=[([], [process]), ([], [process])]):
+        process.kill.side_effect = PermissionError("kill denied")
         result = application_closer.close_application("Tool")
 
     assert result["success"] is False
