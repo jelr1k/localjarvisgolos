@@ -1,6 +1,20 @@
+from concurrent.futures import Future
 from types import SimpleNamespace
 
 from services.chat_service import ChatService
+
+
+class ManualTaskRunner:
+    def __init__(self):
+        self.submitted = []
+
+    def submit(self, function, *args, **kwargs):
+        future = Future()
+        self.submitted.append((future, function, args, kwargs))
+        return future
+
+    def shutdown(self, *args, **kwargs):
+        pass
 
 
 class FakeProvider:
@@ -57,7 +71,8 @@ def test_chat_service_executes_tool_then_continues(monkeypatch):
         "tools": {"search_files": True},
         "router_only_mode": False,
     }
-    service = ChatService(provider, config)
+    runner = ManualTaskRunner()
+    service = ChatService(provider, config, task_runner=runner)
     service.router.tools_for_message = lambda _text: {"search_files"}
 
     tool_result = {"success": True, "matches": ["tool_test.txt"]}
@@ -67,10 +82,13 @@ def test_chat_service_executes_tool_then_continues(monkeypatch):
     )
 
     service.send("Что находится в файле tool_test.txt?")
-    future = service._generation_future
-    assert future is not None
-    stats = future.result(timeout=5)
-    service._generation_done(future)
+    assert len(runner.submitted) == 1
+    future, function, args, kwargs = runner.submitted[0]
+
+    # Выполняем задачу детерминированно, не полагаясь на гонку между
+    # ThreadPoolExecutor и проверками теста.
+    future.set_result(function(*args, **kwargs))
+    stats = future.result(timeout=1)
 
     assert stats == {"eval_count": 2}
     assert len(provider.calls) == 2
