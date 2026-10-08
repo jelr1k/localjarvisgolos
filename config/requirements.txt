@@ -4,6 +4,7 @@ psutil
 pywin32; platform_system == "Windows"
 pymorphy3>=2.0,<3
 pytest>=8,<9
+pytest-cov>=5,<8
 numpy>=2,<3
 sounddevice>=0.5,<1
 faster-whisper>=1.2,<2

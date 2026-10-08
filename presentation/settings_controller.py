@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
 
+from services.update_checker import UpdateCheckError, UpdateChecker
+from services.update_downloader import UpdateDownloadError, UpdateDownloader
+from services.update_service import UpdateService, UpdateServiceError
+from services.update_validator import UpdateValidationError, UpdateValidator
+from services.update_backup import UpdateBackupError, UpdateBackupService
+from services.update_relauncher import UpdateRelaunchError, UpdateRelauncher
+from core.app_paths import APP_DATA_DIR, APP_ROOT
+
 
 class SettingsController(QObject):
     models_refreshed = Signal(object)
@@ -11,8 +19,15 @@ class SettingsController(QObject):
     whisper_state_changed = Signal(str, str)
     whisper_finished = Signal(str, bool, str)
     refresh_finished = Signal(object)
+    update_check_finished = Signal(object)
+    update_confirmation_requested = Signal(object)
+    update_download_progress = Signal(int, int, float)
+    update_download_finished = Signal(object)
+    update_validation_finished = Signal(object)
+    update_backup_finished = Signal(object)
+    update_restart_requested = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None, update_backup=None, update_relauncher=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -20,9 +35,152 @@ class SettingsController(QObject):
         self._tasks = task_runner
         self._events = event_bus
         self._voice = voice_service
+        self._update_checker = update_checker or UpdateChecker()
+        self._update_service = update_service or UpdateService()
+        self._update_downloader = update_downloader or UpdateDownloader()
+        self._update_validator = update_validator or UpdateValidator()
+        self._update_backup = update_backup or UpdateBackupService()
+        self._update_relauncher = update_relauncher or UpdateRelauncher()
+        self._download_result = None
+        self._backup_result = None
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
-        
+        self._events.subscribe("application.update_check_finished", self._background_update_finished)
+
+    def _background_update_finished(self, result):
+        self._emit_update_result(self._prepare_update_result(result))
+
+    def check_for_update(self):
+        future = self._tasks.submit(self._check_for_update)
+        future.add_done_callback(self._update_check_done)
+        return future
+
+    def _check_for_update(self):
+        try:
+            info = self._update_checker.check()
+            return self._prepare_update_result({"success": True, "info": info})
+        except UpdateCheckError as exc:
+            return {"success": False, "error": str(exc)}
+        except Exception as exc:
+            return {"success": False, "error": "Не удалось проверить обновления: " + str(exc)}
+
+    def _prepare_update_result(self, result):
+        if not result.get("success") or "info" not in result:
+            return result
+
+        info = result["info"]
+        if not getattr(info, "update_available", False):
+            return result
+
+        try:
+            plan = self._update_service.prepare(info)
+        except UpdateServiceError as exc:
+            return {"success": False, "error": str(exc), "info": info}
+
+        return {**result, "plan": plan}
+
+    def _update_check_done(self, future):
+        try:
+            result = future.result()
+        except Exception as exc:
+            result = {"success": False, "error": "Не удалось проверить обновления: " + str(exc)}
+        self._emit_update_result(result)
+
+    def _emit_update_result(self, result):
+        self.update_check_finished.emit(result)
+        if result.get("success") and result.get("plan") is not None:
+            self.update_confirmation_requested.emit(result["plan"])
+
+    def download_update(self, plan):
+        """Download a confirmed update into a temporary directory."""
+        def progress(current, total, speed):
+            self.update_download_progress.emit(current, total, speed)
+
+        def work():
+            return self._update_downloader.download(plan, progress_callback=progress)
+
+        future = self._tasks.submit(work)
+        future.add_done_callback(self._update_download_done)
+        return future
+
+    def _update_download_done(self, future):
+        try:
+            result = future.result()
+            self._download_result = result
+            self.update_download_finished.emit({"success": True, "result": result})
+            validation_future = self._tasks.submit(self._validate_download_result, result)
+            validation_future.add_done_callback(self._update_validation_done)
+        except UpdateDownloadError as exc:
+            self.update_download_finished.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_download_finished.emit({"success": False, "error": "Не удалось скачать обновление: " + str(exc)})
+
+    def _validate_download_result(self, download_result):
+        try:
+            return self._update_validator.validate(
+                download_result.archive_path,
+                download_result.expected_size,
+            )
+        except UpdateValidationError:
+            self._update_downloader.cleanup(download_result)
+            raise
+
+    def _create_update_backup(self):
+        return self._update_backup.create_backup(
+            APP_ROOT,
+            preserve_paths=(APP_DATA_DIR,),
+        )
+
+    def _update_backup_done(self, future):
+        try:
+            result = future.result()
+            self._backup_result = result
+            self.update_backup_finished.emit({"success": True, "result": result})
+            if self._download_result is not None:
+                restart_future = self._tasks.submit(self._launch_update_relauncher)
+                restart_future.add_done_callback(self._update_restart_done)
+        except UpdateBackupError as exc:
+            self.update_backup_finished.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_backup_finished.emit({"success": False, "error": "Не удалось создать резервную копию: " + str(exc)})
+
+    def _launch_update_relauncher(self):
+        download = self._download_result
+        backup = self._backup_result
+        if download is None:
+            raise UpdateRelaunchError("Архив обновления не подготовлен для перезапуска.")
+        if backup is None:
+            raise UpdateRelaunchError("Резервная копия для возможного отката не подготовлена.")
+
+        plan = self._update_relauncher.prepare(
+            APP_ROOT,
+            download.archive_path,
+            download.expected_size,
+            backup_application=backup.application_backup,
+        )
+        process = self._update_relauncher.launch(plan)
+        return {"plan": plan, "process": process}
+
+    def _update_restart_done(self, future):
+        try:
+            result = future.result()
+            self.update_restart_requested.emit({"success": True, "result": result})
+        except UpdateRelaunchError as exc:
+            self.update_restart_requested.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_restart_requested.emit({"success": False, "error": "Не удалось запустить updater-процесс: " + str(exc)})
+
+    def _update_validation_done(self, future):
+        try:
+            result = future.result()
+            self.update_validation_finished.emit({"success": True, "result": result})
+            backup_future = self._tasks.submit(self._create_update_backup)
+            backup_future.add_done_callback(self._update_backup_done)
+        except UpdateValidationError as exc:
+            self.update_validation_finished.emit({"success": False, "error": str(exc)})
+        except Exception as exc:
+            self.update_validation_finished.emit({"success": False, "error": "Не удалось проверить архив обновления: " + str(exc)})
+
     def get(self, key, default=None):
         return self._config.get(key, default)
 
@@ -112,5 +270,9 @@ class SettingsController(QObject):
         return self._config.get("model"), self._config.get("assistant_name", "JARVIS")
 
     def close(self):
-        for name, handler in (("dependency.progress", self.whisper_progress.emit), ("dependency.state_changed", self.whisper_state_changed.emit)):
+        for name, handler in (
+            ("dependency.progress", self.whisper_progress.emit),
+            ("dependency.state_changed", self.whisper_state_changed.emit),
+            ("application.update_check_finished", self._background_update_finished),
+        ):
             self._events.unsubscribe(name, handler)

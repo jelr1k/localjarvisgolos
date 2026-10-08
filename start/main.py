@@ -27,6 +27,9 @@ from core.application import JarvisApplication
 from core.app_paths import WORKSPACE_DIR
 from services.model_service import ModelService
 from services.statistics_service import StatisticsService
+from services.update_downloader import UpdateDownloader
+from services.update_validator import UpdateValidator
+from services.update_backup import UpdateBackupService
 from tools.registry import TOOLS
 from presentation.application_controller import ApplicationController
 from presentation.alias_controller import AliasController
@@ -56,7 +59,7 @@ def main():
         voice_controller = VoiceController(backend.voice_service, backend.events)
         wake_word_controller = WakeWordController(backend.wake_word_detector, backend.events)
         dependency_controller = DependencyController(backend.dependency_manager, backend.events)
-        settings_controller = SettingsController(backend.config, ModelService(backend.provider), dependency_controller, backend.tasks, backend.events, backend.voice_service)
+        settings_controller = SettingsController(backend.config, ModelService(backend.provider), dependency_controller, backend.tasks, backend.events, backend.voice_service, update_checker=backend.update_checker, update_service=backend.update_service, update_downloader=UpdateDownloader(), update_validator=UpdateValidator(), update_backup=UpdateBackupService())
         alias_controller = AliasController(backend.alias_manager)
         tools_controller = ToolsController(backend.permission_manager, TOOLS)
         ollama_controller = OllamaController(backend.ollama_manager, backend.tasks)
