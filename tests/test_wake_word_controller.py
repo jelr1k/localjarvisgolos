@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from core.events import EventBus
 from presentation.wake_word_controller import WakeWordController
@@ -14,7 +15,10 @@ from presentation.wake_word_controller import WakeWordController
 
 @pytest.fixture(scope="session", autouse=True)
 def qapp():
-    return QCoreApplication.instance() or QCoreApplication([])
+    app = QApplication.instance()
+    if app is not None:
+        return app
+    return QApplication([])
 
 
 def test_wake_word_controller_bridges_events_and_service_calls():
