@@ -187,23 +187,15 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
 
     archive = tmp_path / "partial.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("JARVIS/a_main.py", "new\n")
+        zf.writestr("JARVIS/main.py", "new\n")
         zf.writestr("JARVIS/z_new.py", "new file\n")
 
-    original_copy2 = __import__("services.update_installer", fromlist=["shutil"]).shutil.copy2
-    copy_count = 0
+    def fail_after_partial_replace(self, source_root, destination_root, install_policy):
+        (destination_root / "main.py").write_text("broken\n", encoding="utf-8")
+        (destination_root / "z_new.py").write_text("partial\n", encoding="utf-8")
+        raise UpdateInstallError("synthetic install failure")
 
-    def fail_after_first_copy(source, target, *args, **kwargs):
-        nonlocal copy_count
-        if copy_count == 1:
-            raise OSError("synthetic install failure")
-        copy_count += 1
-        return original_copy2(source, target, *args, **kwargs)
-
-    monkeypatch.setattr(
-        "services.update_installer.shutil.copy2",
-        fail_after_first_copy,
-    )
+    monkeypatch.setattr(UpdateInstaller, "_replace_application_files", fail_after_partial_replace)
 
     with pytest.raises(UpdateInstallError, match="synthetic install failure"):
         UpdateInstaller().install(
@@ -224,3 +216,4 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
     assert (app / "stable.txt").read_text(encoding="utf-8") == "keep\n"
     assert not (app / "z_new.py").exists()
     assert (workspace / "notes.txt").read_text(encoding="utf-8") == "user\n"
+\n
