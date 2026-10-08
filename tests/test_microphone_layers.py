@@ -28,7 +28,7 @@ def test_microphone_recorder_start_creates_and_starts_stream():
 
 def test_microphone_recorder_callback_tracks_voice_and_silence(monkeypatch):
     recorder = MicrophoneRecorder()
-    now = iter([10.0, 12.0])
+    now = iter([10.0, 12.0, 12.0])
     monkeypatch.setattr("voice.microphone.time.monotonic", lambda: next(now))
 
     voice_chunk = np.asarray([[0.5], [-0.5]], dtype=np.float32)
