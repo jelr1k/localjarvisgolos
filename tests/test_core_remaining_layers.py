@@ -54,7 +54,9 @@ def test_configure_logger_adds_debug_and_error_handlers(tmp_path, monkeypatch):
 
 def test_log_event_emits_compact_json_payload(monkeypatch):
     sink = Mock()
-    monkeypatch.setattr(logging_config.logging, "getLogger", lambda _name: sink)
+    fake_logging = Mock()
+    fake_logging.getLogger.return_value = sink
+    monkeypatch.setattr(logging_config, "logging", fake_logging)
 
     logging_config.log_event("demo", value=123, text="привет")
 
@@ -64,7 +66,9 @@ def test_log_event_emits_compact_json_payload(monkeypatch):
 
 def test_log_event_falls_back_when_json_serialization_fails(monkeypatch):
     sink = Mock()
-    monkeypatch.setattr(logging_config.logging, "getLogger", lambda _name: sink)
+    fake_logging = Mock()
+    fake_logging.getLogger.return_value = sink
+    monkeypatch.setattr(logging_config, "logging", fake_logging)
     dumps = Mock(side_effect=[TypeError("boom"), '{"event":"fallback","serialization_error":true}'])
     monkeypatch.setattr(logging_config.json, "dumps", dumps)
 
