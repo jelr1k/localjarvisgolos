@@ -41,6 +41,7 @@ def test_validate_tool_name_rejects_path_or_control_chars(value):
 def test_permission_manager_reads_and_persists_updates():
     config = Mock()
     config.data = {"tools": {"search_files": True}}
+    config.get.side_effect = lambda key, default=None: config.data.get(key, default)
 
     manager = PermissionManager(config)
 
