@@ -38,12 +38,9 @@ class ManualRunner:
 
 
 def test_router_reply_handles_success_content_matches_path_and_errors():
-    assert CommandRouter._reply({"success": True, "content": "hello", "path": "x.txt"}) == "Содержимое x.txt:
-hello"
+    assert CommandRouter._reply({"success": True, "content": "hello", "path": "x.txt"}) == "Содержимое x.txt:\nhello"
     assert CommandRouter._reply({"success": True, "matches": []}) == "Ничего не найдено."
-    assert CommandRouter._reply({"success": True, "matches": ["a", "b"]}) == "Найдено:
-a
-b"
+    assert CommandRouter._reply({"success": True, "matches": ["a", "b"]}) == "Найдено:\na\nb"
     assert CommandRouter._reply({"success": True, "running": True}) == "Приложение запущено."
     assert CommandRouter._reply({"success": False, "error": "boom"}) == "Не выполнено: boom"
 
