@@ -276,7 +276,8 @@ class ApplicationToolTests(unittest.TestCase):
         with patch("tools.applications._resolve_application", return_value={
             "success": True,
             "identity": {"normalized_executable": r"c:\apps\test.exe"},
-        }),              patch("tools.applications._running_process_matches", return_value=[{"pid": 123}]),              patch("tools.applications.psutil.Process", side_effect=OSError("denied")):
+        }),              patch("tools.applications._running_process_matches", return_value=[{"pid": 123}]),              patch("tools.applications.psutil.Process", side_effect=OSError("denied")), \
+             patch("tools.applications._log_process_snapshot"):
             result = applications.close_application("Test")
 
         self.assertFalse(result["success"])
