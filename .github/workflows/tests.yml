@@ -2,6 +2,9 @@ name: Tests
 
 on:
   push:
+    branches:
+      - osnova
+      - main
   pull_request:
 
 concurrency:
