@@ -170,7 +170,7 @@ def test_workspace_index_refresh_and_category_search(tmp_path):
 
     index = WorkspaceIndex(tmp_path)
 
-    assert len(index.entries()) == 3
+    assert len(index.entries()) == 4
     assert [entry.name for entry in index.search("readme.txt", ("files",), fuzzy=False)] == ["readme.txt"]
     assert [entry.name for entry in index.search("Steam", ("applications",), fuzzy=False)] == ["Steam.lnk"]
     assert [entry.name for entry in index.entries(("folders",))] == ["folder"]
