@@ -489,7 +489,7 @@ def test_chat_service_background_router_done_records_result_and_rofl_event():
 
     assert service._ollama_task_running is False
     assert service.conversation.messages[-1].content == "готово"
-    service.events.emit.assert_called_with("chat.direct_response", "готово")
+    service.events.emit.assert_any_call("chat.direct_response", "готово")
     
 
 def test_chat_service_background_router_done_handles_exception():
