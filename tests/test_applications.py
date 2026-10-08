@@ -104,9 +104,9 @@ class ApplicationToolTests(unittest.TestCase):
             result = applications.close_application("Prism Launcher")
 
         self.assertTrue(fake.terminated)
-        self.assertTrue(result["success"])
-        self.assertFalse(result["running"])
-        self.assertEqual(result["details"]["closed"], [123])
+        self.assertTrue(result["success"], result)
+        self.assertFalse(result["running"], result)
+        self.assertEqual(result["details"]["closed"], [123], result)
 
     def test_close_application_terminates_children_before_parent(self):
         child = FakeProcess(125)
