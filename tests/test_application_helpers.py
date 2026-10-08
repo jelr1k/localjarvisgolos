@@ -39,7 +39,7 @@ def test_find_application_uses_start_menu_and_deduplicates_by_executable(tmp_pat
     duplicate.write_text("x", encoding="utf-8")
     exe = tmp_path / "Steam.exe"
 
-    with patch.object(applications, "_WINDOWS_APP_DIRS", [root]),          patch.object(applications, "shutil.which", return_value=None),          patch.object(applications, "_resolve_shortcut_target", return_value=exe):
+    with patch.object(applications, "_WINDOWS_APP_DIRS", [root]),          patch.object(applications.shutil, "which", return_value=None),          patch.object(applications, "_resolve_shortcut_target", return_value=exe):
         result = applications.find_application("Steam")
 
     assert result["success"] is True
@@ -76,9 +76,10 @@ def test_application_resolver_can_use_workspace_executable(tmp_path):
 def test_launch_invalid_selection_keeps_pending_choices():
     applications._PENDING_LAUNCH_CHOICES = [Path("one.exe"), Path("two.exe")]
     try:
-        with patch.object(applications, "has_pending_launch_choices", return_value=True):
-            result = applications.launch_application("9")
+        result = applications.launch_application("9")
         assert result["success"] is False
         assert result["ambiguous"] is True
+        assert result["matches"] == ["one.exe", "two.exe"]
+        assert applications._PENDING_LAUNCH_CHOICES == [Path("one.exe"), Path("two.exe")]
     finally:
         applications._PENDING_LAUNCH_CHOICES = []
