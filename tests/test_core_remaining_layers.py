@@ -113,7 +113,11 @@ def test_workspace_view_model_add_file_refreshes_index_and_aliases(tmp_path):
     workspace_file = tmp_path / "copied.txt"
     aliases = Mock()
 
-    with patch("tools.paths.add_file_to_workspace", return_value=workspace_file),          patch.object(workspace_file, "resolve", return_value=workspace_file):
+    def add_file(_source):
+        workspace_file.write_text("hello", encoding="utf-8")
+        return workspace_file
+
+    with patch("tools.paths.add_file_to_workspace", side_effect=add_file):
         model = WorkspaceViewModel(tmp_path, aliases)
         result = model.add_file(source)
 
