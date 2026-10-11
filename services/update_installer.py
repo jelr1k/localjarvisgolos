@@ -25,7 +25,7 @@ MANIFEST_NAME = ".jarvis-update-manifest.json"
 MANIFEST_SCHEMA = 1
 _UNMANAGED_ROOTS = {
     ".git", ".github", ".venv", "venv", "env", "tests",
-    ".pytest_cache", ".mypy_cache", ".ruff_cache", "__pycache__", "node_modules",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", "__pycache__", "node_modules", "user_data",
 }
 
 
