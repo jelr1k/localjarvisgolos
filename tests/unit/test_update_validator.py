@@ -94,3 +94,20 @@ def test_validator_rejects_empty_zip(tmp_path):
 
     with pytest.raises(UpdateValidationError, match="не содержит"):
         UpdateValidator().validate(archive)
+
+
+def test_validator_rejects_excessive_uncompressed_size_before_extraction(tmp_path):
+    archive = make_zip(tmp_path / "large.zip", {"payload.bin": b"x" * 32})
+
+    with pytest.raises(UpdateValidationError, match="Суммарный распакованный размер"):
+        UpdateValidator(max_total_uncompressed_size=16).validate(archive)
+
+
+def test_validator_rejects_too_many_entries(tmp_path):
+    archive = make_zip(
+        tmp_path / "many.zip",
+        {f"file-{index}.txt": b"x" for index in range(5)},
+    )
+
+    with pytest.raises(UpdateValidationError, match="слишком много записей"):
+        UpdateValidator(max_entries=4).validate(archive)
