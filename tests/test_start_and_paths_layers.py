@@ -139,10 +139,12 @@ def test_updater_restart_requires_bootstrap(tmp_path):
 
 
 def test_updater_cleanup_removes_temporary_archive_directory(tmp_path):
-    archive = tmp_path / "download" / "JARVIS.zip"
+    app_root = tmp_path / "app"
+    app_root.mkdir()
+    archive = tmp_path / "jarvis-update-test" / "JARVIS.zip"
     archive.parent.mkdir()
     archive.write_text("x", encoding="utf-8")
 
-    updater._cleanup_archive(archive)
+    updater._cleanup_archive(archive, app_root)
 
     assert not archive.parent.exists()
