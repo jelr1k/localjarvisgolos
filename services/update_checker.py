@@ -38,6 +38,7 @@ class ReleaseAsset:
     name: str
     download_url: str
     size: int
+    digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -320,7 +321,8 @@ class UpdateChecker:
                     size = int(size)
                 except (TypeError, ValueError):
                     size = 0
-                assets.append(ReleaseAsset(name, download_url, max(0, size)))
+                digest = str(item.get("digest") or "").strip() or None
+                assets.append(ReleaseAsset(name, download_url, max(0, size), digest))
 
         logger.info(
             "update_check_assets count=%s names=%s",
