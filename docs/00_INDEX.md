@@ -24,6 +24,7 @@ docs/
 ├── 02_ARCHITECTURE/
 │   ├── AI_WORK_GUIDE.md
 │   ├── LOGGING_SYSTEM.md
+│   ├── TTS_ARCHITECTURE.md
 │   └── PATH_PORTABILITY_TZ.md
 ├── 03_FEATURES/
 │   ├── AUTO_ALIASES.md
