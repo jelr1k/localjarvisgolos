@@ -262,7 +262,7 @@ class SettingsPage(QWidget):
             self.tts_status.setText("Сначала скачай выбранную модель голоса.")
             return
         self.tts_status.setText("Готовлю пробную фразу. Если всё работает, голос прозвучит через выбранное устройство вывода.")
-        if not self.controller.test_tts(voice_name,self.tts_speed.value()):
+        if not self.controller.test_tts(voice_name,self.tts_speed.value(),self.tts_volume.value()):
             self.tts_status.setText("Не удалось поставить тестовую фразу в очередь TTS.")
 
     def _on_tts_state_changed(self,state,message):
