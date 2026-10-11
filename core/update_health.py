@@ -22,7 +22,10 @@ def write_startup_health_marker(version: str) -> bool:
     if not raw_path:
         return False
 
-    target = Path(raw_path).expanduser().resolve()
+    raw_target = Path(raw_path).expanduser()
+    if raw_target.is_symlink() or (raw_target.exists() and not raw_target.is_file()):
+        raise OSError("Файл подтверждения запуска небезопасен.")
+    target = raw_target.parent.resolve() / raw_target.name
     if target.is_symlink() or (target.exists() and not target.is_file()):
         raise OSError("Файл подтверждения запуска небезопасен.")
 
