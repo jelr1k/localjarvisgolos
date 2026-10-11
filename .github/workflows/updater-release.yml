@@ -165,6 +165,27 @@ jobs:
           cd "$STAGING_DIR/jarvis"
           zip -qr "$GITHUB_WORKSPACE/release/jarvis.zip" .
 
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import zipfile
+
+          archive = Path(os.environ["GITHUB_WORKSPACE"]) / "release" / "jarvis.zip"
+          with zipfile.ZipFile(archive) as bundle:
+              names = set(bundle.namelist())
+
+          required = {"core/version.py", "start/updater.py", "start/bootstrap.py"}
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit(f"Update archive is missing required files: {missing}")
+
+          unexpected = sorted(name for name in names if name.startswith("release/"))
+          if unexpected:
+              raise SystemExit(f"Build output leaked into update archive: {unexpected}")
+
+          print(f"Validated update archive: {len(names)} entries")
+          PY
+
       - name: Align release tag with the tested source commit
         shell: bash
         env:
