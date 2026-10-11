@@ -281,12 +281,12 @@ class SettingsController(QObject):
             success, error = False, str(exc)
         self.tts_voice_finished.emit(str(voice_name), success, error)
 
-    def test_tts(self, voice_name, speed):
+    def test_tts(self, voice_name, speed, volume=None):
         if self._tts is None:
             self.tts_state_changed.emit("error", "Сервис TTS не подключён.")
             return False
         try:
-            return self._tts.test(voice_name=voice_name, speed=speed)
+            return self._tts.test(voice_name=voice_name, speed=speed, volume=volume)
         except Exception as exc:
             self.tts_state_changed.emit("error", str(exc))
             return False
