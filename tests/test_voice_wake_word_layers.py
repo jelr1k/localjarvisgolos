@@ -74,6 +74,23 @@ def test_detector_config_resolves_named_device_and_sample_rate():
     detector.close()
 
 
+def test_detector_can_suppress_and_resume_input_without_restarting():
+    config = {"voice": {"wake_word_enabled": True, "sample_rate": 16000}}
+    with patch("voice.wake_word.resolve_shared_input_device", side_effect=lambda value: value), patch(
+        "voice.wake_word.find_supported_sample_rate", return_value=16000
+    ):
+        detector = wake_word.WakeWordDetector(config)
+
+    try:
+        assert detector._suppressed.is_set() is False
+        detector.set_suppressed(True)
+        assert detector._suppressed.is_set() is True
+        detector.set_suppressed(False)
+        assert detector._suppressed.is_set() is False
+    finally:
+        detector.close()
+
+
 def test_detector_disabled_does_not_start_thread():
     config = {"voice": {"wake_word_enabled": False}}
 
