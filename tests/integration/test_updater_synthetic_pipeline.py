@@ -203,7 +203,7 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
         zf.writestr("JARVIS/main.py", "new\n")
         zf.writestr("JARVIS/z_new.py", "new file\n")
 
-    def fail_after_partial_replace(self, source_root, destination_root, install_policy):
+    def fail_after_partial_replace(self, source_root, destination_root, install_policy, transaction_backup):
         (destination_root / "main.py").write_text("broken\n", encoding="utf-8")
         (destination_root / "z_new.py").write_text("partial\n", encoding="utf-8")
         raise UpdateInstallError("synthetic install failure")
