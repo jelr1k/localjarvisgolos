@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -176,6 +177,11 @@ def _cleanup_archive(archive: Path, application_root: Path) -> None:
 
     if not parent.name.startswith(_DOWNLOAD_DIRECTORY_PREFIX):
         return
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    try:
+        parent.relative_to(temp_root)
+    except ValueError:
+        return
     if parent == root or parent in root.parents or root in parent.parents:
         return
     if parent.is_dir():
@@ -206,6 +212,15 @@ def main() -> int:
             policy = UpdateInstallPolicy(root)
         except Exception as wait_error:
             logger.exception("Updater could not safely begin: %s", wait_error)
+            if isinstance(wait_error, TimeoutError):
+                try:
+                    if _is_process_running(args.pid):
+                        logger.error(
+                            "The original process is still running; refusing to launch a duplicate instance"
+                        )
+                        return 2
+                except Exception:
+                    logger.exception("Could not determine whether the original process is still running")
             try:
                 _restart_and_verify(root, health_file)
                 logger.info("Original JARVIS restarted; update was not installed")
