@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from core.application import JarvisApplication
 from core.app_paths import WORKSPACE_DIR
-from core.update_health import write_startup_health_marker
+from core.update_health import UPDATE_HEALTH_ENV, write_startup_health_marker
 from core.version import APP_VERSION
 from services.model_service import ModelService
 from services.statistics_service import StatisticsService
@@ -83,6 +84,10 @@ def main():
         logger.exception("Jarvis startup failed")
         if backend is not None:
             backend.shutdown()
+        # A hidden updater-launched process must exit rather than wait forever
+        # on a modal dialog that cannot be seen by the user.
+        if os.environ.get(UPDATE_HEALTH_ENV):
+            sys.exit(1)
         QMessageBox.critical(None, "Jarvis", str(exc))
         sys.exit(1)
 
