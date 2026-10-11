@@ -19,7 +19,7 @@ INVENTORY_NAME = "application-inventory.json"
 _UNMANAGED_ROOTS = {
     ".git", ".github", ".venv", "venv", "env", "tests",
     ".pytest_cache", ".mypy_cache", ".ruff_cache", "__pycache__",
-    "workspace", "logs", "models", "node_modules",
+    "workspace", "logs", "models", "node_modules", "user_data",
 }
 
 
