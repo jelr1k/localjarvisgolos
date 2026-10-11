@@ -4,13 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, for example 0.1.1"
+        description: "Release version, for example 0.1.3"
         required: true
-        default: "0.1.2"
+        default: "0.1.3"
       tag:
-        description: "Release tag, for example v0.1.1"
+        description: "Release tag, for example v0.1.3"
         required: true
-        default: "v0.1.2"
+        default: "v0.1.3"
+  push:
+    branches:
+      - 'release/v*'
 
 permissions:
   contents: read
@@ -19,6 +22,9 @@ jobs:
   test:
     name: Test the exact release sources
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.release_meta.outputs.version }}
+      tag: ${{ steps.release_meta.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +49,50 @@ jobs:
           --cov=security --cov=tools --cov=voice --cov=presentation
           --cov=start --cov-report=term-missing
 
+      - name: Resolve and validate release version
+        id: release_meta
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+          if event_name == "workflow_dispatch":
+              version = os.environ.get("INPUT_VERSION", "").strip()
+              tag = os.environ.get("INPUT_TAG", "").strip()
+          elif event_name == "push":
+              ref_name = os.environ.get("GITHUB_REF_NAME", "")
+              prefix = "release/v"
+              if not ref_name.startswith(prefix):
+                  sys.exit("Push releases must come from a release/v* branch.")
+              version = ref_name[len(prefix):]
+              tag = f"v{version}"
+          else:
+              sys.exit(f"Unsupported release event: {event_name}")
+
+          pattern = (
+              r"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"
+              r"(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+          )
+          if not re.fullmatch(pattern, version):
+              sys.exit("Release version is not valid semantic version text.")
+          normalized_tag = tag[1:] if tag.lower().startswith("v") else tag
+          if normalized_tag != version:
+              sys.exit("Release tag version must match the release version.")
+          if not tag:
+              sys.exit("Release tag must not be empty.")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\\n")
+              output.write(f"tag={tag}\\n")
+          print(f"Validated release version={version}, tag={tag}")
+          PY
+
   release:
     name: Build and publish tested update
     needs: test
@@ -65,34 +115,10 @@ jobs:
           test -f start/bootstrap.py
           test -f core/version.py
 
-      - name: Validate release version and tag
+      - name: Set the release version in the package
         shell: bash
         env:
-          RELEASE_VERSION: ${{ inputs.version }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          python - <<'PY'
-          import os
-          import re
-          import sys
-
-          version = os.environ["RELEASE_VERSION"].strip()
-          tag = os.environ["RELEASE_TAG"].strip()
-          normalized_tag = tag[1:] if tag.lower().startswith("v") else tag
-          pattern = (
-              r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-              r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
-          )
-          if not re.fullmatch(pattern, version):
-              sys.exit("Release version is not valid semantic version text.")
-          if normalized_tag != version:
-              sys.exit("Release tag version must match the release version input.")
-          PY
-
-      - name: Build update archive
-        shell: bash
-        env:
-          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ needs.test.outputs.version }}
         run: |
           python - <<'PY'
           import os
@@ -103,7 +129,7 @@ jobs:
           content = path.read_text(encoding="utf-8")
           version = os.environ["RELEASE_VERSION"].strip()
           updated, count = re.subn(
-              r'APP_VERSION\s*=\s*"[^"]+"',
+              r'APP_VERSION\\s*=\\s*"[^"]+"',
               f'APP_VERSION = "{version}"',
               content,
               count=1,
@@ -113,8 +139,16 @@ jobs:
           path.write_text(updated, encoding="utf-8")
           PY
 
+      - name: Build update archive
+        shell: bash
+        run: |
           mkdir -p release/jarvis
-          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache'             --exclude='__pycache__' --exclude='tests' --exclude='logs'             --exclude='workspace' --exclude='models' --exclude='.venv'             --exclude='venv' --exclude='env' --exclude='node_modules'             --exclude='user_data' --exclude='coverage.xml' --exclude='*.log'             --exclude='*.log.*' --exclude='.env' --exclude='.env.*' ./ release/jarvis/
+          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache' \
+            --exclude='__pycache__' --exclude='tests' --exclude='logs' \
+            --exclude='workspace' --exclude='models' --exclude='.venv' \
+            --exclude='venv' --exclude='env' --exclude='node_modules' \
+            --exclude='user_data' --exclude='coverage.xml' --exclude='*.log' \
+            --exclude='*.log.*' --exclude='.env' --exclude='.env.*' ./ release/jarvis/
 
           test -f release/jarvis/start/bootstrap.py
           test -f release/jarvis/core/version.py
@@ -128,10 +162,17 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
-          name: JARVIS ${{ inputs.tag }} - updater release
+          tag_name: ${{ needs.test.outputs.tag }}
+          name: JARVIS ${{ needs.test.outputs.tag }} - updater release
           body: |
-            JARVIS updater release ${{ inputs.tag }}.
-            Built and tested from the selected branch.
+            JARVIS ${{ needs.test.outputs.tag }}.
+
+            - Local Piper TTS uses a shared non-blocking queue for assistant and RoflService speech.
+            - Prepared WAV recordings can be matched by response key or normalized text; generated audio uses a bounded exact-match cache.
+            - Piper loading failures provide actionable recovery steps and write diagnostic details to `logs\\tts.log`.
+            - Settings include scrollable controls and the TTS diagnostics/assets dialog.
+
+            The Windows Python 3.12 syntax check and complete test suite must pass before publication.
+            This is a source ZIP for the updater, not a standalone EXE. Piper does not clone voices from arbitrary reference audio.
           files: release/jarvis.zip
           generate_release_notes: false
