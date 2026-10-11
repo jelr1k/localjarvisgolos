@@ -8,7 +8,9 @@ the application.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import time
@@ -90,12 +92,14 @@ class UpdateDownloader:
             total = content_length or plan.asset_size
             downloaded = 0
             started = time.monotonic()
+            digest = hashlib.sha256()
 
             with archive_path.open("wb") as destination:
                 for chunk in response.iter_content(chunk_size=self._chunk_size):
                     if not chunk:
                         continue
                     downloaded += len(chunk)
+                    digest.update(chunk)
                     if self._max_size is not None and downloaded > self._max_size:
                         raise UpdateDownloadError("Загрузка остановлена: архив слишком большой.")
                     destination.write(chunk)
@@ -109,6 +113,10 @@ class UpdateDownloader:
                 raise UpdateDownloadError(
                     f"Размер скачанного архива ({downloaded}) не совпадает "
                     f"с размером релиза ({plan.asset_size})."
+                )
+            if plan.sha256_digest and digest.hexdigest().casefold() != plan.sha256_digest.casefold():
+                raise UpdateDownloadError(
+                    "SHA-256 скачанного архива не совпадает с контрольной суммой релиза."
                 )
 
             return UpdateDownloadResult(
@@ -148,6 +156,8 @@ class UpdateDownloader:
             raise UpdateDownloadError("Размер архива превышает допустимый лимит.")
         if not plan.download_url.lower().startswith("https://"):
             raise UpdateDownloadError("Скачивание обновления разрешено только по HTTPS.")
+        if plan.sha256_digest and not re.fullmatch(r"[0-9a-fA-F]{64}", plan.sha256_digest):
+            raise UpdateDownloadError("SHA-256 контрольная сумма в плане обновления некорректна.")
         try:
             suggested_archive_path(Path("."), plan)
         except UpdateServiceError as exc:
