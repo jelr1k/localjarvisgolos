@@ -125,6 +125,32 @@ def make_service(config=None):
     return service
 
 
+def test_chat_service_direct_router_response_publishes_speech_request():
+    from core.events import EventBus
+
+    events = EventBus()
+    speech = []
+    events.subscribe("speech.requested", lambda text, source: speech.append((text, source)))
+    service = ChatService(
+        Mock(),
+        {
+            "model": "qwen",
+            "temperature": 0.7,
+            "context_length": 4096,
+            "max_tokens": 128,
+            "tools": {},
+            "router_only_mode": False,
+        },
+        event_bus=events,
+        task_runner=ManualRunner(),
+    )
+    service.router.route = Mock(return_value="Готово.")
+
+    service.send("сделай это")
+
+    assert speech == [("Готово.", "assistant")]
+
+
 def test_chat_service_direct_router_response_does_not_start_llm():
     service = make_service()
     service.router.route = Mock(return_value="Готово.")
