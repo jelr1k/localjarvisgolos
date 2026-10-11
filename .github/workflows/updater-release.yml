@@ -142,22 +142,28 @@ jobs:
       - name: Build update archive
         shell: bash
         run: |
-          mkdir -p release/jarvis
-          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache' \
+          mkdir -p release
+          STAGING_DIR="$(mktemp -d)"
+          mkdir -p "$STAGING_DIR/jarvis"
+          rsync -a \
+            --exclude='.git' --exclude='.github' --exclude='.pytest_cache' \
             --exclude='__pycache__' --exclude='tests' --exclude='logs' \
             --exclude='workspace' --exclude='models' --exclude='.venv' \
             --exclude='venv' --exclude='env' --exclude='node_modules' \
             --exclude='user_data' --exclude='coverage.xml' --exclude='*.log' \
-            --exclude='*.log.*' --exclude='.env' --exclude='.env.*' ./ release/jarvis/
+            --exclude='*.log.*' --exclude='.env' --exclude='.env.*' \
+            --exclude='release' \
+            ./ "$STAGING_DIR/jarvis/"
 
-          test -f release/jarvis/start/bootstrap.py
-          test -f release/jarvis/core/version.py
-          test ! -e release/jarvis/.git
-          test ! -e release/jarvis/.venv
-          test ! -e release/jarvis/tests
+          test -f "$STAGING_DIR/jarvis/start/bootstrap.py"
+          test -f "$STAGING_DIR/jarvis/core/version.py"
+          test ! -e "$STAGING_DIR/jarvis/.git"
+          test ! -e "$STAGING_DIR/jarvis/.venv"
+          test ! -e "$STAGING_DIR/jarvis/tests"
+          test ! -e "$STAGING_DIR/jarvis/release"
 
-          cd release/jarvis
-          zip -qr ../jarvis.zip .
+          cd "$STAGING_DIR/jarvis"
+          zip -qr "$GITHUB_WORKSPACE/release/jarvis.zip" .
 
       - name: Align release tag with the tested source commit
         shell: bash
