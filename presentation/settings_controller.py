@@ -18,6 +18,8 @@ class SettingsController(QObject):
     whisper_progress = Signal(str, int, int, float)
     whisper_state_changed = Signal(str, str)
     whisper_finished = Signal(str, bool, str)
+    tts_state_changed = Signal(str, str)
+    tts_voice_finished = Signal(str, bool, str)
     refresh_finished = Signal(object)
     update_check_finished = Signal(object)
     update_confirmation_requested = Signal(object)
@@ -27,7 +29,7 @@ class SettingsController(QObject):
     update_backup_finished = Signal(object)
     update_restart_requested = Signal(object)
 
-    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None, update_backup=None, update_relauncher=None):
+    def __init__(self, config, model_service, dependency_controller, task_runner, event_bus, voice_service, update_checker=None, update_service=None, update_downloader=None, update_validator=None, update_backup=None, update_relauncher=None, tts_service=None):
         super().__init__()
         self._config = config
         self._model_service = model_service
@@ -35,6 +37,7 @@ class SettingsController(QObject):
         self._tasks = task_runner
         self._events = event_bus
         self._voice = voice_service
+        self._tts = tts_service
         self._update_checker = update_checker or UpdateChecker()
         self._update_service = update_service or UpdateService()
         self._update_downloader = update_downloader or UpdateDownloader()
@@ -46,6 +49,8 @@ class SettingsController(QObject):
         self._events.subscribe("dependency.progress", self.whisper_progress.emit)
         self._events.subscribe("dependency.state_changed", self.whisper_state_changed.emit)
         self._events.subscribe("application.update_check_finished", self._background_update_finished)
+        if self._tts is not None:
+            self._events.subscribe("tts.state_changed", self.tts_state_changed.emit)
 
     def _background_update_finished(self, result):
         self._emit_update_result(self._prepare_update_result(result))
@@ -256,6 +261,36 @@ class SettingsController(QObject):
             result = {"success": False, "error": str(exc)}
         self.microphone_tested.emit(result)
 
+    def tts_voice_status(self, voice_name):
+        if self._tts is None:
+            return "missing"
+        return self._tts.voice_status(voice_name)
+
+    def download_tts_voice(self, voice_name):
+        if self._tts is None:
+            raise RuntimeError("Сервис TTS не подключён.")
+        future = self._tasks.submit(self._tts.ensure_voice, voice_name)
+        future.add_done_callback(lambda completed: self._tts_voice_done(voice_name, completed))
+        return future
+
+    def _tts_voice_done(self, voice_name, future):
+        try:
+            future.result()
+            success, error = True, ""
+        except Exception as exc:
+            success, error = False, str(exc)
+        self.tts_voice_finished.emit(str(voice_name), success, error)
+
+    def test_tts(self, voice_name, speed):
+        if self._tts is None:
+            self.tts_state_changed.emit("error", "Сервис TTS не подключён.")
+            return False
+        try:
+            return self._tts.test(voice_name=voice_name, speed=speed)
+        except Exception as exc:
+            self.tts_state_changed.emit("error", str(exc))
+            return False
+
     def get_rofl_settings(self):
         settings = self._config.get("rofl", {})
         return {
@@ -279,11 +314,16 @@ class SettingsController(QObject):
         self._config.data["max_tokens"] = values["max_tokens"]
         self._config.data["router_only_mode"] = values["router_only_mode"]
         self._config.data["allow_outside_workspace"] = values["allow_outside_workspace"]
+        if "tts" in values:
+            tts = self._config.data.setdefault("tts", {})
+            tts.update(values["tts"])
         voice = self._config.data.setdefault("voice", {})
         voice.update(values["voice"])
         self._config.data["ollama"]["base_url"] = values["ollama_url"]
         self._config.save()
         self._voice.apply_config(self._config.data)
+        if self._tts is not None:
+            self._tts.apply_config(self._config.data)
         return self._config.get("model"), self._config.get("assistant_name", "JARVIS")
 
     def close(self):
@@ -291,5 +331,6 @@ class SettingsController(QObject):
             ("dependency.progress", self.whisper_progress.emit),
             ("dependency.state_changed", self.whisper_state_changed.emit),
             ("application.update_check_finished", self._background_update_finished),
+            *((("tts.state_changed", self.tts_state_changed.emit),) if self._tts is not None else ()),
         ):
             self._events.unsubscribe(name, handler)
