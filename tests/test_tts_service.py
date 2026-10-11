@@ -113,7 +113,7 @@ def test_piper_backend_status_checks_model_and_config(tmp_path):
     model_path, config_path = backend.paths_for()
     model_path.write_bytes(b"x" * 2048)
     config_path.write_text(
-        json.dumps({"audio": {"sample_rate": 22050}}),
+        json.dumps({"audio": {"sample_rate": 22050}, "test_padding": "x" * 100}),
         encoding="utf-8",
     )
 
