@@ -40,5 +40,11 @@
   "rofl": {
     "chance": 0.12,
     "demon_chance": 0.15
+  },
+  "tts": {
+    "enabled": false,
+    "voice": "ru_RU-dmitri-medium",
+    "speed": 1.0,
+    "volume": 0.85
   }
 }
