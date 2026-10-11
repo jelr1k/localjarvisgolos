@@ -348,6 +348,11 @@ class RoflService:
             self.demon_chance,
         )
 
+    def _emit_rofl_response(self, text: str) -> None:
+        """Send the same joke to the UI and the reusable speech service."""
+        self.events.emit("chat.rofl_response", text)
+        self.events.emit("speech.requested", text, "rofl")
+
     @staticmethod
     def _clamp_chance(value, default):
         try:
