@@ -21,6 +21,7 @@ _UNMANAGED_ROOTS = {
     ".pytest_cache", ".mypy_cache", ".ruff_cache", "__pycache__",
     "workspace", "logs", "models", "node_modules", "user_data",
 }
+_UNMANAGED_FILES = {".env", ".env.local", ".env.development", ".env.production"}
 
 
 class UpdateRollbackError(RuntimeError):
@@ -210,6 +211,8 @@ class UpdateRollbackService:
         if not parts:
             return False
         if parts[0].casefold() in {name.casefold() for name in _UNMANAGED_ROOTS}:
+            return False
+        if parts[-1].casefold() in _UNMANAGED_FILES:
             return False
         return True
 
