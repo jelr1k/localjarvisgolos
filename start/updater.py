@@ -37,6 +37,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--backup", type=Path, required=True)
     parser.add_argument("--expected-size", type=int, required=True)
+    parser.add_argument("--expected-version", default="")
     return parser.parse_args()
 
 
@@ -89,6 +90,7 @@ def _wait_for_startup(
     *,
     timeout: float = STARTUP_TIMEOUT_SECONDS,
     poll_interval: float = _STARTUP_POLL_INTERVAL_SECONDS,
+    expected_version: str | None = None,
 ) -> dict:
     """Wait until the newly started app confirms its UI/backend are ready."""
     deadline = time.monotonic() + max(0.1, timeout)
@@ -100,6 +102,12 @@ def _wait_for_startup(
                 raise RuntimeError(f"Не удалось прочитать подтверждение запуска JARVIS: {exc}") from exc
             if not isinstance(result, dict) or result.get("status") != "ready":
                 raise RuntimeError("JARVIS сообщил некорректное состояние запуска.")
+            actual_version = str(result.get("version") or "").strip()
+            if expected_version and actual_version != expected_version:
+                raise RuntimeError(
+                    f"Запущена версия {actual_version or 'неизвестна'}, "
+                    f"ожидалась версия {expected_version}."
+                )
             return result
 
         return_code = process.poll()
@@ -129,7 +137,12 @@ def _terminate_process(process: subprocess.Popen) -> None:
             pass
 
 
-def _restart_and_verify(application_root: Path, health_file: Path) -> dict:
+def _restart_and_verify(
+    application_root: Path,
+    health_file: Path,
+    *,
+    expected_version: str | None = None,
+) -> dict:
     if health_file.exists():
         if health_file.is_dir():
             raise OSError("Путь подтверждения запуска является каталогом.")
@@ -137,7 +150,9 @@ def _restart_and_verify(application_root: Path, health_file: Path) -> dict:
 
     process = _restart(application_root, health_file)
     try:
-        result = _wait_for_startup(process, health_file)
+        result = _wait_for_startup(
+            process, health_file, expected_version=expected_version
+        )
         logger = logging.getLogger("jarvis.updater")
         logger.info("JARVIS startup confirmed version=%s", result.get("version", "unknown"))
         return result
@@ -244,7 +259,11 @@ def main() -> int:
 
         logger.info("Update installed: %s files", result.installed_files)
         try:
-            _restart_and_verify(root, health_file)
+            _restart_and_verify(
+                root,
+                health_file,
+                expected_version=args.expected_version or None,
+            )
             logger.info("Updated JARVIS started successfully")
             return 0
         except Exception as startup_error:
