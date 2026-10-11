@@ -30,7 +30,7 @@ class UpdateDownloadResult:
     temp_directory: Path
     bytes_downloaded: int
     expected_size: int
-    target_version: str
+    target_version: str = ""
 
 
 class UpdateDownloader:
