@@ -32,7 +32,9 @@ def test_rofl_emits_normal_response(monkeypatch):
     bus = FakeEventBus()
     RoflService(bus)
     emitted = []
+    spoken = []
     bus.subscribe("chat.rofl_response", emitted.append)
+    bus.subscribe("speech.requested", lambda text, source: spoken.append((text, source)))
 
     values = iter([0.0, 1.0])
     monkeypatch.setattr("services.rofl_service.random.random", lambda: next(values))
@@ -46,6 +48,7 @@ def test_rofl_emits_normal_response(monkeypatch):
     )
 
     assert emitted == ["Готово, Kirill.exe открыта."]
+    assert spoken == [("Готово, Kirill.exe открыта.", "rofl")]
 
 
 def test_rofl_emits_demon_response(monkeypatch):
