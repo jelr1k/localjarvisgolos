@@ -205,7 +205,8 @@ class PiperTTSBackend:
             if model_path.stat().st_size < 1024 or config_path.stat().st_size < 100:
                 return "missing"
             config = json.loads(config_path.read_text(encoding="utf-8"))
-            if not isinstance(config, dict) or int(config.get("audio", {}).get("sample_rate", 0)) <= 0:
+            audio_config = config.get("audio") if isinstance(config, dict) else None
+            if not isinstance(audio_config, dict) or int(audio_config.get("sample_rate", 0)) <= 0:
                 return "missing"
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return "missing"
@@ -432,12 +433,17 @@ class TTSService:
             self._emit("tts.state_changed", "error", "Очередь озвучивания заполнена, фраза пропущена.")
             return False
 
-    def test(self, voice_name: str | None = None, speed: float | None = None) -> bool:
+    def test(
+        self,
+        voice_name: str | None = None,
+        speed: float | None = None,
+        volume: float | None = None,
+    ) -> bool:
         selected = voice_name or self._backend.voice_name
         self._backend.configure(
             voice_name=selected,
             speed=self._backend.speed if speed is None else speed,
-            volume=self._backend.volume,
+            volume=self._backend.volume if volume is None else volume,
         )
         return self.speak(self.TEST_PHRASE, source="settings", force=True)
 
