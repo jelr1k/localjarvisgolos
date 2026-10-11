@@ -67,6 +67,7 @@ def make_application():
     voice = Mock()
     wake = Mock()
     rofl = Mock()
+    tts = Mock()
     updater = Mock()
     update_service = Mock()
 
@@ -76,6 +77,7 @@ def make_application():
         patch("core.application.TaskRunner", return_value=tasks),
         patch("core.application.ConfigManager", return_value=config),
         patch("core.application.RoflService", return_value=rofl),
+        patch("core.application.TTSService", return_value=tts),
         patch("core.application.OllamaManager", return_value=manager),
         patch("core.application.OllamaProvider", return_value=provider),
         patch("core.application.get_dependency_manager", return_value=dependency),
@@ -105,6 +107,7 @@ def make_application():
     app._test_voice = voice
     app._test_wake = wake
     app._test_rofl = rofl
+    app._test_tts = tts
     app._test_monitor = app.update_monitor
     return app
 
@@ -146,6 +149,7 @@ def test_application_apply_settings_updates_backend_and_emits_event():
     app._test_provider.set_base_url.assert_called_once_with("http://localhost:11434")
     app._test_manager.set_base_url.assert_called_once_with("http://localhost:11434")
     app._test_voice.apply_config.assert_called_once_with(app.config)
+    app._test_tts.apply_config.assert_called_once_with(app.config)
     app._test_wake.apply_config.assert_called_once_with(app.config)
     app._test_manager.register_model.assert_called_with("qwen")
     assert events == [("qwen", "JARVIS")]
@@ -160,6 +164,7 @@ def test_application_shutdown_calls_owned_services_once():
     app.shutdown()
 
     app._test_rofl.close.assert_called_once()
+    app._test_tts.close.assert_called_once()
     app._test_monitor.stop.assert_called_once()
     app._test_wake.close.assert_called_once()
     app._test_voice.close.assert_called_once()
