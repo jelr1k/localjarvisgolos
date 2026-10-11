@@ -114,7 +114,7 @@ jobs:
           PY
 
           mkdir -p release/jarvis
-          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache'             --exclude='__pycache__' --exclude='tests' --exclude='logs'             --exclude='workspace' --exclude='models' --exclude='.venv'             --exclude='venv' --exclude='env' --exclude='node_modules'             --exclude='user_data' --exclude='coverage.xml' --exclude='*.log'             --exclude='*.log.*' ./ release/jarvis/
+          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache'             --exclude='__pycache__' --exclude='tests' --exclude='logs'             --exclude='workspace' --exclude='models' --exclude='.venv'             --exclude='venv' --exclude='env' --exclude='node_modules'             --exclude='user_data' --exclude='coverage.xml' --exclude='*.log'             --exclude='*.log.*' --exclude='.env' --exclude='.env.*' ./ release/jarvis/
 
           test -f release/jarvis/start/bootstrap.py
           test -f release/jarvis/core/version.py
