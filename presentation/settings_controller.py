@@ -169,6 +169,7 @@ class SettingsController(QObject):
             download.archive_path,
             download.expected_size,
             backup_application=backup.application_backup,
+            expected_version=download.target_version,
         )
         process = self._update_relauncher.launch(plan)
         return {"plan": plan, "process": process}
