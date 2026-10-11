@@ -84,6 +84,12 @@ A profile stores `voice_id`, display name, engine/model IDs, engine-specific set
 
 Important: attaching a reference sample to a profile does **not** make Piper clone a voice. Piper uses its supported pretrained voices. A prepared recording can use a human voice or audio produced by another AI. Dynamic voice cloning requires an engine that explicitly supports it; reference audio is not uploaded anywhere implicitly.
 
+## UI controls
+
+The existing Settings page keeps the small, common controls: automatic speech, active Piper voice, speed/volume, one-time model download and voice test. The **Готовые озвучки и статистика** dialog handles optional audio-library tasks: import a PCM WAV with a stable response key and the exact text it represents, list/play/remove imported recordings, inspect runtime counters/cache usage, and clear disposable generated cache. The dialog talks only to SettingsController, which calls the TTSService API; it does not import Piper or reach into engine internals.
+
+When a prepared recording is registered with its text, TTS first checks the response key if supplied, then checks for an exact normalized text match for the selected voice. If a match exists, it plays the prepared WAV rather than synthesizing that utterance. This allows prepared greetings to work without special-case logic in ChatService/Router. Changing punctuation or wording may prevent a text match, so stable phrasing is important.
+
 ## State, logging, fallback, and metrics
 
 - TTS reports disabled/missing/ready/downloading/synthesizing/speaking/idle/error states through the existing state event.
@@ -95,10 +101,10 @@ Important: attaching a reference sample to a profile does **not** make Piper clo
 ## Implementation stages
 
 1. **Architecture split (this change):** package the current implementation, retain its public imports, introduce engine/profile/request contracts, and add tested profile, asset, and metrics modules.
-2. **Prepared/cache routing:** pass `response_key` through the shared speech event; implement prepared WAV → cache → Piper synthesis → configured fallback and test the end-to-end route.
-3. **Voice/settings UI:** populate the voice list from VoiceManager, support importing and previewing recordings, and keep automatic speech off by default.
-4. **Diagnostics:** surface service status, cache hit rate, fallback count, queue rejection, and timings in settings/logs.
-5. **Engine experiments:** benchmark Piper first on the actual PC; add an alternative adapter later. Add a separate process/environment only if an engine's dependencies or resource usage require it.
+2. **Additional asset formats:** consider optional conversion support for MP3/OGG while keeping WAV as the baseline format.
+3. **Voice/profile UI:** populate the active voice list from VoiceManager and add support for custom profiles / engine-specific voice creation when a cloning-capable backend is selected.
+4. **Diagnostics polish:** expand the metrics panel and add persisted statistics only if runtime testing shows that history is useful.
+5. **Engine experiments:** benchmark Piper on the actual PC; add an alternative adapter later. Add a separate process/environment only if an engine's dependencies or resource use require it.
 
 This change does not claim prepared files are already selected for playback. The storage/profile components and contracts are ready; the resolver is the next step.
 

@@ -89,3 +89,18 @@ def test_speech_request_contract_rejects_unknown_cache_policy():
     assert SpeechRequest("Привет", response_key="greeting.hello").response_key == "greeting.hello"
     with pytest.raises(ValueError, match="cache_policy"):
         SpeechRequest("Привет", cache_policy="probably")
+
+
+def test_prepared_audio_can_be_found_by_normalized_text_and_removed(tmp_path):
+    assets = AudioAssetManager(tmp_path / "assets")
+    sample = assets.save_cached_audio("b" * 64, np.full(800, 0.1, dtype=np.float32), 22050)
+    prepared = assets.register_prepared_file(
+        "ru_RU-dmitri-medium", "greeting.hello", sample,
+        text="Привет, Джарвис!"
+    )
+    assert assets.find_prepared_audio_for_text("ru_RU-dmitri-medium", "  ПРИВЕТ,   Джарвис! ") == prepared
+    entries = assets.list_prepared_audio("ru_RU-dmitri-medium")
+    assert len(entries) == 1
+    assert entries[0]["response_key"] == "greeting.hello"
+    assert assets.remove_prepared_audio("ru_RU-dmitri-medium", "greeting.hello") is True
+    assert assets.find_prepared_audio_for_text("ru_RU-dmitri-medium", "Привет, Джарвис!") is None

@@ -12,6 +12,7 @@ from core.events import EventBus
 from voice.tts import (
     PiperTTSBackend,
     SUPPORTED_TTS_VOICES,
+    AudioAssetManager,
     TTSConfigurationError,
     TTSError,
     TTSService,
@@ -132,7 +133,7 @@ def test_piper_backend_requires_downloaded_model_before_synthesis(tmp_path):
         backend.synthesize("Привет")
 
 
-def test_tts_service_does_not_speak_automatically_when_disabled():
+def test_tts_service_does_not_speak_automatically_when_disabled(tmp_path):
     events = EventBus()
     player = FakePlayer()
     service = TTSService(
@@ -140,6 +141,7 @@ def test_tts_service_does_not_speak_automatically_when_disabled():
         {"tts": {"enabled": False}},
         backend=FakeBackend(),
         player=player,
+        asset_manager=AudioAssetManager(tmp_path / "assets"),
     )
 
     try:
@@ -149,7 +151,7 @@ def test_tts_service_does_not_speak_automatically_when_disabled():
         service.close()
 
 
-def test_tts_service_queues_and_plays_when_enabled():
+def test_tts_service_queues_and_plays_when_enabled(tmp_path):
     events = EventBus()
     player = FakePlayer()
     service = TTSService(
@@ -157,6 +159,7 @@ def test_tts_service_queues_and_plays_when_enabled():
         {"tts": {"enabled": True, "voice": "ru_RU-dmitri-medium", "speed": 1.0, "volume": 0.85}},
         backend=FakeBackend(),
         player=player,
+        asset_manager=AudioAssetManager(tmp_path / "assets"),
     )
 
     try:
@@ -168,7 +171,7 @@ def test_tts_service_queues_and_plays_when_enabled():
         service.close()
 
 
-def test_tts_manual_test_works_even_when_auto_speech_is_disabled():
+def test_tts_manual_test_works_even_when_auto_speech_is_disabled(tmp_path):
     player = FakePlayer()
     backend = FakeBackend()
     service = TTSService(
@@ -176,6 +179,7 @@ def test_tts_manual_test_works_even_when_auto_speech_is_disabled():
         {"tts": {"enabled": False}},
         backend=backend,
         player=player,
+        asset_manager=AudioAssetManager(tmp_path / "assets"),
     )
 
     try:
@@ -189,7 +193,7 @@ def test_tts_manual_test_works_even_when_auto_speech_is_disabled():
         service.close()
 
 
-def test_tts_service_receives_shared_speech_requests_from_event_bus():
+def test_tts_service_receives_shared_speech_requests_from_event_bus(tmp_path):
     events = EventBus()
     player = FakePlayer()
     service = TTSService(
@@ -197,11 +201,39 @@ def test_tts_service_receives_shared_speech_requests_from_event_bus():
         {"tts": {"enabled": True}},
         backend=FakeBackend(),
         player=player,
+        asset_manager=AudioAssetManager(tmp_path / "assets"),
     )
 
     try:
         events.emit("speech.requested", "Общий запрос озвучивания.", "assistant")
         assert player.finished.wait(timeout=2.0)
         assert len(player.played) == 1
+    finally:
+        service.close()
+
+
+def test_tts_service_plays_prepared_recording_for_matching_text(tmp_path):
+    events = EventBus()
+    backend = FakeBackend()
+    player = FakePlayer()
+    assets = AudioAssetManager(tmp_path / "assets")
+    source = assets.save_cached_audio("a" * 64, np.full(2205, 0.2, dtype=np.float32), 22050)
+    assets.register_prepared_file(
+        "ru_RU-dmitri-medium", "greeting.hello", source,
+        text="Привет! Я Джарвис."
+    )
+    service = TTSService(
+        events,
+        {"tts": {"enabled": True, "voice": "ru_RU-dmitri-medium", "speed": 1.0, "volume": 0.85}},
+        backend=backend,
+        player=player,
+        asset_manager=assets,
+    )
+    try:
+        assert service.speak("Привет!   Я Джарвис.", source="unit-test") is True
+        assert player.finished.wait(timeout=2.0)
+        assert len(player.played) == 1
+        assert backend.synthesized_settings == []
+        assert service.metrics.snapshot().prepared_audio_hits == 1
     finally:
         service.close()

@@ -7,6 +7,7 @@ from core.version import APP_VERSION
 from PySide6.QtCore import Signal, QTimer
 from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar
 from ui.rofl_settings_dialog import RoflSettingsDialog
+from ui.tts_assets_dialog import TTSAssetsDialog
 
 class SettingsPage(QWidget):
     settings_changed=Signal(str,str)
@@ -29,7 +30,8 @@ class SettingsPage(QWidget):
         self.tts_status=QLabel();self.tts_status.setWordWrap(True)
         self.tts_download=QPushButton("Скачать голос");self.tts_download.clicked.connect(self._download_tts_voice)
         self.tts_test=QPushButton("Проверить голос");self.tts_test.clicked.connect(self._test_tts_voice)
-        tts_box=QGroupBox("Синтез речи (TTS)");tts_form=QFormLayout(tts_box);tts_form.addRow("",self.tts_enabled);tts_form.addRow("Голос:",self.tts_voice);tts_form.addRow("Скорость:",self.tts_speed);tts_form.addRow("Громкость:",self.tts_volume);tts_form.addRow("",self.tts_status);tts_form.addRow("",self.tts_download);tts_form.addRow("",self.tts_test)
+        self.tts_assets_button=QPushButton("Готовые озвучки и статистика…");self.tts_assets_button.clicked.connect(self._open_tts_assets)
+        tts_box=QGroupBox("Синтез речи (TTS)");tts_form=QFormLayout(tts_box);tts_form.addRow("",self.tts_enabled);tts_form.addRow("Голос:",self.tts_voice);tts_form.addRow("Скорость:",self.tts_speed);tts_form.addRow("Громкость:",self.tts_volume);tts_form.addRow("",self.tts_status);tts_form.addRow("",self.tts_download);tts_form.addRow("",self.tts_test);tts_form.addRow("",self.tts_assets_button)
         self.tts_voice.currentIndexChanged.connect(self._refresh_tts_voice_status)
         self.tts_enabled.stateChanged.connect(lambda _state: self._refresh_tts_voice_status())
         self.whisper_cpu_threads=QSpinBox();self.whisper_cpu_threads.setRange(1,12);self.whisper_cpu_threads.setValue(max(1,min(12,int(voice.get("cpu_threads",4)))));self.whisper_cpu_threads.setToolTip("Количество CPU-потоков, выделяемых faster-whisper для распознавания. Для Ryzen 5 3600 можно начать с 4–6 и сравнить время.")
@@ -255,6 +257,11 @@ class SettingsPage(QWidget):
             self._refresh_tts_voice_status()
         else:
             self._refresh_tts_voice_status();self.tts_status.setText(f"Ошибка загрузки голоса: {error or 'неизвестная ошибка'}")
+
+    def _open_tts_assets(self):
+        dialog=TTSAssetsDialog(self.controller,self.tts_voice.currentData(),self)
+        dialog.exec()
+        self._refresh_tts_voice_status()
 
     def _test_tts_voice(self):
         voice_name=self.tts_voice.currentData()
