@@ -26,6 +26,7 @@ class FakeBackend:
         self.voice_name = "ru_RU-dmitri-medium"
         self.speed = 1.0
         self.volume = 0.85
+        self.synthesized_settings = []
 
     def configure(self, voice_name, speed=1.0, volume=0.85):
         if voice_name not in SUPPORTED_TTS_VOICES:
@@ -42,6 +43,7 @@ class FakeBackend:
 
     def synthesize(self, text):
         assert text.strip()
+        self.synthesized_settings.append((self.voice_name, self.speed, self.volume))
         return np.full(2205, 0.05, dtype=np.float32), 22050
 
 
@@ -168,17 +170,21 @@ def test_tts_service_queues_and_plays_when_enabled():
 
 def test_tts_manual_test_works_even_when_auto_speech_is_disabled():
     player = FakePlayer()
+    backend = FakeBackend()
     service = TTSService(
         EventBus(),
         {"tts": {"enabled": False}},
-        backend=FakeBackend(),
+        backend=backend,
         player=player,
     )
 
     try:
-        assert service.test("ru_RU-dmitri-medium", 1.1) is True
+        assert service.test("ru_RU-irina-medium", 1.1, 0.5) is True
         assert player.finished.wait(timeout=2.0)
         assert len(player.played) == 1
+        assert backend.synthesized_settings == [("ru_RU-irina-medium", 1.1, 0.5)]
+        # Preview settings are temporary; only Save should update the active voice.
+        assert (backend.voice_name, backend.speed, backend.volume) == ("ru_RU-dmitri-medium", 1.0, 0.85)
     finally:
         service.close()
 
