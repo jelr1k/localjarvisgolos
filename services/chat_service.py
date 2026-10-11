@@ -99,7 +99,7 @@ class ChatService:
                 direct = f"Не удалось выполнить прямую команду: {exc}"
             if direct is not None:
                 self.conversation.add("assistant", direct)
-                self._emit("chat.direct_response", direct)
+                self._emit_assistant_response(direct)
                 self._maybe_router_rofl(text, direct)
                 self._active_router_command = None
                 return
@@ -109,7 +109,7 @@ class ChatService:
         if self.config.get("router_only_mode", False):
             direct = "Роутер не распознал команду. LLM отключён в тестовом режиме."
             self.conversation.add("assistant", direct)
-            self._emit("chat.direct_response", direct)
+            self._emit_assistant_response(direct)
             return
 
         self._current_answer = ""
@@ -243,7 +243,7 @@ class ChatService:
                     action=pending.get("rofl_action"),
                 )
         self.conversation.add("assistant", direct)
-        self._emit("chat.direct_response", direct)
+        self._emit_assistant_response(direct)
         return True
 
     def _confirm_direct(self, tool_name, arguments):
@@ -329,7 +329,7 @@ class ChatService:
         if self._ollama_task_running:
             direct = "Операция с Ollama уже выполняется."
             self.conversation.add("assistant", direct)
-            self._emit("chat.direct_response", direct)
+            self._emit_assistant_response(direct)
             return
 
         self._ollama_task_running = True
@@ -348,7 +348,7 @@ class ChatService:
         except Exception as exc:
             direct = f"Не удалось выполнить команду: {exc}"
         self.conversation.add("assistant", direct)
-        self._emit("chat.direct_response", direct)
+        self._emit_assistant_response(direct)
         self._maybe_router_rofl(command_text, direct)
 
     def _on_chunk(self, chunk):
