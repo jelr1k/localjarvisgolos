@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,10 @@ def test_rollback_restores_previous_application_and_preserves_user_data(tmp_path
     root.mkdir()
     (root / "main.py").write_text("broken", encoding="utf-8")
     (root / "new.py").write_text("new", encoding="utf-8")
+    (root / ".jarvis-update-manifest.json").write_text(
+        json.dumps({"schema_version": 1, "files": ["main.py", "new.py"]}),
+        encoding="utf-8",
+    )
 
     (root / "workspace").mkdir()
     (root / "workspace" / "note.txt").write_text("user", encoding="utf-8")
