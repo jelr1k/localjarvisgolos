@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from core.update_health import UPDATE_HEALTH_ENV, write_startup_health_marker
-from start.updater import _cleanup_archive, _wait_for_startup
+from start.updater import _cleanup_archive, _read_backup_version, _wait_for_startup
 
 
 class FakeProcess:
@@ -142,3 +142,17 @@ def test_process_checker_raises_when_tasklist_fails(monkeypatch):
 
     with pytest.raises(OSError, match="Не удалось проверить состояние процесса"):
         updater._is_process_running(1234)
+
+
+
+def test_updater_reads_backup_version_without_importing_application_code(tmp_path):
+    backup = tmp_path / "backup"
+    version_file = backup / "core" / "version.py"
+    version_file.parent.mkdir(parents=True)
+    version_file.write_text('APP_VERSION = "0.1.0"\n', encoding="utf-8")
+
+    assert _read_backup_version(backup) == "0.1.0"
+
+
+def test_updater_handles_backup_without_version_file(tmp_path):
+    assert _read_backup_version(tmp_path / "missing-backup") is None
