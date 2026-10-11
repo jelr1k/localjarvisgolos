@@ -197,7 +197,7 @@ def _read_backup_version(backup_application: Path) -> str | None:
         return None
 
     match = re.search(
-        r'^\s*APP_VERSION\s*=\s*["\\']([^"\\']+)["\\']',
+        r"""^\s*APP_VERSION\s*=\s*["']([^"']+)["']""",
         source,
         flags=re.MULTILINE,
     )
