@@ -7,7 +7,7 @@ configuration can use the same value.
 APP_NAME = "JARVIS"
 
 # Semantic version of the current application build.
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.2"
 
 
 def get_version() -> str:

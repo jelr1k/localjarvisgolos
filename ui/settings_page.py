@@ -4,8 +4,8 @@ from pathlib import Path
 import webbrowser
 
 from core.version import APP_VERSION
-from PySide6.QtCore import Signal, QTimer
-from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar
+from PySide6.QtCore import Signal, QTimer, Qt
+from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar,QScrollArea,QFrame
 from ui.rofl_settings_dialog import RoflSettingsDialog
 from ui.tts_assets_dialog import TTSAssetsDialog
 
@@ -64,7 +64,16 @@ class SettingsPage(QWidget):
         self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
         form=QFormLayout()
         for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace),("Служебное слово:",self.rofl_secret)]:form.addRow(label,widget)
-        box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(update_box);root.addWidget(box);root.addWidget(tts_box);root.addWidget(self.refresh_button);root.addWidget(save)
+        box=QGroupBox("Параметры");box.setLayout(form)
+        # Settings have grown over time, so keep the action buttons reachable while
+        # allowing the full collection of controls to scroll inside the page.
+        root=QVBoxLayout(self);root.setContentsMargins(12,12,12,12);root.setSpacing(8)
+        scroll=QScrollArea(self);scroll.setWidgetResizable(True);scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        settings_content=QWidget();settings_layout=QVBoxLayout(settings_content);settings_layout.setContentsMargins(0,0,8,0);settings_layout.setSpacing(10)
+        settings_layout.addWidget(update_box);settings_layout.addWidget(box);settings_layout.addWidget(tts_box);settings_layout.addStretch(1)
+        scroll.setWidget(settings_content);root.addWidget(self.status_label);root.addWidget(scroll,1)
+        actions=QHBoxLayout();actions.addWidget(self.refresh_button);actions.addStretch(1);actions.addWidget(save);root.addLayout(actions)
         controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.update_download_progress.connect(self._on_update_download_progress);controller.update_download_finished.connect(self._on_update_download_finished);controller.update_validation_finished.connect(self._on_update_validation_finished);controller.update_backup_finished.connect(self._on_update_backup_finished);controller.update_restart_requested.connect(self._on_update_restart_requested);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested);controller.tts_state_changed.connect(self._on_tts_state_changed);controller.tts_voice_finished.connect(self._on_tts_voice_finished)
         self._refresh_whisper_statuses();self._load_microphones();self._refresh_tts_voice_status();self._set_status("Готово",False)
 
