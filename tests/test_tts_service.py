@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
+from types import ModuleType
 from pathlib import Path
 from threading import Event
 
@@ -131,6 +133,28 @@ def test_piper_backend_requires_downloaded_model_before_synthesis(tmp_path):
 
     with pytest.raises(TTSVoiceNotInstalledError, match="Голос TTS не установлен"):
         backend.synthesize("Привет")
+
+
+def test_piper_load_error_explains_recovery_and_preserves_cause(tmp_path, monkeypatch):
+    backend = PiperTTSBackend(model_dir=tmp_path)
+    monkeypatch.setattr(backend, "voice_status", lambda voice_name=None: "installed")
+
+    class BrokenPiperVoice:
+        @staticmethod
+        def load(_model_path):
+            raise RuntimeError("test ONNX runtime failure")
+
+    piper_module = ModuleType("piper")
+    piper_module.PiperVoice = BrokenPiperVoice
+    monkeypatch.setitem(sys.modules, "piper", piper_module)
+
+    with pytest.raises(TTSError, match="test ONNX runtime failure") as error:
+        backend.synthesize("Проверочная фраза")
+
+    message = str(error.value)
+    assert "повторно" in message
+    assert "%APPDATA%\\Jarvis\\tts\\voices" in message
+    assert "logs\\tts.log" in message
 
 
 def test_tts_service_does_not_speak_automatically_when_disabled(tmp_path):
