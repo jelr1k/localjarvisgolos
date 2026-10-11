@@ -49,6 +49,11 @@ class ChatService:
         if self.events is not None:
             self.events.emit(event, *args)
 
+    def _emit_assistant_response(self, text: str) -> None:
+        """Publish a final response to the UI and the shared speech service."""
+        self._emit("chat.direct_response", text)
+        self._emit("speech.requested", text, "assistant")
+
     def set_ui_actions(self, actions: dict | None) -> None:
         self._ui_actions = dict(actions or {})
         self.router.set_ui_actions(self._ui_actions)
@@ -68,7 +73,7 @@ class ChatService:
                 return
             direct = "У меня есть ожидающее подтверждение. Ответь «да» или «нет»."
             self.conversation.add("assistant", direct)
-            self._emit("chat.direct_response", direct)
+            self._emit_assistant_response(direct)
             return
 
         if self._generation_future is not None and not self._generation_future.done():
@@ -204,6 +209,9 @@ class ChatService:
         except Exception as exc:
             self._emit("chat.error", str(exc))
         else:
+            final_answer = self._current_answer.strip()
+            if final_answer:
+                self._emit("speech.requested", final_answer, "assistant")
             self._emit("chat.generation_finished", stats)
         finally:
             self._generation_future = None
