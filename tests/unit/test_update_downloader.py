@@ -119,3 +119,17 @@ def test_download_cleans_temp_directory_on_write_error(tmp_path, monkeypatch):
         downloader.download(make_plan(size=3))
 
     assert list(tmp_path.iterdir()) == []
+
+
+def test_download_rejects_http_redirect(tmp_path):
+    response = FakeResponse([b"abcdef"], content_length=6)
+    response.url = "http://untrusted.example/JARVIS.zip"
+    downloader = UpdateDownloader(
+        temp_root=tmp_path,
+        session=FakeSession(response),
+    )
+
+    with pytest.raises(UpdateDownloadError, match="небезопасный URL"):
+        downloader.download(make_plan())
+
+    assert list(tmp_path.iterdir()) == []
