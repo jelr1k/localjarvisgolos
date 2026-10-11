@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,6 +16,7 @@ PROJECT_ROOT = APP_DIR.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from core.update_health import UPDATE_HEALTH_ENV
 from services.update_install_policy import UpdateInstallPolicy
 from services.update_installer import UpdateInstallError, UpdateInstaller
 from services.update_rollback import UpdateRollbackError, UpdateRollbackService
@@ -21,6 +24,9 @@ from services.update_rollback import UpdateRollbackError, UpdateRollbackService
 
 POLL_INTERVAL_SECONDS = 0.5
 WAIT_TIMEOUT_SECONDS = 300.0
+STARTUP_TIMEOUT_SECONDS = 75.0
+_STARTUP_POLL_INTERVAL_SECONDS = 0.25
+_DOWNLOAD_DIRECTORY_PREFIX = "jarvis-update-"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -56,12 +62,14 @@ def _wait_for_process_exit(pid: int, timeout: float = WAIT_TIMEOUT_SECONDS) -> N
         time.sleep(POLL_INTERVAL_SECONDS)
 
 
-def _restart(application_root: Path) -> subprocess.Popen:
+def _restart(application_root: Path, health_file: Path) -> subprocess.Popen:
     bootstrap = application_root / "start" / "bootstrap.py"
     if not bootstrap.is_file():
         raise FileNotFoundError(f"Bootstrap JARVIS не найден: {bootstrap}")
 
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    environment = os.environ.copy()
+    environment[UPDATE_HEALTH_ENV] = str(health_file)
     return subprocess.Popen(
         [sys.executable, str(bootstrap)],
         cwd=str(application_root),
@@ -70,11 +78,108 @@ def _restart(application_root: Path) -> subprocess.Popen:
         stderr=subprocess.DEVNULL,
         close_fds=True,
         creationflags=creationflags,
+        env=environment,
     )
 
 
-def _cleanup_archive(archive: Path) -> None:
-    shutil.rmtree(archive.parent, ignore_errors=True)
+def _wait_for_startup(
+    process: subprocess.Popen,
+    health_file: Path,
+    *,
+    timeout: float = STARTUP_TIMEOUT_SECONDS,
+    poll_interval: float = _STARTUP_POLL_INTERVAL_SECONDS,
+) -> dict:
+    """Wait until the newly started app confirms its UI/backend are ready."""
+    deadline = time.monotonic() + max(0.1, timeout)
+    while True:
+        if health_file.is_file():
+            try:
+                result = json.loads(health_file.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                raise RuntimeError(f"Не удалось прочитать подтверждение запуска JARVIS: {exc}") from exc
+            if not isinstance(result, dict) or result.get("status") != "ready":
+                raise RuntimeError("JARVIS сообщил некорректное состояние запуска.")
+            return result
+
+        return_code = process.poll()
+        if return_code is not None:
+            raise RuntimeError(
+                f"JARVIS завершился до подтверждения готовности (код {return_code})."
+            )
+        if time.monotonic() >= deadline:
+            raise TimeoutError(
+                f"JARVIS не подтвердил успешный запуск за {timeout:.0f} секунд."
+            )
+        time.sleep(max(0.01, poll_interval))
+
+
+def _terminate_process(process: subprocess.Popen) -> None:
+    """Stop a failed or hung child before restoring application files."""
+    if process.poll() is not None:
+        return
+    try:
+        process.terminate()
+        process.wait(timeout=5.0)
+    except (OSError, subprocess.TimeoutExpired):
+        try:
+            process.kill()
+            process.wait(timeout=5.0)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+
+def _restart_and_verify(application_root: Path, health_file: Path) -> dict:
+    if health_file.exists():
+        if health_file.is_dir():
+            raise OSError("Путь подтверждения запуска является каталогом.")
+        health_file.unlink()
+
+    process = _restart(application_root, health_file)
+    try:
+        result = _wait_for_startup(process, health_file)
+        logger = logging.getLogger("jarvis.updater")
+        logger.info("JARVIS startup confirmed version=%s", result.get("version", "unknown"))
+        return result
+    except Exception:
+        _terminate_process(process)
+        raise
+
+
+def _rollback_and_restart(
+    backup: Path,
+    root: Path,
+    policy: UpdateInstallPolicy,
+    health_file: Path,
+    logger: logging.Logger,
+) -> bool:
+    try:
+        logger.info("Starting rollback from %s", backup)
+        rollback = UpdateRollbackService().restore(backup, root, policy=policy)
+        logger.info("Rollback completed: %s files restored", rollback.restored_files)
+    except Exception:
+        logger.exception("Rollback failed")
+        return False
+
+    try:
+        _restart_and_verify(root, health_file)
+        logger.info("JARVIS restarted successfully after rollback")
+        return True
+    except Exception:
+        logger.exception("JARVIS did not start after rollback")
+        return False
+
+
+def _cleanup_archive(archive: Path, application_root: Path) -> None:
+    """Delete only the dedicated download temp directory, never an arbitrary parent."""
+    parent = archive.parent.resolve()
+    root = application_root.resolve()
+
+    if not parent.name.startswith(_DOWNLOAD_DIRECTORY_PREFIX):
+        return
+    if parent == root or parent in root.parents or root in parent.parents:
+        return
+    if parent.is_dir():
+        shutil.rmtree(parent, ignore_errors=True)
 
 
 def main() -> int:
@@ -92,12 +197,23 @@ def main() -> int:
         encoding="utf-8",
     )
     logger = logging.getLogger("jarvis.updater")
+    health_file = archive.parent / "startup-health.json"
 
     try:
         logger.info("Updater started for PID %s", args.pid)
-        _wait_for_process_exit(args.pid)
+        try:
+            _wait_for_process_exit(args.pid)
+            policy = UpdateInstallPolicy(root)
+        except Exception as wait_error:
+            logger.exception("Updater could not safely begin: %s", wait_error)
+            try:
+                _restart_and_verify(root, health_file)
+                logger.info("Original JARVIS restarted; update was not installed")
+            except Exception:
+                logger.exception("Could not restart the original JARVIS process")
+                return 2
+            return 1
 
-        policy = UpdateInstallPolicy(root)
         try:
             result = UpdateInstaller().install(
                 archive,
@@ -105,33 +221,27 @@ def main() -> int:
                 policy=policy,
                 expected_size=args.expected_size,
             )
-        except (UpdateInstallError, OSError) as install_error:
+        except Exception as install_error:
             logger.exception("Update installation failed: %s", install_error)
-            logger.info("Starting rollback from %s", backup)
-            try:
-                rollback = UpdateRollbackService().restore(
-                    backup,
-                    root,
-                    policy=policy,
-                )
-                logger.info("Rollback completed: %s files restored", rollback.restored_files)
-            except (UpdateRollbackError, OSError) as rollback_error:
-                logger.exception("Rollback failed: %s", rollback_error)
-                return 2
-
-            _restart(root)
-            logger.info("JARVIS restarted after rollback")
-            return 1
+            return 1 if _rollback_and_restart(
+                backup, root, policy, health_file, logger
+            ) else 2
 
         logger.info("Update installed: %s files", result.installed_files)
-        _restart(root)
-        logger.info("JARVIS restart requested")
-        return 0
-    except (TimeoutError, FileNotFoundError, UpdateInstallError, UpdateRollbackError, OSError) as exc:
-        logger.exception("Updater failed before installation recovery: %s", exc)
-        return 1
+        try:
+            _restart_and_verify(root, health_file)
+            logger.info("Updated JARVIS started successfully")
+            return 0
+        except Exception as startup_error:
+            logger.exception("Updated JARVIS failed its startup check: %s", startup_error)
+            return 1 if _rollback_and_restart(
+                backup, root, policy, health_file, logger
+            ) else 2
+    except Exception:
+        logger.exception("Updater failed unexpectedly")
+        return 2
     finally:
-        _cleanup_archive(archive)
+        _cleanup_archive(archive, root)
 
 
 if __name__ == "__main__":
