@@ -20,6 +20,7 @@ class SettingsController(QObject):
     whisper_finished = Signal(str, bool, str)
     tts_state_changed = Signal(str, str)
     tts_voice_finished = Signal(str, bool, str)
+    tts_asset_finished = Signal(str, bool, str)
     refresh_finished = Signal(object)
     update_check_finished = Signal(object)
     update_confirmation_requested = Signal(object)
@@ -290,6 +291,49 @@ class SettingsController(QObject):
         except Exception as exc:
             self.tts_state_changed.emit("error", str(exc))
             return False
+
+    def list_tts_prepared_audio(self, voice_name=None):
+        if self._tts is None:
+            return []
+        return self._tts.list_prepared_audio(voice_name)
+
+    def get_tts_audio_stats(self):
+        if self._tts is None:
+            return {}
+        return self._tts.audio_stats()
+
+    def import_tts_prepared_audio(self, voice_name, response_key, text, source_path):
+        if self._tts is None:
+            raise RuntimeError("Сервис TTS не подключён.")
+        future = self._tasks.submit(
+            self._tts.register_prepared_audio, str(voice_name), str(response_key), str(text), str(source_path)
+        )
+        future.add_done_callback(lambda completed: self._tts_asset_done(response_key, completed))
+        return future
+
+    def _tts_asset_done(self, response_key, future):
+        try:
+            future.result()
+            success, error = True, ""
+        except Exception as exc:
+            success, error = False, str(exc)
+        self.tts_asset_finished.emit(str(response_key), success, error)
+
+    def play_tts_prepared_audio(self, voice_name, response_key):
+        if self._tts is None:
+            return False
+        return self._tts.play_prepared_audio(str(voice_name), str(response_key))
+
+    def remove_tts_prepared_audio(self, voice_name, response_key):
+        if self._tts is None:
+            return False
+        removed = self._tts.remove_prepared_audio(str(voice_name), str(response_key))
+        return removed
+
+    def clear_tts_audio_cache(self):
+        if self._tts is None:
+            return 0
+        return self._tts.clear_audio_cache()
 
     def get_rofl_settings(self):
         settings = self._config.get("rofl", {})

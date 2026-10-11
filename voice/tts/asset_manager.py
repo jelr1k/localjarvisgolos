@@ -65,6 +65,67 @@ class AudioAssetManager:
             raise ValueError("Voice settings must be JSON-serializable") from exc
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def _text_key(text: str) -> str:
+        normalized = " ".join(str(text or "").split()).casefold()
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+    def find_prepared_audio_for_text(self, voice_id: str, text: str) -> Path | None:
+        """Find the prepared recording for an exact normalized utterance."""
+        text_key = self._text_key(text)
+        with self._lock:
+            for entry in self._manifest.values():
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("voice_id") != voice_id or entry.get("text_key") != text_key:
+                    continue
+                relative = entry.get("path")
+                if not isinstance(relative, str):
+                    continue
+                path = (self.root_dir / relative).resolve()
+                if path.parent == self.prepared_dir.resolve() and path.is_file():
+                    return path
+        return None
+
+    def list_prepared_audio(self, voice_id: str | None = None) -> list[dict[str, Any]]:
+        """Return safe metadata for the UI; never expose paths outside the managed folder."""
+        results = []
+        with self._lock:
+            for entry in self._manifest.values():
+                if not isinstance(entry, dict):
+                    continue
+                if voice_id is not None and entry.get("voice_id") != voice_id:
+                    continue
+                relative = entry.get("path")
+                if not isinstance(relative, str):
+                    continue
+                path = (self.root_dir / relative).resolve()
+                if path.parent != self.prepared_dir.resolve() or not path.is_file():
+                    continue
+                results.append({
+                    "voice_id": str(entry.get("voice_id", "")),
+                    "response_key": str(entry.get("response_key", "")),
+                    "text_preview": str(entry.get("text_preview", "")),
+                    "path": str(path),
+                    "size_bytes": path.stat().st_size,
+                    "updated_at": entry.get("updated_at"),
+                })
+        return sorted(results, key=lambda item: (item["voice_id"], item["response_key"]))
+
+    def remove_prepared_audio(self, voice_id: str, response_key: str) -> bool:
+        asset_id = self._prepared_id(voice_id, response_key)
+        with self._lock:
+            entry = self._manifest.get(asset_id)
+            if not isinstance(entry, dict) or entry.get("voice_id") != voice_id or entry.get("response_key") != response_key:
+                return False
+            relative = entry.get("path")
+            path = (self.root_dir / relative).resolve() if isinstance(relative, str) else None
+            if path is not None and path.parent == self.prepared_dir.resolve():
+                path.unlink(missing_ok=True)
+            del self._manifest[asset_id]
+            self._write_manifest()
+            return True
+
     def find_prepared_audio(self, voice_id: str, response_key: str) -> Path | None:
         asset_id = self._prepared_id(voice_id, response_key)
         with self._lock:
@@ -77,7 +138,9 @@ class AudioAssetManager:
                 return None
             return path
 
-    def register_prepared_file(self, voice_id: str, response_key: str, source_path: str | Path) -> Path:
+    def register_prepared_file(
+        self, voice_id: str, response_key: str, source_path: str | Path, *, text: str | None = None
+    ) -> Path:
         self._validate_logical_key(voice_id, "voice_id")
         self._validate_logical_key(response_key, "response_key")
         source = Path(source_path)
@@ -95,11 +158,15 @@ class AudioAssetManager:
             self._manifest[self._prepared_id(voice_id, response_key)] = {
                 "voice_id": voice_id, "response_key": response_key,
                 "path": f"prepared/{target.name}", "updated_at": time.time(),
+                "text_key": self._text_key(text) if text and text.strip() else None,
+                "text_preview": " ".join(text.split())[:140] if text and text.strip() else "",
             }
             self._write_manifest()
         return target
 
-    def save_prepared_audio(self, voice_id: str, response_key: str, audio: np.ndarray, sample_rate: int) -> Path:
+    def save_prepared_audio(
+        self, voice_id: str, response_key: str, audio: np.ndarray, sample_rate: int, *, text: str | None = None
+    ) -> Path:
         self._validate_logical_key(voice_id, "voice_id")
         self._validate_logical_key(response_key, "response_key")
         target = self.prepared_dir / f"{self._prepared_id(voice_id, response_key)}.wav"
@@ -109,6 +176,8 @@ class AudioAssetManager:
             self._manifest[self._prepared_id(voice_id, response_key)] = {
                 "voice_id": voice_id, "response_key": response_key,
                 "path": f"prepared/{target.name}", "updated_at": time.time(),
+                "text_key": self._text_key(text) if text and text.strip() else None,
+                "text_preview": " ".join(text.split())[:140] if text and text.strip() else "",
             }
             self._write_manifest()
         return target

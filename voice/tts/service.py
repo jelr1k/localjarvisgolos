@@ -6,6 +6,7 @@ import threading
 import time
 from pathlib import Path
 
+from .asset_manager import AudioAssetManager
 from .audio_player import AudioPlayer, SoundDevicePlayer
 from .engine import TTSBackend
 from .metrics import TTSMetrics
@@ -26,12 +27,14 @@ class TTSService:
         backend: TTSBackend | None = None,
         player: AudioPlayer | None = None,
         queue_capacity: int = 16,
+        asset_manager: AudioAssetManager | None = None,
     ):
         self.events = event_bus
         self._backend = backend or PiperTTSBackend()
         self._player = player or SoundDevicePlayer()
+        self._assets = asset_manager or AudioAssetManager()
         self.metrics = TTSMetrics()
-        self._queue: queue.Queue[tuple[str, str, bool, tuple[str, float, float] | None, int] | None] = queue.Queue(
+        self._queue: queue.Queue[tuple[str, str, bool, tuple[str, float, float] | None, int, str | None, Path | None] | None] = queue.Queue(
             maxsize=max(1, int(queue_capacity))
         )
         self._lock = threading.RLock()
@@ -106,11 +109,65 @@ class TTSService:
             self._emit("tts.state_changed", "error", str(exc))
             raise
 
-    def _on_speech_requested(self, text: str, source: str = "assistant") -> None:
-        self.speak(text, source=source, force=False)
+    def _on_speech_requested(
+        self, text: str, source: str = "assistant", response_key: str | None = None
+    ) -> None:
+        self.speak(text, source=source, force=False, response_key=response_key)
 
-    def speak(self, text: str, source: str = "assistant", force: bool = False) -> bool:
-        return self._queue_speech(text, source, force, preview_settings=None)
+    def speak(
+        self, text: str, source: str = "assistant", force: bool = False, response_key: str | None = None
+    ) -> bool:
+        return self._queue_speech(text, source, force, preview_settings=None, response_key=response_key)
+
+    def register_prepared_audio(
+        self, voice_name: str, response_key: str, text: str, source_path: str | Path
+    ) -> Path:
+        result = self._assets.register_prepared_file(voice_name, response_key, source_path, text=text)
+        logger.info("tts_prepared_audio_imported voice=%s response_key=%s", voice_name, response_key)
+        self._emit("tts.state_changed", "idle", f"Готовая озвучка «{response_key}» добавлена.")
+        return result
+
+    def list_prepared_audio(self, voice_name: str | None = None) -> list[dict]:
+        return self._assets.list_prepared_audio(voice_name)
+
+    def remove_prepared_audio(self, voice_name: str, response_key: str) -> bool:
+        removed = self._assets.remove_prepared_audio(voice_name, response_key)
+        if removed:
+            logger.info("tts_prepared_audio_removed voice=%s response_key=%s", voice_name, response_key)
+        return removed
+
+    def play_prepared_audio(self, voice_name: str, response_key: str) -> bool:
+        path = self._assets.find_prepared_audio(voice_name, response_key)
+        if path is None:
+            return False
+        try:
+            with self._lock:
+                if self._shutdown.is_set():
+                    return False
+                generation = self._cancel_generation
+                self._queue.put_nowait(("", "prepared-preview", True, None, generation, response_key, path))
+            return True
+        except queue.Full:
+            self.metrics.record_queue_rejection()
+            self._emit("tts.state_changed", "error", "Очередь озвучивания заполнена, запись не добавлена.")
+            return False
+
+    def audio_stats(self) -> dict:
+        prepared = self._assets.list_prepared_audio()
+        cache_files = list(self._assets.cache_dir.glob("*.wav")) if self._assets.cache_dir.exists() else []
+        return {
+            "prepared_count": len(prepared),
+            "prepared_bytes": sum(item["size_bytes"] for item in prepared),
+            "cache_count": len(cache_files),
+            "cache_bytes": sum(path.stat().st_size for path in cache_files if path.is_file()),
+            "cache_limit_bytes": self._assets.max_cache_bytes,
+            "metrics": self.metrics.snapshot().to_dict(),
+        }
+
+    def clear_audio_cache(self) -> int:
+        removed = self._assets.clear_cache()
+        logger.info("tts_audio_cache_cleared removed=%s", removed)
+        return removed
 
     def _queue_speech(
         self,
@@ -118,6 +175,8 @@ class TTSService:
         source: str,
         force: bool,
         preview_settings: tuple[str, float, float] | None,
+        response_key: str | None = None,
+        prepared_path: Path | None = None,
     ) -> bool:
         self.metrics.record_request()
         text = prepare_speech_text(text)
@@ -129,7 +188,7 @@ class TTSService:
                     return False
                 generation = self._cancel_generation
                 self._queue.put_nowait(
-                    (text, str(source or "assistant"), bool(force), preview_settings, generation)
+                    (text, str(source or "assistant"), bool(force), preview_settings, generation, response_key, prepared_path)
                 )
             return True
         except queue.Full:
@@ -189,7 +248,7 @@ class TTSService:
             if item is None:
                 self._queue.task_done()
                 return
-            text, source, force, preview_settings, generation = item
+            text, source, force, preview_settings, generation, response_key, prepared_path = item
             try:
                 with self._lock:
                     if generation != self._cancel_generation:
@@ -198,6 +257,23 @@ class TTSService:
                     self._active = True
                     self._cancel_current.clear()
                 if not force and not enabled:
+                    continue
+                if prepared_path is None:
+                    selected_voice = preview_settings[0] if preview_settings is not None else self._backend.voice_name
+                    prepared_path = (
+                        self._assets.find_prepared_audio(selected_voice, response_key)
+                        if response_key else None
+                    )
+                    if prepared_path is None:
+                        prepared_path = self._assets.find_prepared_audio_for_text(selected_voice, text)
+                if prepared_path is not None:
+                    audio, sample_rate = self._assets.load_audio(prepared_path)
+                    self._emit("tts.state_changed", "speaking", "Воспроизвожу готовую запись…")
+                    self._player.play(audio, sample_rate)
+                    if source != "prepared-preview":
+                        self.metrics.record_prepared_hit()
+                    logger.info("tts_prepared_audio_played source=%s", source)
+                    self._emit("tts.state_changed", "idle", "Готовая озвучка завершена.")
                     continue
                 chunks = split_speech_text(text)
                 if not chunks:
@@ -215,14 +291,37 @@ class TTSService:
                         )
                         self._backend.configure(*preview_settings)
                     try:
-                        synthesis_started = time.perf_counter()
-                        try:
-                            audio, sample_rate = self._backend.synthesize(speech_chunk)
-                        except Exception:
-                            self.metrics.record_synthesis(time.perf_counter() - synthesis_started, success=False)
-                            raise
-                        else:
-                            self.metrics.record_synthesis(time.perf_counter() - synthesis_started, success=True)
+                        cache_key = AudioAssetManager.cache_key(
+                            speech_chunk,
+                            self._backend.voice_name,
+                            engine_id=getattr(self._backend, "engine_id", "unknown"),
+                            model_id=self._backend.voice_name,
+                            settings={"speed": self._backend.speed, "volume": self._backend.volume},
+                        )
+                        audio = None
+                        sample_rate = 0
+                        if preview_settings is None:
+                            try:
+                                cached_path = self._assets.find_cached_audio(cache_key)
+                                if cached_path is not None:
+                                    audio, sample_rate = self._assets.load_audio(cached_path)
+                                    self.metrics.record_cache_hit()
+                            except Exception:
+                                logger.warning("tts_cache_read_failed", exc_info=True)
+                        if audio is None:
+                            synthesis_started = time.perf_counter()
+                            try:
+                                audio, sample_rate = self._backend.synthesize(speech_chunk)
+                            except Exception:
+                                self.metrics.record_synthesis(time.perf_counter() - synthesis_started, success=False)
+                                raise
+                            else:
+                                self.metrics.record_synthesis(time.perf_counter() - synthesis_started, success=True)
+                            if preview_settings is None:
+                                try:
+                                    self._assets.save_cached_audio(cache_key, audio, sample_rate)
+                                except Exception:
+                                    logger.warning("tts_cache_write_failed", exc_info=True)
                     finally:
                         if previous_settings is not None:
                             try:
