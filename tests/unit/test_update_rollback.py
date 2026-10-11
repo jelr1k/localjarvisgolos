@@ -22,6 +22,13 @@ def test_rollback_restores_previous_application_and_preserves_user_data(tmp_path
     (root / "workspace" / "note.txt").write_text("user", encoding="utf-8")
     (root / "logs").mkdir()
     (root / "logs" / "jarvis.log").write_text("log", encoding="utf-8")
+    (root / ".git").mkdir()
+    (root / ".git" / "config").write_text("git", encoding="utf-8")
+    (root / ".venv").mkdir()
+    (root / ".venv" / "pyvenv.cfg").write_text("venv", encoding="utf-8")
+    (root / "tests").mkdir()
+    (root / "tests" / "test_keep.py").write_text("test", encoding="utf-8")
+    (root / "notes.txt").write_text("user note", encoding="utf-8")
 
     backup = tmp_path / "backup"
     backup.mkdir()
@@ -36,6 +43,10 @@ def test_rollback_restores_previous_application_and_preserves_user_data(tmp_path
     assert not (root / "new.py").exists()
     assert (root / "workspace" / "note.txt").read_text(encoding="utf-8") == "user"
     assert (root / "logs" / "jarvis.log").read_text(encoding="utf-8") == "log"
+    assert (root / ".git" / "config").read_text(encoding="utf-8") == "git"
+    assert (root / ".venv" / "pyvenv.cfg").read_text(encoding="utf-8") == "venv"
+    assert (root / "tests" / "test_keep.py").read_text(encoding="utf-8") == "test"
+    assert (root / "notes.txt").read_text(encoding="utf-8") == "user note"
 
 
 def test_rollback_requires_existing_backup(tmp_path):
