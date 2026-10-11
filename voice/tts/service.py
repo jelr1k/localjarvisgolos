@@ -193,6 +193,7 @@ class TTSService:
             return True
         except queue.Full:
             self.metrics.record_queue_rejection()
+            self.metrics.record_fallback()
             logger.warning("tts_queue_full source=%s chars=%d", source, len(text))
             self._emit("tts.state_changed", "error", "Очередь озвучивания заполнена, фраза пропущена.")
             return False
@@ -258,8 +259,8 @@ class TTSService:
                     self._cancel_current.clear()
                 if not force and not enabled:
                     continue
-                if prepared_path is None:
-                    selected_voice = preview_settings[0] if preview_settings is not None else self._backend.voice_name
+                if prepared_path is None and preview_settings is None:
+                    selected_voice = self._backend.voice_name
                     prepared_path = (
                         self._assets.find_prepared_audio(selected_voice, response_key)
                         if response_key else None
@@ -267,14 +268,20 @@ class TTSService:
                     if prepared_path is None:
                         prepared_path = self._assets.find_prepared_audio_for_text(selected_voice, text)
                 if prepared_path is not None:
-                    audio, sample_rate = self._assets.load_audio(prepared_path)
-                    self._emit("tts.state_changed", "speaking", "Воспроизвожу готовую запись…")
-                    self._player.play(audio, sample_rate)
-                    if source != "prepared-preview":
-                        self.metrics.record_prepared_hit()
-                    logger.info("tts_prepared_audio_played source=%s", source)
-                    self._emit("tts.state_changed", "idle", "Готовая озвучка завершена.")
-                    continue
+                    try:
+                        audio, sample_rate = self._assets.load_audio(prepared_path)
+                        self._emit("tts.state_changed", "speaking", "Воспроизвожу готовую запись…")
+                        self._player.play(audio, sample_rate)
+                        if source != "prepared-preview":
+                            self.metrics.record_prepared_hit()
+                        logger.info("tts_prepared_audio_played source=%s", source)
+                        self._emit("tts.state_changed", "idle", "Готовая озвучка завершена.")
+                        continue
+                    except Exception:
+                        # A corrupt or unreadable prepared file must not silence the text response.
+                        self.metrics.record_fallback()
+                        logger.warning("tts_prepared_audio_failed_falling_back_to_synthesis", exc_info=True)
+                        prepared_path = None
                 chunks = split_speech_text(text)
                 if not chunks:
                     continue
@@ -307,7 +314,8 @@ class TTSService:
                                     audio, sample_rate = self._assets.load_audio(cached_path)
                                     self.metrics.record_cache_hit()
                             except Exception:
-                                logger.warning("tts_cache_read_failed", exc_info=True)
+                                self.metrics.record_fallback()
+                                logger.warning("tts_cache_read_failed_falling_back_to_synthesis", exc_info=True)
                         if audio is None:
                             synthesis_started = time.perf_counter()
                             try:
@@ -341,6 +349,7 @@ class TTSService:
                     self._emit("tts.state_changed", "idle", "Озвучивание завершено.")
             except Exception as exc:
                 self.metrics.record_error()
+                self.metrics.record_fallback()  # Text answer remains usable when voice output fails.
                 logger.exception("tts_request_failed source=%s", source)
                 self._emit("tts.state_changed", "error", str(exc))
             finally:

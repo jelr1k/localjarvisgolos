@@ -244,12 +244,12 @@ class TTSAssetsDialog(QDialog):
 
     @staticmethod
     def _format_bytes(value):
-        value = max(0, int(value))
-        for unit in ("Б", "КБ", "МБ", "ГБ"):
-            if value < 1024 or unit == "ГБ":
-                return f"{value} {unit}" if unit == "Б" else f"{value / (1024 if unit != 'Б' else 1):.1f} {unit}"
-            value //= 1024
-        return f"{value} Б"
+        value = float(max(0, value))
+        for unit in ("Б", "КБ", "МБ", "ГБ", "ТБ"):
+            if value < 1024 or unit == "ТБ":
+                return f"{int(value)} Б" if unit == "Б" else f"{value:.1f} {unit}"
+            value /= 1024
+        return f"{value:.1f} ТБ"
 
     def refresh(self, *_):
         selected_voice = self.voice.currentData()

@@ -95,7 +95,7 @@ When a prepared recording is registered with its text, TTS first checks the resp
 - TTS reports disabled/missing/ready/downloading/synthesizing/speaking/idle/error states through the existing state event.
 - TTS errors are logged/counted and must not cancel ChatService/Router text output.
 - The worker queue remains bounded and serialized so two answers do not play at once.
-- Metrics include requests, successful syntheses, prepared/cache hits, fallback uses, errors, queue rejections, and accumulated synthesis time.
+- Metrics include requests, successful syntheses, prepared/cache hits, fallback uses, errors, queue rejections, and accumulated synthesis time. Current fallback counts indicate a degraded voice route (for example, unreadable cached/prepared audio falling back to synthesis, or a failed TTS request leaving the text answer intact); it does not imply that a second TTS engine is configured.
 - The diagnostics/settings UI can display state and snapshots in a later stage; it must never gate text-chat responses on TTS availability.
 
 ## Implementation stages
