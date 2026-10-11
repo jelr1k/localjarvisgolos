@@ -230,3 +230,23 @@ def test_installer_restores_files_after_a_mid_install_copy_error(tmp_path, monke
     assert (app / "main.py").read_text(encoding="utf-8") == "stable"
     assert not (app / "new_module.py").exists()
     assert json.loads((app / ".jarvis-update-manifest.json").read_text(encoding="utf-8")) == old_manifest
+
+
+def test_installer_rejects_packages_that_target_development_metadata(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    archive = make_archive(
+        tmp_path / "bad-package.zip",
+        {"JARVIS/main.py": b"new", ".git/config": b"must not touch git metadata"},
+    )
+
+    with pytest.raises(UpdateInstallError, match="служебный или пользовательский каталог"):
+        UpdateInstaller().install(
+            archive,
+            app,
+            policy=make_policy(app, tmp_path),
+            expected_size=archive.stat().st_size,
+        )
+
+    assert not (app / ".git").exists()
+    assert not (app / "main.py").exists()
