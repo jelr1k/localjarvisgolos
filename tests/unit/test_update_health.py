@@ -86,3 +86,20 @@ def test_archive_cleanup_removes_only_its_dedicated_temp_directory(tmp_path):
 
     _cleanup_archive(unsafe_archive, app)
     assert unsafe_archive.exists()
+
+
+def test_updater_rejects_wrong_version_after_restart(tmp_path):
+    marker = tmp_path / "startup-health.json"
+    marker.write_text(
+        json.dumps({"status": "ready", "version": "0.1.0"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="ожидалась версия 0.2.0"):
+        _wait_for_startup(
+            FakeProcess(),
+            marker,
+            timeout=0.1,
+            poll_interval=0.01,
+            expected_version="0.2.0",
+        )
