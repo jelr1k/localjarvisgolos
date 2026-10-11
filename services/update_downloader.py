@@ -41,7 +41,7 @@ class UpdateDownloader:
         temp_root: Path | None = None,
         timeout: tuple[float, float] = (10.0, 60.0),
         chunk_size: int = 1024 * 1024,
-        max_size: int | None = None,
+        max_size: int | None = 512 * 1024 * 1024,
         session=None,
     ):
         if chunk_size <= 0:
@@ -64,6 +64,7 @@ class UpdateDownloader:
         )
         archive_path = suggested_archive_path(temp_directory, plan)
 
+        response = None
         try:
             response = self._session.get(
                 plan.download_url,
@@ -71,6 +72,10 @@ class UpdateDownloader:
                 timeout=self._timeout,
             )
             response.raise_for_status()
+
+            final_url = str(getattr(response, "url", plan.download_url) or "").strip()
+            if not final_url.lower().startswith("https://"):
+                raise UpdateDownloadError("Сервер перенаправил загрузку на небезопасный URL.")
 
             content_length = self._content_length(response)
             if self._max_size is not None and content_length is not None and content_length > self._max_size:
@@ -120,6 +125,13 @@ class UpdateDownloader:
         except Exception as exc:
             shutil.rmtree(temp_directory, ignore_errors=True)
             raise UpdateDownloadError(f"Не удалось скачать обновление: {exc}") from exc
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    pass
 
     def cleanup(self, result: UpdateDownloadResult) -> None:
         """Remove a temporary download after a failed or cancelled workflow."""
