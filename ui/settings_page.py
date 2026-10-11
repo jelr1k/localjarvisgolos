@@ -31,6 +31,7 @@ class SettingsPage(QWidget):
         self.tts_test=QPushButton("Проверить голос");self.tts_test.clicked.connect(self._test_tts_voice)
         tts_box=QGroupBox("Синтез речи (TTS)");tts_form=QFormLayout(tts_box);tts_form.addRow("",self.tts_enabled);tts_form.addRow("Голос:",self.tts_voice);tts_form.addRow("Скорость:",self.tts_speed);tts_form.addRow("Громкость:",self.tts_volume);tts_form.addRow("",self.tts_status);tts_form.addRow("",self.tts_download);tts_form.addRow("",self.tts_test)
         self.tts_voice.currentIndexChanged.connect(self._refresh_tts_voice_status)
+        self.tts_enabled.stateChanged.connect(lambda _state: self._refresh_tts_voice_status())
         self.whisper_cpu_threads=QSpinBox();self.whisper_cpu_threads.setRange(1,12);self.whisper_cpu_threads.setValue(max(1,min(12,int(voice.get("cpu_threads",4)))));self.whisper_cpu_threads.setToolTip("Количество CPU-потоков, выделяемых faster-whisper для распознавания. Для Ryzen 5 3600 можно начать с 4–6 и сравнить время.")
         self.whisper_beam_size=QSpinBox();self.whisper_beam_size.setRange(1,20);self.whisper_beam_size.setValue(max(1,min(20,int(voice.get("beam_size",5)))));self.whisper_beam_size.setToolTip("Beam size задаёт ширину поиска вариантов при распознавании. Меняй его и сравнивай время и качество в статистике Whisper.")
         self.whisper_vad=QCheckBox("Использовать VAD");self.whisper_vad.setChecked(bool(voice.get("vad_filter",True)));self.whisper_vad.setToolTip("Определяет участки аудио с речью и помогает игнорировать тишину.")
