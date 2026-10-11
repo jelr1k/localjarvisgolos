@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import zipfile
 
@@ -36,6 +37,15 @@ def test_installer_replaces_application_files_and_removes_old_owned_files(tmp_pa
     (app / "old.py").write_text("old", encoding="utf-8")
     (app / "services").mkdir()
     (app / "services" / "old.py").write_text("old", encoding="utf-8")
+    (app / ".jarvis-update-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "files": ["old.py", "services/old.py"],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     archive = make_archive(
         tmp_path / "JARVIS.zip",
@@ -153,3 +163,112 @@ def test_installer_preserves_external_user_data(tmp_path):
     )
 
     assert (user_data / "settings.json").read_text(encoding="utf-8") == "user"
+
+
+
+def test_installer_preserves_unmanaged_files_and_development_directories(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / ".git").mkdir()
+    (app / ".git" / "config").write_text("git metadata", encoding="utf-8")
+    (app / ".venv").mkdir()
+    (app / ".venv" / "pyvenv.cfg").write_text("virtual environment", encoding="utf-8")
+    (app / "tests").mkdir()
+    (app / "tests" / "test_keep.py").write_text("test source", encoding="utf-8")
+    (app / "notes.txt").write_text("personal note", encoding="utf-8")
+    (app / "old_unmanaged.py").write_text("not in the updater manifest", encoding="utf-8")
+
+    archive = make_archive(tmp_path / "update.zip", {"JARVIS/main.py": b"new app"})
+
+    UpdateInstaller().install(
+        archive,
+        app,
+        policy=make_policy(app, tmp_path),
+        expected_size=archive.stat().st_size,
+    )
+
+    assert (app / "main.py").read_bytes() == b"new app"
+    assert (app / ".git" / "config").read_text(encoding="utf-8") == "git metadata"
+    assert (app / ".venv" / "pyvenv.cfg").read_text(encoding="utf-8") == "virtual environment"
+    assert (app / "tests" / "test_keep.py").read_text(encoding="utf-8") == "test source"
+    assert (app / "notes.txt").read_text(encoding="utf-8") == "personal note"
+    assert (app / "old_unmanaged.py").read_text(encoding="utf-8") == "not in the updater manifest"
+
+
+def test_installer_restores_files_after_a_mid_install_copy_error(tmp_path, monkeypatch):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "main.py").write_text("stable", encoding="utf-8")
+    old_manifest = {"schema_version": 1, "files": ["main.py"]}
+    (app / ".jarvis-update-manifest.json").write_text(
+        json.dumps(old_manifest), encoding="utf-8"
+    )
+    archive = make_archive(
+        tmp_path / "update.zip",
+        {"JARVIS/main.py": b"updated", "JARVIS/new_module.py": b"new"},
+    )
+
+    original_copy2 = __import__("shutil").copy2
+    calls = {"count": 0}
+
+    def fail_during_second_file(source, destination, *args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 4:
+            raise OSError("synthetic disk failure")
+        return original_copy2(source, destination, *args, **kwargs)
+
+    monkeypatch.setattr("services.update_installer.shutil.copy2", fail_during_second_file)
+
+    with pytest.raises(UpdateInstallError, match="локальное восстановление"):
+        UpdateInstaller().install(
+            archive,
+            app,
+            policy=make_policy(app, tmp_path),
+            expected_size=archive.stat().st_size,
+        )
+
+    assert (app / "main.py").read_text(encoding="utf-8") == "stable"
+    assert not (app / "new_module.py").exists()
+    assert json.loads((app / ".jarvis-update-manifest.json").read_text(encoding="utf-8")) == old_manifest
+
+
+def test_installer_rejects_packages_that_target_development_metadata(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    archive = make_archive(
+        tmp_path / "bad-package.zip",
+        {"JARVIS/main.py": b"new", ".git/config": b"must not touch git metadata"},
+    )
+
+    with pytest.raises(UpdateInstallError, match="служебный или пользовательский каталог"):
+        UpdateInstaller().install(
+            archive,
+            app,
+            policy=make_policy(app, tmp_path),
+            expected_size=archive.stat().st_size,
+        )
+
+    assert not (app / ".git").exists()
+    assert not (app / "main.py").exists()
+
+
+
+def test_installer_rejects_packages_that_target_environment_secrets(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / ".env").write_text("TOKEN=local-secret", encoding="utf-8")
+    archive = make_archive(
+        tmp_path / "bad-environment.zip",
+        {"JARVIS/main.py": b"new", ".env": b"TOKEN=attacker-value"},
+    )
+
+    with pytest.raises(UpdateInstallError, match="служебный или пользовательский каталог"):
+        UpdateInstaller().install(
+            archive,
+            app,
+            policy=make_policy(app, tmp_path),
+            expected_size=archive.stat().st_size,
+        )
+
+    assert (app / ".env").read_text(encoding="utf-8") == "TOKEN=local-secret"
+    assert not (app / "main.py").exists()

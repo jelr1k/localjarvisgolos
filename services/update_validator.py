@@ -27,7 +27,24 @@ class UpdateValidationResult:
 
 
 class UpdateValidator:
-    """Validate a downloaded ZIP without extracting it."""
+    """Validate a ZIP with bounded metadata before decompressing its contents."""
+
+    def __init__(
+        self,
+        *,
+        max_entries: int = 10_000,
+        max_total_uncompressed_size: int = 512 * 1024 * 1024,
+        max_entry_size: int = 256 * 1024 * 1024,
+        max_compression_ratio: float = 1000.0,
+    ):
+        if max_entries <= 0 or max_total_uncompressed_size <= 0 or max_entry_size <= 0:
+            raise ValueError("Ограничения архива должны быть больше нуля.")
+        if max_compression_ratio <= 1:
+            raise ValueError("Допустимый коэффициент сжатия должен быть больше 1.")
+        self._max_entries = int(max_entries)
+        self._max_total_uncompressed_size = int(max_total_uncompressed_size)
+        self._max_entry_size = int(max_entry_size)
+        self._max_compression_ratio = float(max_compression_ratio)
 
     def validate(self, archive_path: Path, expected_size: int | None = None) -> UpdateValidationResult:
         path = Path(archive_path)
@@ -46,12 +63,41 @@ class UpdateValidator:
 
         try:
             with zipfile.ZipFile(path, "r") as archive:
-                if archive.testzip() is not None:
-                    raise UpdateValidationError("ZIP-архив повреждён: не совпадает контрольная сумма.")
-
                 infos = archive.infolist()
                 if not infos:
                     raise UpdateValidationError("ZIP-архив не содержит файлов.")
+                if len(infos) > self._max_entries:
+                    raise UpdateValidationError(
+                        f"ZIP-архив содержит слишком много записей ({len(infos)})."
+                    )
+
+                # Check declared expansion limits before testzip() decompresses data.
+                declared_total = 0
+                for info in infos:
+                    if info.file_size < 0 or info.compress_size < 0:
+                        raise UpdateValidationError("ZIP-архив содержит некорректные размеры.")
+                    if info.file_size > self._max_entry_size:
+                        raise UpdateValidationError(
+                            f"Файл в ZIP превышает допустимый размер: {info.filename}"
+                        )
+                    declared_total += info.file_size
+                    if declared_total > self._max_total_uncompressed_size:
+                        raise UpdateValidationError(
+                            "Суммарный распакованный размер ZIP превышает допустимый лимит."
+                        )
+                    if info.file_size > 0:
+                        if info.compress_size == 0:
+                            raise UpdateValidationError(
+                                f"ZIP-архив содержит подозрительную степень сжатия: {info.filename}"
+                            )
+                        ratio = info.file_size / info.compress_size
+                        if ratio > self._max_compression_ratio:
+                            raise UpdateValidationError(
+                                f"Слишком высокая степень сжатия файла в ZIP: {info.filename}"
+                            )
+
+                if archive.testzip() is not None:
+                    raise UpdateValidationError("ZIP-архив повреждён: не совпадает контрольная сумма.")
 
                 file_count = 0
                 directory_count = 0

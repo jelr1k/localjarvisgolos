@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -21,10 +22,13 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from core.application import JarvisApplication
 from core.app_paths import WORKSPACE_DIR
+from core.update_health import UPDATE_HEALTH_ENV, write_startup_health_marker
+from core.version import APP_VERSION
 from services.model_service import ModelService
 from services.statistics_service import StatisticsService
 from services.update_downloader import UpdateDownloader
@@ -73,14 +77,27 @@ def main():
         app.setApplicationName(backend.config.get("assistant_name", "JARVIS"))
         window.show()
         application_controller.start()
-        logger.info("Jarvis frontend/backend started")
+        logger.info("Jarvis frontend/backend initialized")
     except Exception as exc:
         logger.exception("Jarvis startup failed")
         if backend is not None:
             backend.shutdown()
+        # A hidden updater-launched process must exit rather than wait forever
+        # on a modal dialog that cannot be seen by the user.
+        if os.environ.get(UPDATE_HEALTH_ENV):
+            sys.exit(1)
         QMessageBox.critical(None, "Jarvis", str(exc))
         sys.exit(1)
 
+    def mark_update_ready():
+        # QTimer runs this only after the Qt event loop actually starts.
+        # Marking readiness before app.exec() would be too optimistic.
+        try:
+            write_startup_health_marker(APP_VERSION)
+        except Exception:
+            logger.exception("Could not write updater startup health marker")
+
+    QTimer.singleShot(0, mark_update_ready)
     exit_code = app.exec()
     logging.getLogger("jarvis").info("Jarvis stopped")
     sys.exit(exit_code)

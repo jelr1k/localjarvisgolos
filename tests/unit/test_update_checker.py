@@ -63,6 +63,7 @@ def test_checker_detects_available_update():
                         "name": "JARVIS.zip",
                         "browser_download_url": "https://github.com/jelr1k/localjarvisgolos/releases/download/v0.2.0/JARVIS.zip",
                         "size": 1234,
+                        "digest": "sha256:" + ("a" * 64),
                     }
                 ],
             }
@@ -77,6 +78,7 @@ def test_checker_detects_available_update():
     assert info.release_name == "JARVIS 0.2.0"
     assert len(info.assets) == 1
     assert info.assets[0].name == "JARVIS.zip"
+    assert info.assets[0].digest == "sha256:" + ("a" * 64)
     assert session.calls[0][0][0].endswith("/releases/latest")
     assert session.calls[0][1]["timeout"] == 10.0
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -33,7 +34,7 @@ class FakeSession:
         return self.response
 
 
-def make_plan(size=6):
+def make_plan(size=6, digest=None):
     info = UpdateInfo(
         current_version="0.1.0",
         latest_version="0.2.0",
@@ -41,7 +42,7 @@ def make_plan(size=6):
         release_url="https://github.com/jelr1k/localjarvisgolos/releases/tag/v0.2.0",
         tag_name="v0.2.0",
         release_name="JARVIS 0.2.0",
-        assets=(ReleaseAsset("JARVIS.zip", "https://example.com/JARVIS.zip", size),),
+        assets=(ReleaseAsset("JARVIS.zip", "https://example.com/JARVIS.zip", size, digest),),
     )
     return UpdateService().prepare(info)
 
@@ -57,6 +58,7 @@ def test_download_streams_archive_to_isolated_temp_directory(tmp_path):
     assert result.archive_path.read_bytes() == b"abcdef"
     assert result.archive_path.parent.parent == tmp_path
     assert result.bytes_downloaded == 6
+    assert result.target_version == "0.2.0"
     assert progress[-1] == (6, 6)
     assert session.calls[0][0] == "https://example.com/JARVIS.zip"
     assert session.calls[0][1]["stream"] is True
@@ -117,5 +119,41 @@ def test_download_cleans_temp_directory_on_write_error(tmp_path, monkeypatch):
 
     with pytest.raises(UpdateDownloadError, match="Не удалось скачать"):
         downloader.download(make_plan(size=3))
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_download_rejects_http_redirect(tmp_path):
+    response = FakeResponse([b"abcdef"], content_length=6)
+    response.url = "http://untrusted.example/JARVIS.zip"
+    downloader = UpdateDownloader(
+        temp_root=tmp_path,
+        session=FakeSession(response),
+    )
+
+    with pytest.raises(UpdateDownloadError, match="небезопасный URL"):
+        downloader.download(make_plan())
+
+    assert list(tmp_path.iterdir()) == []
+
+
+
+def test_download_verifies_github_sha256_digest(tmp_path):
+    expected = hashlib.sha256(b"abcdef").hexdigest()
+    session = FakeSession(FakeResponse([b"abc", b"def"], content_length=6))
+    downloader = UpdateDownloader(temp_root=tmp_path, session=session, chunk_size=3)
+
+    result = downloader.download(make_plan(digest="sha256:" + expected))
+
+    assert result.archive_path.read_bytes() == b"abcdef"
+    downloader.cleanup(result)
+
+
+def test_download_rejects_digest_mismatch_and_cleans_temp_directory(tmp_path):
+    session = FakeSession(FakeResponse([b"abcdef"], content_length=6))
+    downloader = UpdateDownloader(temp_root=tmp_path, session=session)
+
+    with pytest.raises(UpdateDownloadError, match="SHA-256"):
+        downloader.download(make_plan(digest="0" * 64))
 
     assert list(tmp_path.iterdir()) == []

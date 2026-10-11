@@ -8,7 +8,9 @@ the application.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
+import re
 import shutil
 import tempfile
 import time
@@ -30,6 +32,7 @@ class UpdateDownloadResult:
     temp_directory: Path
     bytes_downloaded: int
     expected_size: int
+    target_version: str = ""
 
 
 class UpdateDownloader:
@@ -41,7 +44,7 @@ class UpdateDownloader:
         temp_root: Path | None = None,
         timeout: tuple[float, float] = (10.0, 60.0),
         chunk_size: int = 1024 * 1024,
-        max_size: int | None = None,
+        max_size: int | None = 512 * 1024 * 1024,
         session=None,
     ):
         if chunk_size <= 0:
@@ -64,6 +67,7 @@ class UpdateDownloader:
         )
         archive_path = suggested_archive_path(temp_directory, plan)
 
+        response = None
         try:
             response = self._session.get(
                 plan.download_url,
@@ -71,6 +75,10 @@ class UpdateDownloader:
                 timeout=self._timeout,
             )
             response.raise_for_status()
+
+            final_url = str(getattr(response, "url", plan.download_url) or "").strip()
+            if not final_url.lower().startswith("https://"):
+                raise UpdateDownloadError("Сервер перенаправил загрузку на небезопасный URL.")
 
             content_length = self._content_length(response)
             if self._max_size is not None and content_length is not None and content_length > self._max_size:
@@ -84,12 +92,14 @@ class UpdateDownloader:
             total = content_length or plan.asset_size
             downloaded = 0
             started = time.monotonic()
+            digest = hashlib.sha256()
 
             with archive_path.open("wb") as destination:
                 for chunk in response.iter_content(chunk_size=self._chunk_size):
                     if not chunk:
                         continue
                     downloaded += len(chunk)
+                    digest.update(chunk)
                     if self._max_size is not None and downloaded > self._max_size:
                         raise UpdateDownloadError("Загрузка остановлена: архив слишком большой.")
                     destination.write(chunk)
@@ -104,12 +114,17 @@ class UpdateDownloader:
                     f"Размер скачанного архива ({downloaded}) не совпадает "
                     f"с размером релиза ({plan.asset_size})."
                 )
+            if plan.sha256_digest and digest.hexdigest().casefold() != plan.sha256_digest.casefold():
+                raise UpdateDownloadError(
+                    "SHA-256 скачанного архива не совпадает с контрольной суммой релиза."
+                )
 
             return UpdateDownloadResult(
                 archive_path=archive_path,
                 temp_directory=temp_directory,
                 bytes_downloaded=downloaded,
                 expected_size=plan.asset_size,
+                target_version=plan.target_version,
             )
         except UpdateDownloadError:
             shutil.rmtree(temp_directory, ignore_errors=True)
@@ -120,6 +135,13 @@ class UpdateDownloader:
         except Exception as exc:
             shutil.rmtree(temp_directory, ignore_errors=True)
             raise UpdateDownloadError(f"Не удалось скачать обновление: {exc}") from exc
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    pass
 
     def cleanup(self, result: UpdateDownloadResult) -> None:
         """Remove a temporary download after a failed or cancelled workflow."""
@@ -134,6 +156,8 @@ class UpdateDownloader:
             raise UpdateDownloadError("Размер архива превышает допустимый лимит.")
         if not plan.download_url.lower().startswith("https://"):
             raise UpdateDownloadError("Скачивание обновления разрешено только по HTTPS.")
+        if plan.sha256_digest and not re.fullmatch(r"[0-9a-fA-F]{64}", plan.sha256_digest):
+            raise UpdateDownloadError("SHA-256 контрольная сумма в плане обновления некорректна.")
         try:
             suggested_archive_path(Path("."), plan)
         except UpdateServiceError as exc:

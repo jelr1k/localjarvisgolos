@@ -33,6 +33,35 @@ def test_relauncher_prepares_plan(tmp_path):
     assert plan.process_id == 1234
 
 
+def test_relauncher_carries_expected_application_version(tmp_path):
+    root = tmp_path / "app"
+    root.mkdir()
+    archive = tmp_path / "update.zip"
+    archive.write_bytes(b"zip")
+    backup = tmp_path / "backup"
+    backup.mkdir()
+    updater = tmp_path / "updater.py"
+    updater.write_text("print('updater')", encoding="utf-8")
+    python = tmp_path / "python.exe"
+    python.write_bytes(b"python")
+
+    relauncher = UpdateRelauncher(
+        updater_path=updater,
+        python_executable=python,
+    )
+    plan = relauncher.prepare(
+        root,
+        archive,
+        3,
+        backup_application=backup,
+        process_id=1234,
+        expected_version="v0.2.0",
+    )
+
+    assert plan.expected_version == "0.2.0"
+    assert UpdateRelauncher.command(plan)[-2:] == ["--expected-version", "0.2.0"]
+
+
 def test_relauncher_builds_standalone_command(tmp_path):
     root = tmp_path / "app"
     root.mkdir()

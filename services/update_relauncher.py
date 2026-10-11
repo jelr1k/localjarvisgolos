@@ -31,6 +31,7 @@ class UpdateRelaunchPlan:
     expected_size: int
     process_id: int
     python_executable: Path
+    expected_version: str = ""
 
 
 class UpdateRelauncher:
@@ -62,6 +63,7 @@ class UpdateRelauncher:
         *,
         backup_application: Path | None = None,
         process_id: int | None = None,
+        expected_version: str | None = None,
     ) -> UpdateRelaunchPlan:
         root = Path(application_root).resolve()
         archive = Path(archive_path).resolve()
@@ -95,11 +97,12 @@ class UpdateRelauncher:
             expected_size=int(expected_size),
             process_id=pid,
             python_executable=self._python_executable,
+            expected_version=_normalize_expected_version(expected_version),
         )
 
     @staticmethod
     def command(plan: UpdateRelaunchPlan) -> list[str]:
-        return [
+        command = [
             str(plan.python_executable),
             str(plan.updater_path),
             "--pid",
@@ -113,6 +116,9 @@ class UpdateRelauncher:
             "--expected-size",
             str(plan.expected_size),
         ]
+        if plan.expected_version:
+            command.extend(["--expected-version", plan.expected_version])
+        return command
 
     def launch(self, plan: UpdateRelaunchPlan) -> subprocess.Popen:
         try:
@@ -128,3 +134,11 @@ class UpdateRelauncher:
             raise UpdateRelaunchError(
                 f"Не удалось запустить отдельный updater-процесс: {exc}"
             ) from exc
+
+
+
+def _normalize_expected_version(value: str | None) -> str:
+    normalized = str(value or "").strip()
+    if normalized.lower().startswith("v"):
+        normalized = normalized[1:]
+    return normalized

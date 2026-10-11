@@ -109,3 +109,35 @@ def test_backup_keeps_previous_backup_if_new_backup_fails(tmp_path, monkeypatch)
 
     assert first.backup_directory.exists()
     assert list(backups.glob("jarvis-backup-*")) == [first.backup_directory]
+
+
+
+def test_backup_excludes_development_and_runtime_directories_and_records_inventory(tmp_path):
+    import json
+
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "main.py").write_text("source", encoding="utf-8")
+    for directory, filename in (
+        (".git", "config"),
+        (".venv", "pyvenv.cfg"),
+        ("tests", "test_sample.py"),
+        ("workspace", "notes.txt"),
+        ("logs", "jarvis.log"),
+        ("models", "weights.bin"),
+    ):
+        folder = app / directory
+        folder.mkdir()
+        (folder / filename).write_text("do not copy", encoding="utf-8")
+
+    result = UpdateBackupService(tmp_path / "backups").create_backup(app)
+
+    assert (result.application_backup / "main.py").read_text(encoding="utf-8") == "source"
+    for directory in (".git", ".venv", "tests", "workspace", "logs", "models"):
+        assert not (result.application_backup / directory).exists()
+
+    inventory = json.loads(
+        (result.backup_directory / "application-inventory.json").read_text(encoding="utf-8")
+    )
+    assert inventory["schema_version"] == 1
+    assert inventory["files"] == ["main.py"]

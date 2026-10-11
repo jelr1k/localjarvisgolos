@@ -32,3 +32,6 @@ models/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Runtime metadata maintained by the updater
+.jarvis-update-manifest.json

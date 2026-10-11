@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from io import BytesIO
 from pathlib import Path
 import zipfile
@@ -96,6 +97,12 @@ def test_synthetic_update_pipeline_uses_fake_github_and_real_filesystem(tmp_path
     app.mkdir()
     (app / "main.py").write_text("print('stable')\n", encoding="utf-8")
     (app / "old_module.py").write_text("old\n", encoding="utf-8")
+    (app / ".jarvis-update-manifest.json").write_text(
+        json.dumps(
+            {"schema_version": 1, "files": ["main.py", "old_module.py"]}
+        ),
+        encoding="utf-8",
+    )
 
     workspace = app / "workspace"
     workspace.mkdir()
@@ -177,6 +184,12 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
     app.mkdir()
     (app / "main.py").write_text("stable\n", encoding="utf-8")
     (app / "stable.txt").write_text("keep\n", encoding="utf-8")
+    (app / ".jarvis-update-manifest.json").write_text(
+        json.dumps(
+            {"schema_version": 1, "files": ["main.py", "stable.txt"]}
+        ),
+        encoding="utf-8",
+    )
 
     workspace = app / "workspace"
     workspace.mkdir()
@@ -190,7 +203,7 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
         zf.writestr("JARVIS/main.py", "new\n")
         zf.writestr("JARVIS/z_new.py", "new file\n")
 
-    def fail_after_partial_replace(self, source_root, destination_root, install_policy):
+    def fail_after_partial_replace(self, source_root, destination_root, install_policy, transaction_backup):
         (destination_root / "main.py").write_text("broken\n", encoding="utf-8")
         (destination_root / "z_new.py").write_text("partial\n", encoding="utf-8")
         raise UpdateInstallError("synthetic install failure")
@@ -205,13 +218,21 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
             expected_size=archive.stat().st_size,
         )
 
+    # Simulate a completed manifest write followed by a failed startup.
+    (app / ".jarvis-update-manifest.json").write_text(
+        json.dumps(
+            {"schema_version": 1, "files": ["main.py", "z_new.py"]}
+        ),
+        encoding="utf-8",
+    )
+
     rollback = UpdateRollbackService().restore(
         backup.application_backup,
         app,
         policy=policy,
     )
 
-    assert rollback.restored_files == 2
+    assert rollback.restored_files == 3
     assert (app / "main.py").read_text(encoding="utf-8") == "stable\n"
     assert (app / "stable.txt").read_text(encoding="utf-8") == "keep\n"
     assert not (app / "z_new.py").exists()

@@ -12,8 +12,40 @@ on:
         required: true
         default: "v0.1.1"
 
+permissions:
+  contents: read
+
 jobs:
+  test:
+    name: Test the exact release sources
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: config/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r config/requirements.txt
+
+      - name: Syntax check
+        run: python -m compileall -q core chat llm services security tools voice presentation ui start
+
+      - name: Run complete test suite
+        run: >-
+          python -m pytest -q
+          --cov=chat --cov=core --cov=llm --cov=services
+          --cov=security --cov=tools --cov=voice --cov=presentation
+          --cov=start --cov-report=term-missing
+
   release:
+    name: Build and publish tested update
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -33,6 +65,30 @@ jobs:
           test -f start/bootstrap.py
           test -f core/version.py
 
+      - name: Validate release version and tag
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          version = os.environ["RELEASE_VERSION"].strip()
+          tag = os.environ["RELEASE_TAG"].strip()
+          normalized_tag = tag[1:] if tag.lower().startswith("v") else tag
+          pattern = (
+              r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+              r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
+          )
+          if not re.fullmatch(pattern, version):
+              sys.exit("Release version is not valid semantic version text.")
+          if normalized_tag != version:
+              sys.exit("Release tag version must match the release version input.")
+          PY
+
       - name: Build update archive
         shell: bash
         env:
@@ -41,11 +97,11 @@ jobs:
           python - <<'PY'
           import os
           from pathlib import Path
-          
+          import re
+
           path = Path("core/version.py")
           content = path.read_text(encoding="utf-8")
           version = os.environ["RELEASE_VERSION"].strip()
-          import re
           updated, count = re.subn(
               r'APP_VERSION\s*=\s*"[^"]+"',
               f'APP_VERSION = "{version}"',
@@ -58,10 +114,13 @@ jobs:
           PY
 
           mkdir -p release/jarvis
-          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache'             --exclude='__pycache__' --exclude='tests' --exclude='logs'             --exclude='workspace' --exclude='models' ./ release/jarvis/
+          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache'             --exclude='__pycache__' --exclude='tests' --exclude='logs'             --exclude='workspace' --exclude='models' --exclude='.venv'             --exclude='venv' --exclude='env' --exclude='node_modules'             --exclude='user_data' --exclude='coverage.xml' --exclude='*.log'             --exclude='*.log.*' --exclude='.env' --exclude='.env.*' ./ release/jarvis/
 
           test -f release/jarvis/start/bootstrap.py
           test -f release/jarvis/core/version.py
+          test ! -e release/jarvis/.git
+          test ! -e release/jarvis/.venv
+          test ! -e release/jarvis/tests
 
           cd release/jarvis
           zip -qr ../jarvis.zip .
@@ -73,6 +132,6 @@ jobs:
           name: JARVIS ${{ inputs.tag }} - updater release
           body: |
             JARVIS updater release ${{ inputs.tag }}.
-            Built from the branch that contains the merged updater system.
+            Built and tested from the selected branch.
           files: release/jarvis.zip
           generate_release_notes: false

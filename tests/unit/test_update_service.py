@@ -44,6 +44,39 @@ def test_prepare_builds_valid_update_plan():
     assert plan.download_url.startswith("https://")
 
 
+def test_prepare_carries_normalized_sha256_digest():
+    info = make_info(
+        assets=(
+            ReleaseAsset(
+                "JARVIS.zip",
+                "https://example.com/JARVIS.zip",
+                1024,
+                "sha256:" + ("A" * 64),
+            ),
+        )
+    )
+
+    plan = UpdateService().prepare(info)
+
+    assert plan.sha256_digest == "a" * 64
+
+
+def test_prepare_rejects_malformed_sha256_digest():
+    info = make_info(
+        assets=(
+            ReleaseAsset(
+                "JARVIS.zip",
+                "https://example.com/JARVIS.zip",
+                1024,
+                "sha256:not-a-real-hash",
+            ),
+        )
+    )
+
+    with pytest.raises(UpdateServiceError, match="SHA-256"):
+        UpdateService().prepare(info)
+
+
 def test_prepare_rejects_when_no_update_is_available():
     with pytest.raises(UpdateServiceError, match="Нового обновления нет"):
         UpdateService().prepare(make_info(available=False))
