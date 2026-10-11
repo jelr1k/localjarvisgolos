@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -187,6 +188,22 @@ def _restart_and_verify(
         raise
 
 
+def _read_backup_version(backup_application: Path) -> str | None:
+    """Read the prior APP_VERSION without importing possibly broken application code."""
+    version_file = backup_application / "core" / "version.py"
+    try:
+        source = version_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return None
+
+    match = re.search(
+        r'^\\s*APP_VERSION\\s*=\\s*["\\']([^"\\']+)["\\']',
+        source,
+        flags=re.MULTILINE,
+    )
+    return match.group(1).strip() if match else None
+
+
 def _rollback_and_restart(
     backup: Path,
     root: Path,
@@ -194,6 +211,7 @@ def _rollback_and_restart(
     health_file: Path,
     logger: logging.Logger,
 ) -> bool:
+    expected_backup_version = _read_backup_version(backup)
     try:
         logger.info("Starting rollback from %s", backup)
         rollback = UpdateRollbackService().restore(backup, root, policy=policy)
@@ -203,7 +221,11 @@ def _rollback_and_restart(
         return False
 
     try:
-        _restart_and_verify(root, health_file)
+        _restart_and_verify(
+            root,
+            health_file,
+            expected_version=expected_backup_version,
+        )
         logger.info("JARVIS restarted successfully after rollback")
         return True
     except Exception:
