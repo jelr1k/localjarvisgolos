@@ -6,11 +6,11 @@ import threading
 import time
 from pathlib import Path
 
-from ..audio_player import AudioPlayer, SoundDevicePlayer
-from ..engine import TTSBackend
-from ..metrics import TTSMetrics
-from ..text import prepare_speech_text, split_speech_text
-from .piper import DEFAULT_TTS_SPEED, DEFAULT_TTS_VOLUME, DEFAULT_TTS_VOICE, PiperTTSBackend
+from .audio_player import AudioPlayer, SoundDevicePlayer
+from .engine import TTSBackend
+from .metrics import TTSMetrics
+from .text import prepare_speech_text, split_speech_text
+from .engines.piper import DEFAULT_TTS_SPEED, DEFAULT_TTS_VOLUME, DEFAULT_TTS_VOICE, PiperTTSBackend
 
 logger = logging.getLogger("jarvis.tts")
 
