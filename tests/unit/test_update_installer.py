@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import zipfile
 
@@ -36,6 +37,15 @@ def test_installer_replaces_application_files_and_removes_old_owned_files(tmp_pa
     (app / "old.py").write_text("old", encoding="utf-8")
     (app / "services").mkdir()
     (app / "services" / "old.py").write_text("old", encoding="utf-8")
+    (app / ".jarvis-update-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "files": ["old.py", "services/old.py"],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     archive = make_archive(
         tmp_path / "JARVIS.zip",
