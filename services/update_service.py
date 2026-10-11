@@ -27,6 +27,7 @@ class UpdatePlan:
     asset_name: str
     download_url: str
     asset_size: int
+    sha256_digest: str | None = None
 
 
 class UpdateService:
@@ -73,6 +74,10 @@ class UpdateService:
         if asset.size <= 0:
             raise UpdateServiceError("Размер архива обновления неизвестен или некорректен.")
 
+        digest = _normalize_sha256_digest(asset.digest)
+        if asset.digest and digest is None:
+            raise UpdateServiceError("GitHub вернул некорректную SHA-256 контрольную сумму архива.")
+
         return UpdatePlan(
             current_version=info.current_version,
             target_version=info.latest_version,
@@ -80,6 +85,7 @@ class UpdateService:
             asset_name=asset.name,
             download_url=asset.download_url,
             asset_size=asset.size,
+            sha256_digest=digest,
         )
 
     def _select_asset(self, assets: tuple[ReleaseAsset, ...]) -> ReleaseAsset | None:
@@ -118,3 +124,16 @@ def suggested_archive_path(directory: Path, plan: UpdatePlan) -> Path:
     if not name.lower().endswith((".zip",)):
         raise UpdateServiceError("Подготовленный архив должен иметь расширение .zip.")
     return directory / name
+
+
+
+def _normalize_sha256_digest(value: str | None) -> str | None:
+    """Normalize GitHub's sha256:<hex> digest into a lowercase 64-char hash."""
+    if value is None:
+        return None
+    raw = str(value).strip()
+    if raw.lower().startswith("sha256:"):
+        raw = raw.split(":", 1)[1]
+    if len(raw) != 64 or any(char not in "0123456789abcdefABCDEF" for char in raw):
+        return None
+    return raw.lower()
