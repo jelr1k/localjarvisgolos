@@ -27,6 +27,7 @@ _UNMANAGED_ROOTS = {
     ".git", ".github", ".venv", "venv", "env", "tests",
     ".pytest_cache", ".mypy_cache", ".ruff_cache", "__pycache__", "node_modules", "user_data",
 }
+_UNMANAGED_FILES = {".env", ".env.local", ".env.development", ".env.production"}
 
 
 class UpdateInstallError(RuntimeError):
@@ -345,9 +346,10 @@ class UpdateInstaller:
     @staticmethod
     def _is_unmanaged_path(relative: str) -> bool:
         parts = PurePosixPath(str(relative).replace("\\", "/")).parts
-        return bool(parts) and parts[0].casefold() in {
-            name.casefold() for name in _UNMANAGED_ROOTS
-        }
+        return bool(parts) and (
+            parts[0].casefold() in {name.casefold() for name in _UNMANAGED_ROOTS}
+            or parts[-1].casefold() in _UNMANAGED_FILES
+        )
 
     @classmethod
     def _read_manifest(cls, path: Path) -> list[str]:
