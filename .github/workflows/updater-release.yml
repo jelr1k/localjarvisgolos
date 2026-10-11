@@ -80,8 +80,8 @@ jobs:
           tag = os.environ["RELEASE_TAG"].strip()
           normalized_tag = tag[1:] if tag.lower().startswith("v") else tag
           pattern = (
-              r"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"
-              r"(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+              r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+              r"(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$"
           )
           if not re.fullmatch(pattern, version):
               sys.exit("Release version is not valid semantic version text.")
