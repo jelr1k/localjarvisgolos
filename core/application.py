@@ -18,6 +18,7 @@ from services.update_monitor import UpdateMonitor
 from services.update_service import UpdateService
 from tools.paths import prepare_tool_workspace
 from voice.controller import VoiceService
+from voice.tts import TTSService
 from voice.wake_word import WakeWordDetector
 
 
@@ -39,6 +40,7 @@ class JarvisApplication:
         self.events = EventBus()
         self.tasks = TaskRunner(max_workers=4)
         self.config = ConfigManager()
+        self.tts_service = TTSService(self.events, self.config)
         self.rofl_service = RoflService(self.events, self.config)
         self.alias_manager = AliasManager()
         self.ollama_manager = OllamaManager(self.config.ollama_url)
@@ -63,6 +65,7 @@ class JarvisApplication:
             self.config,
             event_bus=self.events,
         )
+        self.events.subscribe("tts.state_changed", self._on_tts_state_changed)
         self.ollama_manager.register_model(self.config.get("model"))
         self._started = False
         self._shutdown_started = False
@@ -73,6 +76,13 @@ class JarvisApplication:
             on_result=lambda result: self.events.emit("application.update_check_finished", result),
         )
         logger.info("backend_application_init_finish model=%s", self.config.get("model"))
+
+    def _on_tts_state_changed(self, state: str, _message: str):
+        """Ignore speaker echo while TTS is synthesizing or playing audio."""
+        try:
+            self.wake_word_detector.set_suppressed(state in {"synthesizing", "speaking"})
+        except Exception:
+            logger.exception("wake_word_tts_suppression_failed state=%s", state)
 
     def set_ui_actions(self, actions: dict | None):
         """Register abstract window actions supplied by the active frontend."""
@@ -107,6 +117,7 @@ class JarvisApplication:
         self.provider.set_base_url(self.config.ollama_url)
         self.ollama_manager.set_base_url(self.config.ollama_url)
         self.voice_service.apply_config(self.config)
+        self.tts_service.apply_config(self.config)
         self.wake_word_detector.apply_config(self.config)
         self.ollama_manager.register_model(self.config.get("model"))
         if self.config.get("voice", {}).get("wake_word_enabled", True):
@@ -133,6 +144,11 @@ class JarvisApplication:
             self.update_monitor.stop()
         except Exception:
             logger.exception("update_monitor_stop_failed")
+        try:
+            self.tts_service.close()
+        except Exception:
+            logger.exception("tts_service_close_failed")
+        self.events.unsubscribe("tts.state_changed", self._on_tts_state_changed)
         try:
             self.wake_word_detector.close()
         except Exception:
