@@ -103,3 +103,42 @@ def test_updater_rejects_wrong_version_after_restart(tmp_path):
             poll_interval=0.01,
             expected_version="0.2.0",
         )
+
+
+
+def test_process_checker_matches_exact_pid(monkeypatch):
+    from types import SimpleNamespace
+
+    from start import updater
+
+    monkeypatch.setattr(
+        updater.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0,
+            stdout='"python.exe","1234","Console","1","10 K"\n',
+            stderr="",
+        ),
+    )
+
+    assert updater._is_process_running(1234) is True
+    assert updater._is_process_running(123) is False
+
+
+def test_process_checker_raises_when_tasklist_fails(monkeypatch):
+    from types import SimpleNamespace
+
+    from start import updater
+
+    monkeypatch.setattr(
+        updater.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1,
+            stdout="",
+            stderr="access denied",
+        ),
+    )
+
+    with pytest.raises(OSError, match="Не удалось проверить состояние процесса"):
+        updater._is_process_running(1234)
