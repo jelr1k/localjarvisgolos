@@ -17,8 +17,9 @@ import time
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = APP_DIR.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+project_root = str(PROJECT_ROOT)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from core.update_health import UPDATE_HEALTH_ENV
 from services.update_install_policy import UpdateInstallPolicy
