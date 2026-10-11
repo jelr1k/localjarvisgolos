@@ -334,11 +334,12 @@ class TTSService:
         self.events = event_bus
         self._backend = backend or PiperTTSBackend()
         self._player = player or SoundDevicePlayer()
-        self._queue: queue.Queue[tuple[str, str, bool, tuple[str, float, float] | None] | None] = queue.Queue(
+        self._queue: queue.Queue[tuple[str, str, bool, tuple[str, float, float] | None, int] | None] = queue.Queue(
             maxsize=max(1, int(queue_capacity))
         )
         self._lock = threading.RLock()
         self._cancel_current = threading.Event()
+        self._cancel_generation = 0
         self._shutdown = threading.Event()
         self._active = False
         self._enabled = False
@@ -423,13 +424,14 @@ class TTSService:
         text = prepare_speech_text(text)
         if not text:
             return False
-        with self._lock:
-            if self._shutdown.is_set() or (not self._enabled and not force):
-                return False
         try:
-            self._queue.put_nowait(
-                (text, str(source or "assistant"), bool(force), preview_settings)
-            )
+            with self._lock:
+                if self._shutdown.is_set() or (not self._enabled and not force):
+                    return False
+                generation = self._cancel_generation
+                self._queue.put_nowait(
+                    (text, str(source or "assistant"), bool(force), preview_settings, generation)
+                )
             return True
         except queue.Full:
             logger.warning("tts_queue_full source=%s chars=%d", source, len(text))
@@ -458,14 +460,15 @@ class TTSService:
         )
 
     def stop(self) -> None:
-        self._cancel_current.set()
-        self._clear_queue()
+        with self._lock:
+            self._cancel_generation += 1
+            self._cancel_current.set()
+            self._clear_queue()
+            active = self._active
         try:
             self._player.stop()
         except Exception:
             logger.debug("tts_player_stop_failed", exc_info=True)
-        with self._lock:
-            active = self._active
         if not active:
             self._emit("tts.state_changed", "idle", "Озвучивание остановлено.")
 
@@ -486,15 +489,16 @@ class TTSService:
             if item is None:
                 self._queue.task_done()
                 return
-            text, source, force, preview_settings = item
+            text, source, force, preview_settings, generation = item
             try:
                 with self._lock:
+                    if generation != self._cancel_generation:
+                        continue
                     enabled = self._enabled
                     self._active = True
+                    self._cancel_current.clear()
                 if not force and not enabled:
                     continue
-
-                self._cancel_current.clear()
                 chunks = split_speech_text(text)
                 if not chunks:
                     continue
@@ -540,8 +544,10 @@ class TTSService:
     def close(self) -> None:
         if self._shutdown.is_set():
             return
-        self._shutdown.set()
-        self._cancel_current.set()
+        with self._lock:
+            self._shutdown.set()
+            self._cancel_generation += 1
+            self._cancel_current.set()
         if self.events is not None:
             self.events.unsubscribe("speech.requested", self._on_speech_requested)
         self._clear_queue()
