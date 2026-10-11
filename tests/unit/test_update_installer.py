@@ -250,3 +250,25 @@ def test_installer_rejects_packages_that_target_development_metadata(tmp_path):
 
     assert not (app / ".git").exists()
     assert not (app / "main.py").exists()
+
+
+
+def test_installer_rejects_packages_that_target_environment_secrets(tmp_path):
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / ".env").write_text("TOKEN=local-secret", encoding="utf-8")
+    archive = make_archive(
+        tmp_path / "bad-environment.zip",
+        {"JARVIS/main.py": b"new", ".env": b"TOKEN=attacker-value"},
+    )
+
+    with pytest.raises(UpdateInstallError, match="служебный или пользовательский каталог"):
+        UpdateInstaller().install(
+            archive,
+            app,
+            policy=make_policy(app, tmp_path),
+            expected_size=archive.stat().st_size,
+        )
+
+    assert (app / ".env").read_text(encoding="utf-8") == "TOKEN=local-secret"
+    assert not (app / "main.py").exists()
