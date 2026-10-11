@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import logging
 import os
@@ -46,14 +48,35 @@ def _is_process_running(pid: int) -> bool:
         return False
 
     result = subprocess.run(
-        ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+        ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
         capture_output=True,
         text=True,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         check=False,
     )
+    if result.returncode != 0:
+        raise OSError(
+            f"Не удалось проверить состояние процесса PID {pid}: "
+            f"{result.stderr.strip() or result.stdout.strip() or result.returncode}"
+        )
+
     output = result.stdout.strip()
-    return bool(output) and str(pid) in output
+    if not output:
+        return False
+    if output.casefold().startswith("info:"):
+        return False
+
+    rows = list(csv.reader(io.StringIO(output)))
+    found_pid_column = False
+    for row in rows:
+        if len(row) >= 2 and row[1].strip().isdigit():
+            found_pid_column = True
+            if int(row[1].strip()) == pid:
+                return True
+
+    if found_pid_column:
+        return False
+    raise OSError("Команда tasklist вернула неизвестный формат ответа.")
 
 
 def _wait_for_process_exit(pid: int, timeout: float = WAIT_TIMEOUT_SECONDS) -> None:
@@ -228,17 +251,20 @@ def main() -> int:
         try:
             _wait_for_process_exit(args.pid)
             policy = UpdateInstallPolicy(root)
-        except Exception as wait_error:
-            logger.exception("Updater could not safely begin: %s", wait_error)
-            if isinstance(wait_error, TimeoutError):
-                try:
-                    if _is_process_running(args.pid):
-                        logger.error(
-                            "The original process is still running; refusing to launch a duplicate instance"
-                        )
-                        return 2
-                except Exception:
-                    logger.exception("Could not determine whether the original process is still running")
+        except TimeoutError as wait_error:
+            logger.exception("Updater timed out waiting for JARVIS to exit: %s", wait_error)
+            try:
+                if _is_process_running(args.pid):
+                    logger.error(
+                        "The original process is still running; refusing to launch a duplicate instance"
+                    )
+                    return 2
+            except Exception:
+                logger.exception("Could not determine whether the original process is still running")
+                return 2
+
+            # If the process disappeared exactly at the timeout boundary, safely
+            # relaunch the unchanged installation instead of touching its files.
             try:
                 _restart_and_verify(root, health_file)
                 logger.info("Original JARVIS restarted; update was not installed")
@@ -246,6 +272,11 @@ def main() -> int:
                 logger.exception("Could not restart the original JARVIS process")
                 return 2
             return 1
+        except Exception as wait_error:
+            # An unknown process state is not proof that JARVIS has exited.
+            # Abort without modifying files or launching a possible duplicate.
+            logger.exception("Updater could not safely establish process state: %s", wait_error)
+            return 2
 
         try:
             result = UpdateInstaller().install(
