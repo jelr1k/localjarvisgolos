@@ -149,6 +149,7 @@ class WakeWordDetector:
         self.events = event_bus
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        self._suppressed = threading.Event()
         self._restart_requested = False
         self.apply_config(config)
 
@@ -186,6 +187,13 @@ class WakeWordDetector:
     def stop(self):
         self._stop_event.set()
 
+    def set_suppressed(self, suppressed: bool) -> None:
+        """Ignore microphone audio while TTS plays to prevent speaker echo."""
+        if suppressed:
+            self._suppressed.set()
+        else:
+            self._suppressed.clear()
+
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
 
@@ -219,7 +227,7 @@ class WakeWordDetector:
             def callback(indata, frames, time_info, status):
                 if status:
                     logger.warning("wake_word_stream_status=%s", status)
-                if not self._stop_event.is_set():
+                if not self._stop_event.is_set() and not self._suppressed.is_set():
                     try:
                         audio_queue.put_nowait(bytes(indata))
                     except queue.Full:
@@ -244,7 +252,22 @@ class WakeWordDetector:
                 callback=callback,
                 extra_settings=extra_settings,
             ):
+                was_suppressed = False
                 while not self._stop_event.is_set():
+                    suppressed = self._suppressed.is_set()
+                    if suppressed != was_suppressed:
+                        while True:
+                            try:
+                                audio_queue.get_nowait()
+                            except queue.Empty:
+                                break
+                        reset = getattr(recognizer, "Reset", None)
+                        if callable(reset):
+                            reset()
+                        was_suppressed = suppressed
+                    if suppressed:
+                        self._stop_event.wait(0.05)
+                        continue
                     try:
                         data = audio_queue.get(timeout=0.05)
                     except queue.Empty:
