@@ -64,10 +64,13 @@ def _wait_for_process_exit(pid: int, timeout: float = WAIT_TIMEOUT_SECONDS) -> N
         time.sleep(POLL_INTERVAL_SECONDS)
 
 
-def _restart(application_root: Path, health_file: Path) -> subprocess.Popen:
+def _restart(application_root: Path, health_file: Path | None = None) -> subprocess.Popen:
     bootstrap = application_root / "start" / "bootstrap.py"
     if not bootstrap.is_file():
         raise FileNotFoundError(f"Bootstrap JARVIS не найден: {bootstrap}")
+
+    if health_file is None:
+        health_file = Path(tempfile.gettempdir()) / f"jarvis-startup-health-{os.getpid()}.json"
 
     creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     environment = os.environ.copy()
