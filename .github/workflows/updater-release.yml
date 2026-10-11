@@ -159,10 +159,19 @@ jobs:
           cd release/jarvis
           zip -qr ../jarvis.zip .
 
+      - name: Align release tag with the tested source commit
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.test.outputs.tag }}
+        run: |
+          git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
+          git push --force origin "refs/tags/$RELEASE_TAG"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.test.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: JARVIS ${{ needs.test.outputs.tag }} - updater release
           body: |
             JARVIS ${{ needs.test.outputs.tag }}.
