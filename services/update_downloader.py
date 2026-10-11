@@ -30,6 +30,7 @@ class UpdateDownloadResult:
     temp_directory: Path
     bytes_downloaded: int
     expected_size: int
+    target_version: str
 
 
 class UpdateDownloader:
@@ -115,6 +116,7 @@ class UpdateDownloader:
                 temp_directory=temp_directory,
                 bytes_downloaded=downloaded,
                 expected_size=plan.asset_size,
+                target_version=plan.target_version,
             )
         except UpdateDownloadError:
             shutil.rmtree(temp_directory, ignore_errors=True)
