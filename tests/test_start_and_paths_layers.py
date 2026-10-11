@@ -110,11 +110,17 @@ def test_updater_argument_parser(monkeypatch):
 
 
 def test_updater_process_check_uses_tasklist():
-    with patch("start.updater.subprocess.run", return_value=Mock(stdout="jarvis.exe 123 Console")) as run:
+    running = Mock(
+        returncode=0,
+        stdout='"jarvis.exe","123","Console","1","10 K"',
+        stderr="",
+    )
+    with patch("start.updater.subprocess.run", return_value=running) as run:
         assert updater._is_process_running(123) is True
         run.assert_called_once()
 
-    with patch("start.updater.subprocess.run", return_value=Mock(stdout="INFO: no tasks")):
+    not_running = Mock(returncode=0, stdout="INFO: no tasks", stderr="")
+    with patch("start.updater.subprocess.run", return_value=not_running):
         assert updater._is_process_running(123) is False
 
     assert updater._is_process_running(0) is False
