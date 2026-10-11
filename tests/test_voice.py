@@ -6,6 +6,11 @@ from voice.microphone import MicrophoneRecorder
 from voice.speech_recognizer import SpeechRecognizer
 
 
+class FakeDependencyManager:
+    def ensure_whisper_model(self, model_name):
+        return model_name
+
+
 def test_microphone_stop_without_recording_returns_empty_audio():
     recorder = MicrophoneRecorder()
     audio = recorder.stop()
@@ -27,6 +32,7 @@ def test_speech_recognizer_loads_model_lazily(monkeypatch):
             return [Segment()], object()
 
     monkeypatch.setattr("voice.speech_recognizer.WhisperModel", FakeModel)
+    monkeypatch.setattr("voice.speech_recognizer.get_dependency_manager", lambda: FakeDependencyManager())
     recognizer = SpeechRecognizer()
 
     assert created == []
@@ -119,6 +125,7 @@ def test_speech_recognizer_resamples_to_whisper_rate(monkeypatch):
             return [Segment()], object()
 
     monkeypatch.setattr("voice.speech_recognizer.WhisperModel", lambda *args, **kwargs: FakeModel())
+    monkeypatch.setattr("voice.speech_recognizer.get_dependency_manager", lambda: FakeDependencyManager())
     recognizer = SpeechRecognizer()
 
     source = np.linspace(-1, 1, 48000, dtype=np.float32)

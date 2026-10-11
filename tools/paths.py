@@ -172,21 +172,22 @@ def find_by_name(name: str, extension: str | None = None, *, fuzzy: bool = False
         return []
 
     matches: list[Path] = []
-    seen: set[Path] = set()
+    seen: set[str] = set()
     for root in _search_roots():
         for path in _iter_search_files(root) or ():
             try:
                 resolved = path.resolve(strict=True)
             except OSError:
                 continue
-            if not resolved.is_file() or resolved in seen:
+            resolved_key = os.path.normcase(str(resolved))
+            if not resolved.is_file() or resolved_key in seen:
                 continue
             if root.resolve() == TOOL_WORKSPACE.resolve() and not is_path_allowed(resolved):
                 continue
             if extension and resolved.suffix.lower() != extension.lower():
                 continue
             if _matches_name(resolved, name):
-                seen.add(resolved)
+                seen.add(resolved_key)
                 matches.append(resolved)
 
     if matches or not fuzzy:
@@ -199,12 +200,14 @@ def find_by_name(name: str, extension: str | None = None, *, fuzzy: bool = False
                 resolved = path.resolve(strict=True)
             except OSError:
                 continue
-            if not resolved.is_file() or resolved in seen:
+            resolved_key = os.path.normcase(str(resolved))
+            if not resolved.is_file() or resolved_key in seen:
                 continue
             if root.resolve() == TOOL_WORKSPACE.resolve() and not is_path_allowed(resolved):
                 continue
             if extension and resolved.suffix.lower() != extension.lower():
                 continue
+            seen.add(resolved_key)
             score = _fuzzy_filename_score(resolved, name)
             if score >= _FUZZY_FILENAME_THRESHOLD:
                 fuzzy_matches.append((score, resolved))

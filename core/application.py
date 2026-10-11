@@ -13,6 +13,9 @@ from security.permissions import PermissionManager
 from llm.ollama import OllamaProvider
 from services.chat_service import ChatService
 from services.rofl_service import RoflService
+from services.update_checker import UpdateChecker
+from services.update_monitor import UpdateMonitor
+from services.update_service import UpdateService
 from tools.paths import prepare_tool_workspace
 from voice.controller import VoiceService
 from voice.wake_word import WakeWordDetector
@@ -63,6 +66,12 @@ class JarvisApplication:
         self.ollama_manager.register_model(self.config.get("model"))
         self._started = False
         self._shutdown_started = False
+        self.update_checker = UpdateChecker()
+        self.update_service = UpdateService()
+        self.update_monitor = UpdateMonitor(
+            checker=self.update_checker,
+            on_result=lambda result: self.events.emit("application.update_check_finished", result),
+        )
         logger.info("backend_application_init_finish model=%s", self.config.get("model"))
 
     def set_ui_actions(self, actions: dict | None):
@@ -90,6 +99,7 @@ class JarvisApplication:
         if self.config.get("voice", {}).get("wake_word_enabled", True):
             self.wake_word_detector.start()
 
+        self.update_monitor.start()
         self.events.emit("application.started")
 
     def apply_settings(self):
@@ -119,6 +129,10 @@ class JarvisApplication:
             self.rofl_service.close()
         except Exception:
             logger.exception("rofl_service_close_failed")
+        try:
+            self.update_monitor.stop()
+        except Exception:
+            logger.exception("update_monitor_stop_failed")
         try:
             self.wake_word_detector.close()
         except Exception:

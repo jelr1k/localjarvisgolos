@@ -13,7 +13,7 @@ logger = logging.getLogger("jarvis.target_resolver")
 class TargetResolver:
     """Разрешает объект из естественной фразы, не превращая всю фразу в алиас."""
 
-    _TOKEN_RE = re.compile(r"[^\\s]+")
+    _TOKEN_RE = re.compile(r"[^\s]+")
     _TRIM_CHARS = " ,:;.!?\"'«»()[]{}"
 
     def __init__(self, alias_manager: AliasManager, workspace_index_getter: Callable[[], Any] | None = None):
@@ -78,6 +78,13 @@ class TargetResolver:
         # Preserve the old fuzzy/confirmation behavior, but only after all
         # exact fragments have been checked. The whole natural-language phrase
         # is no longer saved as an alias just because it contains a known name.
+        if ambiguous is not None:
+            candidates = [str(item) for item in ambiguous.get("candidates", [])[:5]]
+            message = "Не удалось однозначно определить объект."
+            if candidates:
+                message += " Варианты: " + "; ".join(candidates)
+            return None, message
+
         suggestions = self.alias_manager.suggest_any(normalized, categories, limit=5)
         if not suggestions:
             return query, None

@@ -75,9 +75,9 @@ class AliasManagerTests(unittest.TestCase):
             first = manager.ensure_automatic_aliases("applications", "Steam.url")
             second = manager.ensure_automatic_aliases("applications", "Steam.url")
 
-            self.assertEqual(first, ["Steam", "Steam.url"])
-            self.assertEqual(second, ["Steam", "Steam.url"])
-            self.assertEqual(manager.get_aliases("applications", "Steam.url"), ["Steam", "Steam.url"])
+            self.assertEqual(first, ["Steam", "Steam.url", "стим"])
+            self.assertEqual(second, ["Steam", "Steam.url", "стим"])
+            self.assertEqual(manager.get_aliases("applications", "Steam.url"), ["Steam", "Steam.url", "стим"])
 
     def test_automatic_alias_does_not_overwrite_existing_alias(self):
         with tempfile.TemporaryDirectory() as directory:

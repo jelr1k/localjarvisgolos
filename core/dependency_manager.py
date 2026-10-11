@@ -32,7 +32,13 @@ class _ProgressTqdm(tqdm):
         if self.cancel_event is not None and self.cancel_event.is_set():
             raise ModelDownloadCancelled()
         if self.callback is not None:
-            self.callback(int(self.n or 0), int(self.total or 0), float(self.format_dict.get("rate") or 0.0))
+            callback = type(self).callback
+            if callback is not None:
+                callback(
+                    int(self.n or 0),
+                    int(self.total or 0),
+                    float(self.format_dict.get("rate") or 0.0),
+                )
 
     def update(self, n=1):
         result = super().update(n)

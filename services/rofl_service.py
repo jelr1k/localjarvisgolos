@@ -465,7 +465,7 @@ class RoflService:
     def _on_tool_executed(self, tool_name: str, arguments: dict, result: dict):
         if tool_name != "launch_application" or not result.get("success"):
             return
-        if random.random() >= self.ROFL_CHANCE:
+        if random.random() >= self.rofl_chance:
             return
 
         if random.random() < self.demon_chance:

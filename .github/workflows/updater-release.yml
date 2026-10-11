@@ -1,0 +1,78 @@
+name: JARVIS updater release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 0.1.1"
+        required: true
+        default: "0.1.1"
+      tag:
+        description: "Release tag, for example v0.1.1"
+        required: true
+        default: "v0.1.1"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify sources
+        shell: bash
+        run: |
+          python -m compileall -q core chat llm services security tools voice presentation ui start
+          test -f start/bootstrap.py
+          test -f core/version.py
+
+      - name: Build update archive
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          
+          path = Path("core/version.py")
+          content = path.read_text(encoding="utf-8")
+          version = os.environ["RELEASE_VERSION"].strip()
+          import re
+          updated, count = re.subn(
+              r'APP_VERSION\s*=\s*"[^"]+"',
+              f'APP_VERSION = "{version}"',
+              content,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("APP_VERSION was not found exactly once")
+          path.write_text(updated, encoding="utf-8")
+          PY
+
+          mkdir -p release/jarvis
+          rsync -a --exclude='.git' --exclude='.github' --exclude='.pytest_cache'             --exclude='__pycache__' --exclude='tests' --exclude='logs'             --exclude='workspace' --exclude='models' ./ release/jarvis/
+
+          test -f release/jarvis/start/bootstrap.py
+          test -f release/jarvis/core/version.py
+
+          cd release/jarvis
+          zip -qr ../jarvis.zip .
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: JARVIS ${{ inputs.tag }} - updater release
+          body: |
+            JARVIS updater release ${{ inputs.tag }}.
+            Built from the branch that contains the merged updater system.
+          files: release/jarvis.zip
+          generate_release_notes: false

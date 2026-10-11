@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar
+import webbrowser
+
+from core.version import APP_VERSION
+from PySide6.QtCore import Signal, QTimer
+from PySide6.QtWidgets import QApplication, QWidget,QVBoxLayout,QFormLayout,QComboBox,QCheckBox,QDoubleSpinBox,QSpinBox,QLineEdit,QPushButton,QMessageBox,QGroupBox,QHBoxLayout,QFileDialog,QLabel,QProgressBar
 from ui.rofl_settings_dialog import RoflSettingsDialog
 
 class SettingsPage(QWidget):
@@ -38,11 +41,17 @@ class SettingsPage(QWidget):
         self.silence_duration=QDoubleSpinBox();self.silence_duration.setRange(.5,10);self.silence_duration.setSingleStep(.1);self.silence_duration.setValue(float(voice.get("silence_duration",2)))
         self.status_label=QLabel();self.status_label.setWordWrap(True)
         self.rofl_secret=QLineEdit();self.rofl_secret.setPlaceholderText("Служебное слово");self.rofl_secret.setEchoMode(QLineEdit.Password);self.rofl_secret.textChanged.connect(self._check_rofl_secret)
+        self.update_status=QLabel(f"Текущая версия: {APP_VERSION}");self.update_status.setWordWrap(True)
+        self.update_check_button=QPushButton("Проверить обновления");self.update_check_button.clicked.connect(self._check_for_update)
+        self.update_details_button=QPushButton("Открыть страницу релиза");self.update_details_button.clicked.connect(self._open_release);self.update_details_button.hide();self.update_progress=QProgressBar();self.update_progress.hide();self.update_progress_label=QLabel();self.update_progress_label.hide()
+        update_row=QHBoxLayout();update_row.setContentsMargins(0,0,0,0);update_row.addWidget(self.update_check_button);update_row.addWidget(self.update_details_button)
+        update_box=QGroupBox("Обновления");update_layout=QVBoxLayout(update_box);update_layout.addWidget(self.update_status);update_layout.addLayout(update_row);update_layout.addWidget(self.update_progress);update_layout.addWidget(self.update_progress_label)
+        self._latest_release_url=""
         self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
         form=QFormLayout()
         for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace),("Служебное слово:",self.rofl_secret)]:form.addRow(label,widget)
-        box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
-        controller.refresh_finished.connect(self._refresh_finished);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
+        box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(update_box);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
+        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.update_download_progress.connect(self._on_update_download_progress);controller.update_download_finished.connect(self._on_update_download_finished);controller.update_validation_finished.connect(self._on_update_validation_finished);controller.update_backup_finished.connect(self._on_update_backup_finished);controller.update_restart_requested.connect(self._on_update_restart_requested);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
         self._refresh_whisper_statuses();self._load_microphones();self._set_status("Готово",False)
 
     def _check_rofl_secret(self, text):
@@ -51,6 +60,72 @@ class SettingsPage(QWidget):
         self.rofl_secret.clear()
         dialog = RoflSettingsDialog(self.controller, self)
         dialog.exec()
+
+    def _check_for_update(self):
+        if self.update_check_button.text() == "Проверка…":
+            return
+        self.update_check_button.setEnabled(False)
+        self.update_check_button.setText("Проверка…")
+        self.update_details_button.hide()
+        self.update_status.setText(f"Текущая версия: {APP_VERSION}\nПроверяю GitHub Releases…")
+        self.controller.check_for_update()
+
+    def _update_confirmation_requested(self, plan):
+        if self.update_check_button.isEnabled() is False:
+            return
+        reply = QMessageBox.question(self,"Доступно обновление",f"Доступна версия {plan.target_version}.\nАрхив: {plan.asset_name}\nРазмер: {self._format_bytes(plan.asset_size)}\n\nПодготовить это обновление к скачиванию?",QMessageBox.Yes | QMessageBox.No,QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.update_check_button.setEnabled(False);self.update_details_button.setEnabled(False);self.update_progress.setValue(0);self.update_progress.show();self.update_progress_label.setText("Начинаю безопасную загрузку во временную папку…");self.update_progress_label.show();self._set_status(f"⟳ Скачиваю обновление {plan.target_version}…",False);self.controller.download_update(plan)
+        else:self._set_status("Обновление отложено.",False)
+
+    def _on_update_download_progress(self, current, total, speed):
+        if total > 0:
+            percent = min(100, max(0, round(current * 100 / total)));eta = (total - current) / speed if speed > 0 else 0;self.update_progress.setValue(percent);self.update_progress_label.setText(f"{percent}% • {self._format_bytes(current)} / {self._format_bytes(total)}\nСкорость: {self._format_bytes(speed)}/с • Осталось примерно: {self._format_eta(eta)}")
+        else:self.update_progress_label.setText(f"{self._format_bytes(current)} скачано • определяю размер…")
+
+    def _on_update_download_finished(self, result):
+        if result.get("success"):
+            self.update_progress.setValue(100);self.update_progress_label.setText("100% • архив скачан. Проверяю ZIP-архив перед установкой…");self._set_status("⟳ Архив скачан. Проверяю его целостность и безопасность…",False)
+        else:
+            self.update_check_button.setEnabled(True);self.update_details_button.setEnabled(True);self.update_progress.hide();self.update_progress_label.setText(f"Ошибка: {result.get('error', 'Не удалось скачать обновление')}");self.update_progress_label.show();self._set_status("⚠ Не удалось скачать обновление",True)
+
+    def _on_update_validation_finished(self, result):
+        if result.get("success"):
+            validation = result["result"];self.update_progress.setValue(100);self.update_progress_label.setText(f"✓ ZIP проверен: {validation.file_count} файлов, {self._format_bytes(validation.total_uncompressed_size)} распакованных данных.");self._set_status("⟳ Архив проверен. Создаю резервную копию текущей установки…",False)
+        else:
+            self.update_check_button.setEnabled(True);self.update_details_button.setEnabled(True);self.update_progress.hide();self.update_progress_label.setText(f"Ошибка проверки архива: {result.get('error', 'ZIP-архив не прошёл проверку')}");self.update_progress_label.show();self._set_status("⚠ Архив обновления не прошёл проверку",True)
+
+    def _on_update_backup_finished(self, result):
+        if result.get("success"):
+            backup = result["result"];self.update_progress_label.setText(f"✓ Резервная копия создана: {backup.backup_directory}");self._set_status("⟳ Резервная копия готова. Запускаю отдельный updater и перезапускаю JARVIS…",False)
+        else:
+            self.update_check_button.setEnabled(True);self.update_details_button.setEnabled(True);self.update_progress.hide();self.update_progress_label.setText(f"Ошибка резервного копирования: {result.get('error', 'Не удалось создать резервную копию')}");self.update_progress_label.show();self._set_status("⚠ Не удалось создать резервную копию",True)
+
+    def _on_update_restart_requested(self, result):
+        if result.get("success"):
+            self.update_check_button.setEnabled(False);self.update_details_button.setEnabled(False);self.update_progress.setValue(100);self.update_progress_label.setText("✓ Updater запущен. JARVIS завершает работу и будет запущен снова после установки.");self._set_status("⟳ Устанавливаю обновление и перезапускаю JARVIS…",False)
+            QTimer.singleShot(300, self._quit_for_update)
+        else:
+            self.update_check_button.setEnabled(True);self.update_details_button.setEnabled(True);self.update_progress.hide();self.update_progress_label.setText(f"Ошибка запуска updater: {result.get('error', 'неизвестная ошибка')}");self.update_progress_label.show();self._set_status("⚠ Не удалось запустить updater-процесс",True)
+
+    @staticmethod
+    def _quit_for_update():
+        app=QApplication.instance()
+        if app is not None:
+            app.quit()
+
+    def _update_check_finished(self, result):
+        self.update_check_button.setEnabled(True);self.update_check_button.setText("Проверить обновления")
+        if not result.get("success"):
+            self.update_status.setText(f"Текущая версия: {APP_VERSION}\n⚠ {result.get('error', 'Не удалось проверить обновления')}");return
+        info=result["info"];self._latest_release_url=info.release_url
+        if info.update_available:
+            self.update_status.setText(f"Текущая версия: {info.current_version}\nДоступна новая версия: {info.latest_version}\n{info.release_name}");self.update_details_button.setVisible(bool(info.release_url))
+        else:
+            message="Релизов пока нет." if not info.tag_name else "Установлена последняя версия.";self.update_status.setText(f"Текущая версия: {info.current_version}\n✓ {message}")
+
+    def _open_release(self):
+        if self._latest_release_url:webbrowser.open(self._latest_release_url)
 
     def _set_status(self,text,error):self.status_label.setText(text);self.status_label.setProperty("status_error",bool(error));self.status_label.style().unpolish(self.status_label);self.status_label.style().polish(self.status_label)
 

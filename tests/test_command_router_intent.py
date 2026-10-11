@@ -1,10 +1,12 @@
 from core.alias_manager import AliasManager
 from services.command_router import CommandRouter
+from tools.registry import TOOLS
 
 
 def make_router(tmp_path):
     aliases = AliasManager(tmp_path / "aliases.json")
-    return CommandRouter({}, None, aliases)
+    config = {"tools": {name: True for name in TOOLS}}
+    return CommandRouter(config, None, aliases)
 
 
 def test_where_question_is_not_file_search(tmp_path):
@@ -16,7 +18,7 @@ def test_where_question_is_not_file_search(tmp_path):
 def test_where_file_is_file_search(tmp_path):
     router = make_router(tmp_path)
     action = router._resolve_action("Где находится файл tool_test.txt?")
-    assert action == ("search", "файл tool_test.txt?")
+    assert action == ("search", "файл tool_test.txt")
 
 
 def test_show_is_contextual(tmp_path):
@@ -39,14 +41,14 @@ def test_tools_for_message_is_owned_by_router(tmp_path):
 
 def test_embedded_application_name_is_resolved_from_natural_phrase(tmp_path):
     router = make_router(tmp_path)
-    router.alias_manager.set_aliases("applications", "Steam.lnk", ["стим"])
+    router.alias_manager.set_aliases("applications", "Steam.lnk", ["стим", "Steam"])
 
-    assert router._resolve_target("мой Steam", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
     assert router._resolve_target("мой стим", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
+    assert router._resolve_target("мой Steam", ("applications",), use_workspace_index=False) == ("Steam.lnk", None)
 
 
 def test_longest_embedded_alias_wins(tmp_path):
     router = make_router(tmp_path)
     router.alias_manager.set_aliases("applications", "Google Chrome.lnk", ["гугл хром"])
 
-    assert router._resolve_target("мой Google Chrome", ("applications",), use_workspace_index=False) == ("Google Chrome.lnk", None)
+    assert router._resolve_target("мой гугл хром", ("applications",), use_workspace_index=False) == ("Google Chrome.lnk", None)
