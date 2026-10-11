@@ -23,6 +23,10 @@ from services.update_validator import UpdateValidationError, UpdateValidator
 
 MANIFEST_NAME = ".jarvis-update-manifest.json"
 MANIFEST_SCHEMA = 1
+_UNMANAGED_ROOTS = {
+    ".git", ".github", ".venv", "venv", "env", "tests",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", "__pycache__", "node_modules",
+}
 
 
 class UpdateInstallError(RuntimeError):
@@ -203,7 +207,10 @@ class UpdateInstaller:
         if manifest_path.is_symlink() or (manifest_path.exists() and not manifest_path.is_file()):
             raise UpdateInstallError("Файл манифеста обновления повреждён или является ссылкой.")
 
-        old_managed = self._read_manifest(manifest_path)
+        old_managed = [
+            name for name in self._read_manifest(manifest_path)
+            if not self._is_unmanaged_path(name)
+        ]
         incoming: dict[str, Path] = {}
 
         for source in source_root.rglob("*"):
@@ -215,6 +222,10 @@ class UpdateInstaller:
                 continue
 
             relative = source.relative_to(source_root).as_posix()
+            if self._is_unmanaged_path(relative):
+                raise UpdateInstallError(
+                    f"Архив обновления содержит служебный или пользовательский каталог: {relative}"
+                )
             if relative.casefold() == MANIFEST_NAME.casefold():
                 raise UpdateInstallError(
                     f"Архив не должен содержать зарезервированный файл {MANIFEST_NAME}."
@@ -326,6 +337,13 @@ class UpdateInstaller:
             ) from exc
 
         return len(incoming)
+
+    @staticmethod
+    def _is_unmanaged_path(relative: str) -> bool:
+        parts = PurePosixPath(str(relative).replace("\\", "/")).parts
+        return bool(parts) and parts[0].casefold() in {
+            name.casefold() for name in _UNMANAGED_ROOTS
+        }
 
     @classmethod
     def _read_manifest(cls, path: Path) -> list[str]:
