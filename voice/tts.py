@@ -334,7 +334,7 @@ class TTSService:
         self.events = event_bus
         self._backend = backend or PiperTTSBackend()
         self._player = player or SoundDevicePlayer()
-        self._queue: queue.Queue[tuple[str, str, bool] | None] = queue.Queue(
+        self._queue: queue.Queue[tuple[str, str, bool, tuple[str, float, float] | None] | None] = queue.Queue(
             maxsize=max(1, int(queue_capacity))
         )
         self._lock = threading.RLock()
@@ -407,18 +407,19 @@ class TTSService:
             self._emit("tts.state_changed", "error", str(exc))
             raise
 
-    def configure_preview(self, voice_name: str, speed: float) -> None:
-        """Apply unsaved UI choices for the voice test without persisting settings."""
-        self._backend.configure(
-            voice_name=voice_name,
-            speed=speed,
-            volume=self._backend.volume,
-        )
-
     def _on_speech_requested(self, text: str, source: str = "assistant") -> None:
         self.speak(text, source=source, force=False)
 
     def speak(self, text: str, source: str = "assistant", force: bool = False) -> bool:
+        return self._queue_speech(text, source, force, preview_settings=None)
+
+    def _queue_speech(
+        self,
+        text: str,
+        source: str,
+        force: bool,
+        preview_settings: tuple[str, float, float] | None,
+    ) -> bool:
         text = prepare_speech_text(text)
         if not text:
             return False
@@ -426,7 +427,9 @@ class TTSService:
             if self._shutdown.is_set() or (not self._enabled and not force):
                 return False
         try:
-            self._queue.put_nowait((text, str(source or "assistant"), bool(force)))
+            self._queue.put_nowait(
+                (text, str(source or "assistant"), bool(force), preview_settings)
+            )
             return True
         except queue.Full:
             logger.warning("tts_queue_full source=%s chars=%d", source, len(text))
@@ -440,12 +443,19 @@ class TTSService:
         volume: float | None = None,
     ) -> bool:
         selected = voice_name or self._backend.voice_name
-        self._backend.configure(
-            voice_name=selected,
-            speed=self._backend.speed if speed is None else speed,
-            volume=self._backend.volume if volume is None else volume,
+        previous = (self._backend.voice_name, self._backend.speed, self._backend.volume)
+        speed_value = self._backend.speed if speed is None else float(speed)
+        volume_value = self._backend.volume if volume is None else float(volume)
+        # Validate the preview without persisting it into the active configuration.
+        self._backend.configure(selected, speed_value, volume_value)
+        preview = (self._backend.voice_name, self._backend.speed, self._backend.volume)
+        self._backend.configure(*previous)
+        return self._queue_speech(
+            self.TEST_PHRASE,
+            source="settings",
+            force=True,
+            preview_settings=preview,
         )
-        return self.speak(self.TEST_PHRASE, source="settings", force=True)
 
     def stop(self) -> None:
         self._cancel_current.set()
@@ -476,7 +486,7 @@ class TTSService:
             if item is None:
                 self._queue.task_done()
                 return
-            text, source, force = item
+            text, source, force, preview_settings = item
             try:
                 with self._lock:
                     enabled = self._enabled
@@ -492,7 +502,22 @@ class TTSService:
                 for index, speech_chunk in enumerate(chunks):
                     if self._cancel_current.is_set() or self._shutdown.is_set():
                         break
-                    audio, sample_rate = self._backend.synthesize(speech_chunk)
+                    previous_settings = None
+                    if preview_settings is not None:
+                        previous_settings = (
+                            self._backend.voice_name,
+                            self._backend.speed,
+                            self._backend.volume,
+                        )
+                        self._backend.configure(*preview_settings)
+                    try:
+                        audio, sample_rate = self._backend.synthesize(speech_chunk)
+                    finally:
+                        if previous_settings is not None:
+                            try:
+                                self._backend.configure(*previous_settings)
+                            except Exception:
+                                logger.exception("tts_preview_settings_restore_failed")
                     if self._cancel_current.is_set() or self._shutdown.is_set():
                         break
                     self._emit("tts.state_changed", "speaking", "Озвучиваю ответ…")
