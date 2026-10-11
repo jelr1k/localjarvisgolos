@@ -57,6 +57,7 @@ def test_download_streams_archive_to_isolated_temp_directory(tmp_path):
     assert result.archive_path.read_bytes() == b"abcdef"
     assert result.archive_path.parent.parent == tmp_path
     assert result.bytes_downloaded == 6
+    assert result.target_version == "0.2.0"
     assert progress[-1] == (6, 6)
     assert session.calls[0][0] == "https://example.com/JARVIS.zip"
     assert session.calls[0][1]["stream"] is True
