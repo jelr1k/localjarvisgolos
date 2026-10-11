@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from io import BytesIO
 from pathlib import Path
 import zipfile
@@ -49,6 +50,13 @@ def test_update_pipeline_downloads_validates_backs_up_and_installs(tmp_path):
     app.mkdir()
     (app / "main.py").write_text("print('old')\n", encoding="utf-8")
     (app / "old_module.py").write_text("old\n", encoding="utf-8")
+
+    (app / ".jarvis-update-manifest.json").write_text(
+        json.dumps(
+            {"schema_version": 1, "files": ["main.py", "old_module.py"]}
+        ),
+        encoding="utf-8",
+    )
 
     workspace = app / "workspace"
     workspace.mkdir()
