@@ -1,65 +1,107 @@
-# TTS architecture (text-to-speech)
+# TTS architecture (text-to-speech / Voice Output)
 
-## Goal
+## Purpose and constraints
 
-TTS converts the assistant's final text into speech locally. It is a separate output service, not a feature of Whisper, the chat UI or the Command Router. Whisper remains input-only: microphone audio → recognized text. Piper is output-only: text → generated audio.
+TTS is Jarvis's single voice-output boundary. ChatService, Command Router, RoflService, and UI send text/context into it; they do not load models, search audio files, or play sounds directly.
 
-The first version is deliberately opt-in. It does not speak or download a voice model until the user enables automatic speech and chooses to download a supported voice.
+**Piper is the current engine, not a permanent dependency of the architecture.** A future backend implements `TTSBackend` in `voice/tts/engine.py`. The request contract, profile catalog, asset manager, queue, and player must stay independent of engine-specific model types.
 
-## Request flow
+STT and TTS remain separate: Whisper/Vosk process microphone input, while TTS converts text to output audio. If a future engine needs heavy/conflicting dependencies, it can run in an isolated environment/process. That is not needed for the current Piper runtime and will be added only if testing justifies it.
+
+## Package layout
+
+The implementation lives under the existing `voice/` package rather than another top-level subsystem:
+
+```text
+voice/
+├── controller.py                 # existing input/STT orchestration
+├── wake_word.py                  # existing wake-word detection
+└── tts/
+    ├── __init__.py               # stable public API: from voice.tts import ...
+    ├── service.py                # queue, worker lifecycle, EventBus and status events
+    ├── engine.py                 # TTSBackend protocol
+    ├── errors.py                 # TTS-specific exceptions
+    ├── models.py                 # VoiceProfile and SpeechRequest contracts
+    ├── text.py                   # cleanup and sentence-oriented chunking
+    ├── audio_player.py           # output device adapter
+    ├── engines/
+    │   ├── __init__.py
+    │   └── piper.py              # current local Piper backend
+    ├── voice_manager.py          # persistent profile catalog
+    ├── asset_manager.py          # prepared recordings + bounded audio cache
+    └── metrics.py                # queue/synthesis/error counters
+```
+
+Existing imports such as `from voice.tts import TTSService, PiperTTSBackend` remain supported. This keeps ChatService, Router, and current tests from depending on internal module paths.
+
+## Runtime path today
 
 ```mermaid
 flowchart TD
-    A[Final assistant answer] --> E[EventBus: speech.requested]
-    B[Successful router action] --> E
-    C[RoflService joke] --> E
-    E --> F[TTSService]
-    F --> G[Clean Markdown and split text]
-    G --> H[Bounded speech queue]
-    H --> I[Worker thread]
-    I --> J[Piper ONNX voice on CPU]
-    J --> K[PCM audio]
-    K --> L[SoundDevicePlayer]
-    L --> M[Default Windows output]
+    A[Chat / Router / RoflService] --> B[EventBus: speech.requested]
+    B --> C[TTSService]
+    C --> D[Clean text / bounded queue]
+    D --> E[Worker thread]
+    E --> F[TTSBackend contract]
+    F --> G[Piper adapter]
+    G --> H[PCM samples]
+    H --> I[SoundDevicePlayer]
+    I --> J[Windows output device]
 ```
 
-1. A source publishes `speech.requested(text, source)`. Chat and router results publish once at the end of the reply, and RoflService uses the same event for jokes.
-2. TTSService ignores empty text, strips common Markdown/code/link noise, limits extremely long responses and puts the request in a bounded queue. A full queue rejects a new line instead of growing memory without a limit.
-3. A dedicated worker synthesizes the queued text in short sentence-oriented pieces. The Qt/UI thread never waits for synthesis or playback.
-4. Piper returns float PCM samples and sample rate. SoundDevicePlayer plays them, then the worker handles the next fragment/request.
-5. Service state is published as `tts.state_changed(state, message)` for settings/status UI. Errors are logged and reported but do not crash chat.
+Automatic speech remains opt-in. TTS publishes `tts.state_changed` and logs failures, while text chat and Router stay independent. `TTSMetrics` also counts requests, successful syntheses, synthesis time, errors, and queue rejections in memory. Cache/prepared/fallback counters are part of the contract and will become nonzero when the resolver is connected to playback.
 
-The first implementation speaks after a complete answer arrives; it is **not yet real-time streamed TTS**. Internally the answer is split into smaller chunks so long responses do not have to be synthesized as one large model input. A later streaming implementation can publish sentence-ready events without changing the Piper backend/player contracts.
+## Prepared recordings and cache
 
-## Components and ownership
+`AudioAssetManager` is implemented and independently tested, but it is **not yet wired into live playback**. The next integration change will pass an optional `response_key` through speech requests and resolve them in this order:
 
-- `voice/tts.py`: text cleanup, chunking, the Piper backend, audio-player interface, bounded queue, state events and shutdown.
-- `TTSService`: coordinates requests and lifecycle. Does not import Qt or own any widget.
-- `PiperTTSBackend`: lazy-loads Piper only when speech is requested; exposes voice status, voice download, settings and synthesis. The service can later be paired with another backend without changing chat or the UI event contract.
-- `SoundDevicePlayer`: the current output adapter. Playback is blocking inside the worker only.
-- `SettingsController` / `SettingsPage`: enable/disable automatic speech, choose one of the supported voices, set speed/volume, download the model and play a test phrase.
-- `EventBus`: the only coupling between chat/rofl and speech output. No direct calls from chat widgets into the speech engine.
+1. If a prepared recording exists for `(voice_id, response_key)`, play it.
+2. Otherwise, compute a cache key and reuse audio only if the normalized text, voice, engine, model, and synthesis settings all match.
+3. Otherwise, synthesize with the active engine, play the audio, and save a cache entry when within the byte budget.
+4. If the main route fails, record the failure and use a configured fallback if available. If all voice output fails, preserve the text response and keep the rest of Jarvis working.
 
-## Voice files and privacy
+Prepared audio is keyed by semantic response IDs, not command-specific file paths inside Router. Example keys: `greeting.hello`, `router.launch.success`, `router.app.not_found`, `router.confirmation`, `rofl.kirill.001`. The source may be recorded by a person or generated by another AI, then imported as a WAV. Changing the active voice should fall back to that voice's TTS/cache until a matching prepared recording exists; it should not rebuild unrelated audio.
 
-Voice models are downloaded only after the user presses **Download voice**. They are stored in `APP_DATA_DIR/tts/voices` (on Windows, under the user's application data directory), not in the Git repository, installation archive or application updater backup. Once installed, synthesis runs locally; text is not sent to a hosted TTS API.
+### User-data storage
 
-The initial voice allow-list is intentionally explicit. Voice files are never downloaded from arbitrary paths or user-supplied URLs. Downloads require HTTPS, enforce a maximum file size, write to a temporary file and validate the model/config pair before reporting success. The first Russian medium voice is roughly 63 MB; the exact download size may vary.
+All models, profiles, audio files, and cache entries live in AppData, never in Git or a distributable source archive:
 
-## Wake-word echo prevention
+```text
+%APPDATA%/Jarvis/tts/
+├── voices/                       # installed model/config pairs (existing)
+├── voice_profiles.json           # active voice + custom profile metadata
+└── assets/
+    ├── prepared/                 # stable prepared response WAVs
+    ├── cache/                    # disposable generated-audio cache
+    └── prepared_manifest.json    # response keys -> managed WAVs
+```
 
-TTS playback can be captured by the microphone and misidentified as the wake phrase. While TTS is synthesizing or speaking, `JarvisApplication` asks `WakeWordDetector` to suppress microphone chunks. The detector drains stale queued audio and resets its recognizer at the suppression boundary, then resumes after playback ends. It does not reload the Vosk model for each phrase.
+AudioAssetManager accepts uncompressed 16-bit PCM WAV (mono/stereo) in v1 and avoids adding another codec dependency. Convert MP3/OGG and other formats before import. The dynamic cache defaults to a 256 MiB limit and evicts least-recently-used files first. Prepared files are not removed during cache pruning.
 
-## Defaults and failure behavior
+## Voice profiles and custom voices
 
-- Automatic speech defaults to **off**. Text chat remains fully usable without a downloaded voice.
-- Missing voice files produce a clear settings status; they are not silently downloaded on startup.
-- Voice download, synthesis and output-device failures generate `tts.state_changed("error", message)` and a log entry; they do not take down the application.
-- Manual voice preview works while automatic speech is disabled.
-- Shutdown cancels pending playback, stops the audio output and unsubscribes the service from `speech.requested`.
-- The queue is bounded and playback is serialized, so responses and jokes do not overlap.
-- The first version speaks final chat responses and the existing RoflService messages. It intentionally does not read every streaming token, interim transcription, or background progress message.
+A profile stores `voice_id`, display name, engine/model IDs, engine-specific settings, and optional reference audio/transcript metadata. VoiceManager persists profile metadata and active selection locally. This creates the catalog boundary for future multiple voices, preview, and engine-specific cloning support.
 
-## Dependency and licensing note
+Important: attaching a reference sample to a profile does **not** make Piper clone a voice. Piper uses its supported pretrained voices. A prepared recording can use a human voice or audio produced by another AI. Dynamic voice cloning requires an engine that explicitly supports it; reference audio is not uploaded anywhere implicitly.
 
-The Python runtime dependency is `piper-tts`; `sounddevice` and `numpy` were already required by the voice-input subsystem and are reused for output. Piper is distributed under GPL-3.0-or-later. Before bundling this runtime into a redistributed closed-source executable, review the license obligations and distribution model. Voice model and training-data licenses are separate and must be checked for each selected voice; do not assume all voices share one license.
+## State, logging, fallback, and metrics
+
+- TTS reports disabled/missing/ready/downloading/synthesizing/speaking/idle/error states through the existing state event.
+- TTS errors are logged/counted and must not cancel ChatService/Router text output.
+- The worker queue remains bounded and serialized so two answers do not play at once.
+- Metrics include requests, successful syntheses, prepared/cache hits, fallback uses, errors, queue rejections, and accumulated synthesis time.
+- The diagnostics/settings UI can display state and snapshots in a later stage; it must never gate text-chat responses on TTS availability.
+
+## Implementation stages
+
+1. **Architecture split (this change):** package the current implementation, retain its public imports, introduce engine/profile/request contracts, and add tested profile, asset, and metrics modules.
+2. **Prepared/cache routing:** pass `response_key` through the shared speech event; implement prepared WAV → cache → Piper synthesis → configured fallback and test the end-to-end route.
+3. **Voice/settings UI:** populate the voice list from VoiceManager, support importing and previewing recordings, and keep automatic speech off by default.
+4. **Diagnostics:** surface service status, cache hit rate, fallback count, queue rejection, and timings in settings/logs.
+5. **Engine experiments:** benchmark Piper first on the actual PC; add an alternative adapter later. Add a separate process/environment only if an engine's dependencies or resource usage require it.
+
+This change does not claim prepared files are already selected for playback. The storage/profile components and contracts are ready; the resolver is the next step.
+
+## Licensing and privacy
+
+Piper is distributed under GPL-3.0-or-later. Before bundling it in a redistributed closed-source executable, review the license obligations and distribution model. Check voice-model licensing individually. Profiles, reference audio, downloaded models, prepared recordings, and caches are local user data; the current Piper backend does not call a hosted TTS API.
