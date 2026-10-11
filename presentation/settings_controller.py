@@ -125,6 +125,16 @@ class SettingsController(QObject):
             self._update_downloader.cleanup(download_result)
             raise
 
+    def _cleanup_download(self):
+        download = self._download_result
+        if download is None:
+            return
+        try:
+            self._update_downloader.cleanup(download)
+        except Exception:
+            pass
+        self._download_result = None
+
     def _create_update_backup(self):
         return self._update_backup.create_backup(
             APP_ROOT,
@@ -140,8 +150,10 @@ class SettingsController(QObject):
                 restart_future = self._tasks.submit(self._launch_update_relauncher)
                 restart_future.add_done_callback(self._update_restart_done)
         except UpdateBackupError as exc:
+            self._cleanup_download()
             self.update_backup_finished.emit({"success": False, "error": str(exc)})
         except Exception as exc:
+            self._cleanup_download()
             self.update_backup_finished.emit({"success": False, "error": "Не удалось создать резервную копию: " + str(exc)})
 
     def _launch_update_relauncher(self):
@@ -166,8 +178,10 @@ class SettingsController(QObject):
             result = future.result()
             self.update_restart_requested.emit({"success": True, "result": result})
         except UpdateRelaunchError as exc:
+            self._cleanup_download()
             self.update_restart_requested.emit({"success": False, "error": str(exc)})
         except Exception as exc:
+            self._cleanup_download()
             self.update_restart_requested.emit({"success": False, "error": "Не удалось запустить updater-процесс: " + str(exc)})
 
     def _update_validation_done(self, future):
@@ -177,8 +191,10 @@ class SettingsController(QObject):
             backup_future = self._tasks.submit(self._create_update_backup)
             backup_future.add_done_callback(self._update_backup_done)
         except UpdateValidationError as exc:
+            self._cleanup_download()
             self.update_validation_finished.emit({"success": False, "error": str(exc)})
         except Exception as exc:
+            self._cleanup_download()
             self.update_validation_finished.emit({"success": False, "error": "Не удалось проверить архив обновления: " + str(exc)})
 
     def get(self, key, default=None):
