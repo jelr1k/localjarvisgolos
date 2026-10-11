@@ -46,6 +46,7 @@ _EXCLUDED_ROOTS = {
     "logs",
     "models",
     "node_modules",
+    "user_data",
 }
 _EXCLUDED_FILES = {".env", ".env.local", ".env.development", ".env.production"}
 
