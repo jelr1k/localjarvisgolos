@@ -1,25 +1,28 @@
-"""Stage 13: install a previously validated JARVIS update safely.
+"""Transactional installation of a validated JARVIS update archive.
 
-The installer works from a validated ZIP and a prepared application directory.
-It extracts into a private staging directory first, then replaces only
-application-owned files. User data, logs, workspace files and external model
-caches described by UpdateInstallPolicy are never removed or overwritten.
-
-This service does not restart JARVIS. A future standalone updater process must
-call it after the main application has exited.
+Only files listed in the updater's own manifest are eligible for stale-file
+removal. Unmanaged files (for example .git, .venv, tests and personal notes)
+are never deleted just because they were absent from the release ZIP.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import os
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
 import tempfile
+import uuid
 import zipfile
 
 from services.update_install_policy import UpdateInstallPolicy
 from services.update_validator import UpdateValidationError, UpdateValidator
+
+
+MANIFEST_NAME = ".jarvis-update-manifest.json"
+MANIFEST_SCHEMA = 1
 
 
 class UpdateInstallError(RuntimeError):
@@ -34,7 +37,7 @@ class UpdateInstallResult:
 
 
 class UpdateInstaller:
-    """Install a validated ZIP while preserving user-owned paths."""
+    """Install a ZIP transactionally while preserving unmanaged application data."""
 
     def __init__(
         self,
@@ -58,9 +61,13 @@ class UpdateInstaller:
 
         if not root.is_dir():
             raise UpdateInstallError("Каталог приложения для установки не найден.")
-
         if not archive.is_file():
             raise UpdateInstallError("Архив обновления не найден.")
+
+        if self._staging_root is not None and (
+            self._staging_root == root or root in self._staging_root.parents
+        ):
+            raise UpdateInstallError("Временный каталог установки не должен находиться внутри приложения.")
 
         install_policy = policy or UpdateInstallPolicy(root)
         if install_policy.application_root != root:
@@ -86,6 +93,7 @@ class UpdateInstaller:
                 source_root,
                 root,
                 install_policy,
+                staging / "transaction-backup",
             )
             preserved = tuple(install_policy.protected_application_paths())
             return UpdateInstallResult(
@@ -95,7 +103,7 @@ class UpdateInstaller:
             )
         except UpdateInstallError:
             raise
-        except (OSError, shutil.Error, zipfile.BadZipFile) as exc:
+        except (OSError, shutil.Error, zipfile.BadZipFile, ValueError) as exc:
             raise UpdateInstallError(f"Не удалось установить обновление: {exc}") from exc
         finally:
             shutil.rmtree(staging, ignore_errors=True)
@@ -114,6 +122,8 @@ class UpdateInstaller:
                         raise UpdateInstallError(
                             f"Архив содержит небезопасный путь: {info.filename}"
                         )
+                    if relative == PurePosixPath("."):
+                        continue
 
                     mode = (info.external_attr >> 16) & 0xFFFF
                     if stat.S_ISLNK(mode):
@@ -122,12 +132,11 @@ class UpdateInstaller:
                         )
 
                     target = destination.joinpath(*relative.parts)
-                    target_resolved = target.resolve()
                     try:
-                        target_resolved.relative_to(destination.resolve())
+                        target.resolve().relative_to(destination.resolve())
                     except ValueError as exc:
                         raise UpdateInstallError(
-                            f"Архив выходит за пределы каталога установки: {info.filename}"
+                            f"Архив выходит за пределы временного каталога: {info.filename}"
                         ) from exc
 
                     if info.is_dir() or info.filename.endswith(("/", "\\")):
@@ -148,14 +157,28 @@ class UpdateInstaller:
         path = PurePosixPath(normalized)
         if not normalized or path.is_absolute() or ".." in path.parts:
             return None
+
         parts = tuple(part for part in path.parts if part not in ("", "."))
         if not parts:
             return PurePosixPath(".")
+
+        reserved_windows_names = {
+            "CON", "PRN", "AUX", "NUL",
+            *(f"COM{i}" for i in range(1, 10)),
+            *(f"LPT{i}" for i in range(1, 10)),
+        }
+        for part in parts:
+            if (
+                any(char in part for char in '<>:"|?*')
+                or part.endswith((".", " "))
+                or part.split(".", 1)[0].upper() in reserved_windows_names
+            ):
+                return None
         return PurePosixPath(*parts)
 
     @staticmethod
     def _find_payload_root(extracted_root: Path) -> Path:
-        children = [item for item in extracted_root.iterdir()]
+        children = list(extracted_root.iterdir())
         files = [item for item in children if item.is_file()]
         directories = [item for item in children if item.is_dir()]
 
@@ -165,6 +188,8 @@ class UpdateInstaller:
             return directories[0]
         if len(directories) > 1:
             return extracted_root
+        if files:
+            return extracted_root
         raise UpdateInstallError("В архиве не найдено содержимое приложения.")
 
     def _replace_application_files(
@@ -172,34 +197,227 @@ class UpdateInstaller:
         source_root: Path,
         destination_root: Path,
         policy: UpdateInstallPolicy,
+        transaction_backup: Path,
     ) -> int:
-        installed = 0
+        manifest_path = destination_root / MANIFEST_NAME
+        if manifest_path.is_symlink() or (manifest_path.exists() and not manifest_path.is_file()):
+            raise UpdateInstallError("Файл манифеста обновления повреждён или является ссылкой.")
 
-        for item in list(destination_root.iterdir()):
-            if policy.is_protected(item):
-                continue
-            if item.is_dir() and not item.is_symlink():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
+        old_managed = self._read_manifest(manifest_path)
+        incoming: dict[str, Path] = {}
 
         for source in source_root.rglob("*"):
-            relative = source.relative_to(source_root)
-            target = destination_root / relative
-            if policy.is_protected(target):
-                continue
-
             if source.is_symlink():
                 raise UpdateInstallError(
-                    f"Распакованное обновление содержит символическую ссылку: {relative}"
+                    f"Распакованное обновление содержит символическую ссылку: {source.relative_to(source_root)}"
                 )
-
-            if source.is_dir():
-                target.mkdir(parents=True, exist_ok=True)
+            if not source.is_file():
                 continue
 
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-            installed += 1
+            relative = source.relative_to(source_root).as_posix()
+            if relative.casefold() == MANIFEST_NAME.casefold():
+                raise UpdateInstallError(
+                    f"Архив не должен содержать зарезервированный файл {MANIFEST_NAME}."
+                )
 
-        return installed
+            target = self._safe_target(destination_root, relative)
+            if policy.is_protected(target):
+                continue
+            if relative.casefold() in {name.casefold() for name in incoming}:
+                raise UpdateInstallError(f"Обновление содержит повторяющийся путь: {relative}")
+            self._preflight_target(destination_root, target, relative)
+            incoming[relative] = source
+
+        new_names = {name.casefold() for name in incoming}
+        obsolete = [
+            name for name in old_managed
+            if name.casefold() not in new_names and not policy.is_protected(
+                self._safe_target(destination_root, name)
+            )
+        ]
+
+        # Validate every target before touching the installation.
+        touched: dict[str, Path] = {}
+        for relative in [*incoming.keys(), *obsolete]:
+            target = self._safe_target(destination_root, relative)
+            self._preflight_target(destination_root, target, relative, allow_missing_obsolete=True)
+            touched[relative] = target
+
+        if manifest_path.exists():
+            if manifest_path.is_symlink() or not manifest_path.is_file():
+                raise UpdateInstallError("Невозможно безопасно заменить манифест обновления.")
+        else:
+            self._preflight_target(destination_root, manifest_path, MANIFEST_NAME)
+        touched[MANIFEST_NAME] = manifest_path
+
+        transaction_backup.mkdir(parents=True, exist_ok=True)
+        snapshot_map: dict[str, Path | None] = {}
+        for relative, target in touched.items():
+            if target.is_file():
+                snapshot = transaction_backup.joinpath(*PurePosixPath(relative).parts)
+                snapshot.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(target, snapshot)
+                snapshot_map[relative] = snapshot
+            else:
+                snapshot_map[relative] = None
+
+        try:
+            for relative in obsolete:
+                target = touched[relative]
+                if target.is_file():
+                    target.unlink()
+
+            for relative, source in sorted(incoming.items()):
+                target = touched[relative]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                temp_target = target.with_name(f".{target.name}.jarvis-{uuid.uuid4().hex}.tmp")
+                try:
+                    shutil.copy2(source, temp_target)
+                    os.replace(temp_target, target)
+                finally:
+                    try:
+                        temp_target.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+
+            payload = {
+                "schema_version": MANIFEST_SCHEMA,
+                "files": sorted(incoming, key=str.casefold),
+            }
+            manifest_temp = manifest_path.with_name(
+                f".{MANIFEST_NAME}.{uuid.uuid4().hex}.tmp"
+            )
+            try:
+                manifest_temp.write_text(
+                    json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                os.replace(manifest_temp, manifest_path)
+            finally:
+                try:
+                    manifest_temp.unlink(missing_ok=True)
+                except OSError:
+                    pass
+        except Exception as exc:
+            restore_errors: list[str] = []
+            for relative, snapshot in reversed(list(snapshot_map.items())):
+                target = touched[relative]
+                try:
+                    if target.is_symlink():
+                        target.unlink()
+                    elif target.is_file():
+                        target.unlink()
+                    elif target.exists():
+                        raise OSError("путь неожиданно стал каталогом")
+
+                    if snapshot is not None and snapshot.is_file():
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(snapshot, target)
+                    self._prune_empty_parents(target.parent, destination_root)
+                except OSError as restore_error:
+                    restore_errors.append(f"{relative}: {restore_error}")
+
+            suffix = (
+                " Не все изменения удалось восстановить: " + "; ".join(restore_errors)
+                if restore_errors else ""
+            )
+            raise UpdateInstallError(
+                f"Установка прервана; выполнено локальное восстановление файлов: {exc}.{suffix}"
+            ) from exc
+
+        return len(incoming)
+
+    @classmethod
+    def _read_manifest(cls, path: Path) -> list[str]:
+        if not path.exists():
+            return []
+        if path.is_symlink() or not path.is_file():
+            raise UpdateInstallError("Манифест предыдущей версии небезопасен.")
+
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise UpdateInstallError(f"Не удалось прочитать манифест предыдущей версии: {exc}") from exc
+
+        if not isinstance(data, dict) or data.get("schema_version") != MANIFEST_SCHEMA:
+            raise UpdateInstallError("Манифест предыдущей версии имеет неподдерживаемый формат.")
+        files = data.get("files")
+        if not isinstance(files, list) or not all(isinstance(item, str) for item in files):
+            raise UpdateInstallError("Манифест предыдущей версии содержит некорректный список файлов.")
+
+        result: list[str] = []
+        seen: set[str] = set()
+        for name in files:
+            safe = cls._safe_member_path(name)
+            if safe is None or safe == PurePosixPath(".") or safe.as_posix().casefold() == MANIFEST_NAME.casefold():
+                raise UpdateInstallError(f"Манифест содержит небезопасный путь: {name!r}")
+            normalized = safe.as_posix()
+            folded = normalized.casefold()
+            if folded in seen:
+                raise UpdateInstallError(f"Манифест содержит повторяющийся путь: {normalized}")
+            seen.add(folded)
+            result.append(normalized)
+        return result
+
+    @classmethod
+    def _safe_target(cls, root: Path, relative: str) -> Path:
+        safe = cls._safe_member_path(relative)
+        if safe is None or safe == PurePosixPath("."):
+            raise UpdateInstallError(f"Небезопасный путь файла обновления: {relative!r}")
+
+        target = root.joinpath(*safe.parts)
+        try:
+            target.resolve(strict=False).relative_to(root.resolve())
+        except ValueError as exc:
+            raise UpdateInstallError(f"Путь выходит за пределы приложения: {relative}") from exc
+
+        current = root
+        for part in safe.parts:
+            current = current / part
+            if current.is_symlink():
+                raise UpdateInstallError(f"Нельзя обновлять путь через символическую ссылку: {relative}")
+        return target
+
+    @classmethod
+    def _preflight_target(
+        cls,
+        root: Path,
+        target: Path,
+        relative: str,
+        *,
+        allow_missing_obsolete: bool = False,
+    ) -> None:
+        current = root
+        try:
+            parts = target.relative_to(root).parts
+        except ValueError as exc:
+            raise UpdateInstallError(f"Путь выходит за пределы приложения: {relative}") from exc
+
+        for part in parts[:-1]:
+            current = current / part
+            if current.is_symlink():
+                raise UpdateInstallError(f"Путь обновления проходит через ссылку: {relative}")
+            if current.exists() and not current.is_dir():
+                raise UpdateInstallError(f"Родительский путь файла не является каталогом: {relative}")
+
+        if target.is_symlink():
+            raise UpdateInstallError(f"Нельзя заменить символическую ссылку: {relative}")
+        if target.exists() and target.is_dir() and not allow_missing_obsolete:
+            raise UpdateInstallError(
+                f"Невозможно заменить файл обновления: на его месте каталог {relative}"
+            )
+        if target.exists() and target.is_dir() and allow_missing_obsolete:
+            raise UpdateInstallError(
+                f"Манифест считает путь файлом, но на его месте каталог: {relative}"
+            )
+
+    @staticmethod
+    def _prune_empty_parents(directory: Path, root: Path) -> None:
+        root = root.resolve()
+        current = directory
+        while current != root and root in current.parents:
+            try:
+                current.rmdir()
+            except OSError:
+                break
+            current = current.parent
