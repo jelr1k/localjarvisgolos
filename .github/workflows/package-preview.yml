@@ -1,0 +1,70 @@
+name: JARVIS preview package
+
+on:
+  push:
+    branches:
+      - feature/local-tts-architecture
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build downloadable JARVIS source ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read application version
+        id: version
+        shell: bash
+        run: |
+          VERSION="$(python - <<'PY'
+          import re
+          from pathlib import Path
+
+          content = Path("core/version.py").read_text(encoding="utf-8")
+          match = re.search(r'^APP_VERSION\s*=\s*"([^"]+)"', content, flags=re.MULTILINE)
+          if not match:
+              raise SystemExit("APP_VERSION is missing from core/version.py")
+          print(match.group(1))
+          PY
+          )"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build runtime payload
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release/jarvis
+          rsync -a \
+            --exclude='.git' --exclude='.github' --exclude='.pytest_cache' \
+            --exclude='__pycache__' --exclude='tests' --exclude='logs' \
+            --exclude='workspace' --exclude='models' --exclude='.venv' \
+            --exclude='venv' --exclude='env' --exclude='node_modules' \
+            --exclude='user_data' --exclude='coverage.xml' --exclude='release' \
+            --exclude='*.log' --exclude='*.log.*' --exclude='.env' \
+            --exclude='.env.*' ./ release/jarvis/
+
+          test -f release/jarvis/start/bootstrap.py
+          test -f release/jarvis/core/version.py
+          grep -F "APP_VERSION = \"$VERSION\"" release/jarvis/core/version.py
+          test ! -e release/jarvis/.git
+          test ! -e release/jarvis/.venv
+          test ! -e release/jarvis/tests
+
+          cd release/jarvis
+          zip -qr "../Jarvis-${VERSION}.zip" .
+          cd ../..
+          test -s "release/Jarvis-${VERSION}.zip"
+          unzip -l "release/Jarvis-${VERSION}.zip" | tail -n 5
+
+      - name: Upload downloadable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Jarvis-${{ steps.version.outputs.version }}
+          path: release/Jarvis-${{ steps.version.outputs.version }}.zip
+          if-no-files-found: error
+          retention-days: 14

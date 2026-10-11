@@ -6,11 +6,11 @@ on:
       version:
         description: "Release version, for example 0.1.1"
         required: true
-        default: "0.1.1"
+        default: "0.1.2"
       tag:
         description: "Release tag, for example v0.1.1"
         required: true
-        default: "v0.1.1"
+        default: "v0.1.2"
 
 permissions:
   contents: read
