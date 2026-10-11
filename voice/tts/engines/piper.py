@@ -174,14 +174,31 @@ class PiperTTSBackend:
             if self._voice is None or self._loaded_voice_name != self.voice_name:
                 try:
                     from piper import PiperVoice
+                except Exception as exc:
+                    logger.exception("tts_piper_import_failed voice=%s", self.voice_name)
+                    raise TTSError(
+                        "Не удалось импортировать Piper. Закрой Jarvis и запусти start.bat, "
+                        "чтобы проверить и установить зависимости из config\\requirements.txt. "
+                        f"Причина: {type(exc).__name__}: {exc}. Подробности: logs\\tts.log."
+                    ) from exc
 
-                    model_path, _config_path = self.paths_for()
+                model_path, _config_path = self.paths_for()
+                try:
                     self._voice = PiperVoice.load(model_path)
                     self._loaded_voice_name = self.voice_name
                 except Exception as exc:
-                    logger.exception("tts_piper_model_load_failed voice=%s", self.voice_name)
+                    logger.exception(
+                        "tts_piper_model_load_failed voice=%s model=%s",
+                        self.voice_name,
+                        model_path,
+                    )
                     raise TTSError(
-                        "Не удалось загрузить Piper. Проверь установку зависимостей TTS."
+                        f"Не удалось загрузить модель голоса Piper «{self.voice_name}». "
+                        "Сначала попробуй заново скачать выбранный голос в настройках. "
+                        "Если ошибка останется, закрой Jarvis, удали файлы этого голоса "
+                        "(.onnx и .onnx.json) из %APPDATA%\\Jarvis\\tts\\voices "
+                        "и скачай его повторно. "
+                        f"Причина: {type(exc).__name__}: {exc}. Подробности: logs\\tts.log."
                     ) from exc
 
             try:
