@@ -25,6 +25,8 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from core.application import JarvisApplication
 from core.app_paths import WORKSPACE_DIR
+from core.update_health import write_startup_health_marker
+from core.version import APP_VERSION
 from services.model_service import ModelService
 from services.statistics_service import StatisticsService
 from services.update_downloader import UpdateDownloader
@@ -73,6 +75,9 @@ def main():
         app.setApplicationName(backend.config.get("assistant_name", "JARVIS"))
         window.show()
         application_controller.start()
+        # The updater waits for this marker before treating the update as successful.
+        # Reaching this point means the window and backend lifecycle started.
+        write_startup_health_marker(APP_VERSION)
         logger.info("Jarvis frontend/backend started")
     except Exception as exc:
         logger.exception("Jarvis startup failed")
