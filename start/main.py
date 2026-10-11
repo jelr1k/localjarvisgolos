@@ -22,6 +22,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from core.application import JarvisApplication
@@ -76,10 +77,7 @@ def main():
         app.setApplicationName(backend.config.get("assistant_name", "JARVIS"))
         window.show()
         application_controller.start()
-        # The updater waits for this marker before treating the update as successful.
-        # Reaching this point means the window and backend lifecycle started.
-        write_startup_health_marker(APP_VERSION)
-        logger.info("Jarvis frontend/backend started")
+        logger.info("Jarvis frontend/backend initialized")
     except Exception as exc:
         logger.exception("Jarvis startup failed")
         if backend is not None:
@@ -91,6 +89,15 @@ def main():
         QMessageBox.critical(None, "Jarvis", str(exc))
         sys.exit(1)
 
+    def mark_update_ready():
+        # QTimer runs this only after the Qt event loop actually starts.
+        # Marking readiness before app.exec() would be too optimistic.
+        try:
+            write_startup_health_marker(APP_VERSION)
+        except Exception:
+            logger.exception("Could not write updater startup health marker")
+
+    QTimer.singleShot(0, mark_update_ready)
     exit_code = app.exec()
     logging.getLogger("jarvis").info("Jarvis stopped")
     sys.exit(exit_code)
