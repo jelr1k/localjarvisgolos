@@ -10,6 +10,6 @@ This package is the local voice-output boundary for Jarvis. Keep ChatService, Ro
 - `asset_manager.py`: stable prepared-WAV assets and a size-bounded synthesis cache.
 - `metrics.py`: service counters and synthesis timings.
 
-Prepared audio/cache storage and profile management are independently implemented and tested, but not yet connected to the live playback routing. The next stage will pass optional `response_key` values through speech events and resolve: prepared WAV → exact generated-audio cache → live synthesis → configured fallback. Until then, do not treat cache hits or prepared-file playback as active behavior in the UI.
+Prepared audio, bounded cache, and voice-profile storage are implemented. `TTSService` resolves a matching prepared WAV (response key first, then normalized text), then an exact synthesis-cache entry, and otherwise performs live synthesis. Unreadable prepared/cache entries fall back to synthesis; synthesis failures are reported while the text response remains usable. A separately configurable secondary TTS engine fallback is not implemented.
 
 Voice-profile reference audio is metadata for a future cloning-capable engine. Piper cannot clone a voice from an arbitrary sample. Audio import currently supports uncompressed 16-bit PCM WAV (mono/stereo); convert other formats before import.
