@@ -52,6 +52,7 @@ def setup_logging() -> logging.Logger:
     logging.captureWarnings(True)
 
     _configure_logger("jarvis.voice", "voice.log")
+    _configure_logger("jarvis.tts", "tts.log")
     _configure_logger("jarvis.ollama", "ollama.log")
     _configure_logger("jarvis.llm", "ollama.log")
     _configure_logger("jarvis.chat", "commands.log")
