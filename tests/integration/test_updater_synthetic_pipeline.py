@@ -232,7 +232,7 @@ def test_synthetic_pipeline_rolls_back_partial_install_without_touching_user_dat
         policy=policy,
     )
 
-    assert rollback.restored_files == 2
+    assert rollback.restored_files == 3
     assert (app / "main.py").read_text(encoding="utf-8") == "stable\n"
     assert (app / "stable.txt").read_text(encoding="utf-8") == "keep\n"
     assert not (app / "z_new.py").exists()
