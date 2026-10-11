@@ -189,6 +189,10 @@ class UpdateInstaller:
         if files and directories:
             return extracted_root
         if len(directories) == 1 and not files:
+            # Do not mistake a development/user directory for the ZIP's
+            # optional wrapper folder.
+            if directories[0].name.casefold() in {name.casefold() for name in _UNMANAGED_ROOTS}:
+                return extracted_root
             return directories[0]
         if len(directories) > 1:
             return extracted_root
