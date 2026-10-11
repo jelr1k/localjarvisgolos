@@ -65,6 +65,30 @@ jobs:
           test -f start/bootstrap.py
           test -f core/version.py
 
+      - name: Validate release version and tag
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          version = os.environ["RELEASE_VERSION"].strip()
+          tag = os.environ["RELEASE_TAG"].strip()
+          normalized_tag = tag[1:] if tag.lower().startswith("v") else tag
+          pattern = (
+              r"^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"
+              r"(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+          )
+          if not re.fullmatch(pattern, version):
+              sys.exit("Release version is not valid semantic version text.")
+          if normalized_tag != version:
+              sys.exit("Release tag version must match the release version input.")
+          PY
+
       - name: Build update archive
         shell: bash
         env:
