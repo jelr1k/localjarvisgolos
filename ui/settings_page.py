@@ -13,13 +13,24 @@ class SettingsPage(QWidget):
     _WHISPER_PRESETS=(("Small","small"),("Medium","medium"),("Large-v3","large-v3"),("Локальная модель",None))
 
     def __init__(self,controller):
-        super().__init__();self.controller=controller;self._refresh_running=False;self._whisper_download_running=False
+        super().__init__();self.controller=controller;self._refresh_running=False;self._whisper_download_running=False;self._tts_download_running=False
         get=controller.get
         self.assistant_name=QLineEdit(get("assistant_name","JARVIS"));self.model=QComboBox();self.model.setEditable(True);self.model.addItem(get("model"))
         self.temperature=QDoubleSpinBox();self.temperature.setRange(0,2);self.temperature.setSingleStep(.05);self.temperature.setValue(float(get("temperature")))
         self.context=QSpinBox();self.context.setRange(512,131072);self.context.setSingleStep(512);self.context.setValue(int(get("context_length")))
         self.max_tokens=QSpinBox();self.max_tokens.setRange(1,131072);self.max_tokens.setSingleStep(256);self.max_tokens.setValue(int(get("max_tokens")))
-        voice=get("voice",{})
+        voice=get("voice",{});tts=get("tts",{})
+        self.tts_enabled=QCheckBox("Озвучивать ответы и рофлы");self.tts_enabled.setChecked(bool(tts.get("enabled",False)))
+        self.tts_voice=QComboBox()
+        for label,value in (("Дмитрий · русский · medium","ru_RU-dmitri-medium"),("Ирина · русский · medium","ru_RU-irina-medium"),("Руслан · русский · medium","ru_RU-ruslan-medium")):self.tts_voice.addItem(label,value)
+        tts_voice_index=self.tts_voice.findData(tts.get("voice","ru_RU-dmitri-medium"));self.tts_voice.setCurrentIndex(max(0,tts_voice_index))
+        self.tts_speed=QDoubleSpinBox();self.tts_speed.setRange(.7,1.5);self.tts_speed.setSingleStep(.05);self.tts_speed.setValue(float(tts.get("speed",1.0)))
+        self.tts_volume=QDoubleSpinBox();self.tts_volume.setRange(0,1);self.tts_volume.setSingleStep(.05);self.tts_volume.setValue(float(tts.get("volume",.85)))
+        self.tts_status=QLabel();self.tts_status.setWordWrap(True)
+        self.tts_download=QPushButton("Скачать голос");self.tts_download.clicked.connect(self._download_tts_voice)
+        self.tts_test=QPushButton("Проверить голос");self.tts_test.clicked.connect(self._test_tts_voice)
+        tts_box=QGroupBox("Синтез речи (TTS)");tts_form=QFormLayout(tts_box);tts_form.addRow("",self.tts_enabled);tts_form.addRow("Голос:",self.tts_voice);tts_form.addRow("Скорость:",self.tts_speed);tts_form.addRow("Громкость:",self.tts_volume);tts_form.addRow("",self.tts_status);tts_form.addRow("",self.tts_download);tts_form.addRow("",self.tts_test)
+        self.tts_voice.currentIndexChanged.connect(self._refresh_tts_voice_status)
         self.whisper_cpu_threads=QSpinBox();self.whisper_cpu_threads.setRange(1,12);self.whisper_cpu_threads.setValue(max(1,min(12,int(voice.get("cpu_threads",4)))));self.whisper_cpu_threads.setToolTip("Количество CPU-потоков, выделяемых faster-whisper для распознавания. Для Ryzen 5 3600 можно начать с 4–6 и сравнить время.")
         self.whisper_beam_size=QSpinBox();self.whisper_beam_size.setRange(1,20);self.whisper_beam_size.setValue(max(1,min(20,int(voice.get("beam_size",5)))));self.whisper_beam_size.setToolTip("Beam size задаёт ширину поиска вариантов при распознавании. Меняй его и сравнивай время и качество в статистике Whisper.")
         self.whisper_vad=QCheckBox("Использовать VAD");self.whisper_vad.setChecked(bool(voice.get("vad_filter",True)));self.whisper_vad.setToolTip("Определяет участки аудио с речью и помогает игнорировать тишину.")
@@ -50,9 +61,9 @@ class SettingsPage(QWidget):
         self.refresh_button=QPushButton("Обновить данные");self.refresh_button.clicked.connect(self.refresh_data);save=QPushButton("Сохранить настройки");save.clicked.connect(self.save)
         form=QFormLayout()
         for label,widget in [("Имя ассистента:",self.assistant_name),("Модель:",self.model),("Whisper:",self.whisper_model),("",self.whisper_status),("",self.whisper_download),("",self.whisper_progress),("",self.whisper_progress_label),("Локальная модель:",self._whisper_path_row),("Температура:",self.temperature),("Контекст:",self.context),("Максимум ответа:",self.max_tokens),("Whisper CPU-потоки:",self.whisper_cpu_threads),("Whisper Beam size:",self.whisper_beam_size),("VAD:",self.whisper_vad),("Таймкоды:",self.whisper_timestamps),("Предыдущий текст:",self.whisper_previous),("Микрофон:",self.microphone),("Wake word:",self.wake_word),("",self.wake_word_enabled),("Тишина до автоотправки:",self.silence_duration),("Ollama:",self.url),("Режим тестирования:",self.router_only_mode),("Безопасность:",self.allow_outside_workspace),("Служебное слово:",self.rofl_secret)]:form.addRow(label,widget)
-        box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(update_box);root.addWidget(box);root.addWidget(self.refresh_button);root.addWidget(save)
-        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.update_download_progress.connect(self._on_update_download_progress);controller.update_download_finished.connect(self._on_update_download_finished);controller.update_validation_finished.connect(self._on_update_validation_finished);controller.update_backup_finished.connect(self._on_update_backup_finished);controller.update_restart_requested.connect(self._on_update_restart_requested);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested)
-        self._refresh_whisper_statuses();self._load_microphones();self._set_status("Готово",False)
+        box=QGroupBox("Параметры");box.setLayout(form);root=QVBoxLayout(self);root.addWidget(self.status_label);root.addWidget(update_box);root.addWidget(box);root.addWidget(tts_box);root.addWidget(self.refresh_button);root.addWidget(save)
+        controller.refresh_finished.connect(self._refresh_finished);controller.update_check_finished.connect(self._update_check_finished);controller.update_confirmation_requested.connect(self._update_confirmation_requested);controller.update_download_progress.connect(self._on_update_download_progress);controller.update_download_finished.connect(self._on_update_download_finished);controller.update_validation_finished.connect(self._on_update_validation_finished);controller.update_backup_finished.connect(self._on_update_backup_finished);controller.update_restart_requested.connect(self._on_update_restart_requested);controller.whisper_progress.connect(self._on_whisper_progress);controller.whisper_state_changed.connect(self._on_whisper_state_changed);controller.whisper_finished.connect(self._on_whisper_finished);controller.microphone_tested.connect(self._on_microphone_tested);controller.tts_state_changed.connect(self._on_tts_state_changed);controller.tts_voice_finished.connect(self._on_tts_voice_finished)
+        self._refresh_whisper_statuses();self._load_microphones();self._refresh_tts_voice_status();self._set_status("Готово",False)
 
     def _check_rofl_secret(self, text):
         if str(text).strip().casefold() != "джарвис":
@@ -212,7 +223,53 @@ class SettingsPage(QWidget):
         whisper=self.whisper_model.currentData() if self.whisper_model.currentData() is not None else self.whisper_local_path.text().strip()
         if not whisper:QMessageBox.warning(self,"Настройки Whisper","Для локальной модели нужно указать папку с моделью.");return
         if self.whisper_model.currentData() is None and not Path(whisper).expanduser().is_dir():QMessageBox.warning(self,"Настройки Whisper",f"Папка локальной модели не найдена:\n{Path(whisper).expanduser()}");return
-        device=self.microphone.currentData();values={"assistant_name":self.assistant_name.text().strip() or "JARVIS","model":self.model.currentText().strip(),"temperature":self.temperature.value(),"context_length":self.context.value(),"max_tokens":self.max_tokens.value(),"router_only_mode":self.router_only_mode.isChecked(),"allow_outside_workspace":self.allow_outside_workspace.isChecked(),"ollama_url":self.url.text().strip().rstrip("/"),"voice":{"model":str(whisper),"input_device":device,"input_device_name":self.microphone.currentText().strip() if device is not None else None,"wake_word_enabled":self.wake_word_enabled.isChecked(),"wake_word":self.wake_word.text().strip() or "Jarvis","silence_duration":self.silence_duration.value(),"cpu_threads":self.whisper_cpu_threads.value(),"beam_size":self.whisper_beam_size.value(),"vad_filter":self.whisper_vad.isChecked(),"without_timestamps":not self.whisper_timestamps.isChecked(),"condition_on_previous_text":self.whisper_previous.isChecked()}}
+        if self.tts_enabled.isChecked() and self.controller.tts_voice_status(self.tts_voice.currentData())!="installed":QMessageBox.warning(self,"Синтез речи","Сначала скачай выбранный голос TTS. Автоматическая озвучка не будет включена без установленной модели.");return
+        device=self.microphone.currentData();values={"assistant_name":self.assistant_name.text().strip() or "JARVIS","model":self.model.currentText().strip(),"temperature":self.temperature.value(),"context_length":self.context.value(),"max_tokens":self.max_tokens.value(),"router_only_mode":self.router_only_mode.isChecked(),"allow_outside_workspace":self.allow_outside_workspace.isChecked(),"ollama_url":self.url.text().strip().rstrip("/"),"voice":{"model":str(whisper),"input_device":device,"input_device_name":self.microphone.currentText().strip() if device is not None else None,"wake_word_enabled":self.wake_word_enabled.isChecked(),"wake_word":self.wake_word.text().strip() or "Jarvis","silence_duration":self.silence_duration.value(),"cpu_threads":self.whisper_cpu_threads.value(),"beam_size":self.whisper_beam_size.value(),"vad_filter":self.whisper_vad.isChecked(),"without_timestamps":not self.whisper_timestamps.isChecked(),"condition_on_previous_text":self.whisper_previous.isChecked()},"tts":{"enabled":self.tts_enabled.isChecked(),"voice":self.tts_voice.currentData(),"speed":self.tts_speed.value(),"volume":self.tts_volume.value()}}
         model,name=self.controller.save(values);self.settings_changed.emit(model,name);self._set_status("✓ Настройки сохранены",False)
+
+    def _refresh_tts_voice_status(self):
+        voice_name=self.tts_voice.currentData()
+        status=self.controller.tts_voice_status(voice_name)
+        if status=="installed":
+            automatic="включено" if self.tts_enabled.isChecked() else "выключено"
+            self.tts_status.setText(f"✓ Голос установлен. Автоматическая озвучка {automatic}; тест работает независимо от этого переключателя.")
+            self.tts_download.setText("Голос установлен ✓");self.tts_download.setEnabled(False);self.tts_test.setEnabled(True)
+        else:
+            self.tts_status.setText("Голос ещё не скачан. Скачивание требуется один раз; после этого синтез работает локально.")
+            self.tts_download.setText("Скачать голос (~63 МБ)");self.tts_download.setEnabled(not self._tts_download_running);self.tts_test.setEnabled(False)
+
+    def _download_tts_voice(self):
+        if self._tts_download_running:return
+        voice_name=self.tts_voice.currentData()
+        self._tts_download_running=True;self.tts_download.setEnabled(False);self.tts_download.setText("Загрузка…")
+        self.tts_status.setText("Скачиваю голос в пользовательский каталог. JARVIS можно продолжать использовать.")
+        try:
+            self.controller.download_tts_voice(voice_name)
+        except Exception as exc:
+            self._tts_download_running=False;self._refresh_tts_voice_status();self.tts_status.setText(f"Не удалось скачать голос: {exc}")
+
+    def _on_tts_voice_finished(self,voice_name,success,error):
+        self._tts_download_running=False
+        if success:
+            self._refresh_tts_voice_status()
+        else:
+            self._refresh_tts_voice_status();self.tts_status.setText(f"Ошибка загрузки голоса: {error or 'неизвестная ошибка'}")
+
+    def _test_tts_voice(self):
+        voice_name=self.tts_voice.currentData()
+        if self.controller.tts_voice_status(voice_name)!="installed":
+            self.tts_status.setText("Сначала скачай выбранную модель голоса.")
+            return
+        self.tts_status.setText("Готовлю пробную фразу. Если всё работает, голос прозвучит через выбранное устройство вывода.")
+        if not self.controller.test_tts(voice_name,self.tts_speed.value()):
+            self.tts_status.setText("Не удалось поставить тестовую фразу в очередь TTS.")
+
+    def _on_tts_state_changed(self,state,message):
+        if state in {"downloading","synthesizing","speaking"}:
+            self.tts_status.setText(message)
+        elif state=="error":
+            self.tts_status.setText(f"Ошибка TTS: {message}")
+        elif state in {"ready","missing","disabled","idle"}:
+            self._refresh_tts_voice_status()
 
     def _on_microphone_tested(self,result):pass
