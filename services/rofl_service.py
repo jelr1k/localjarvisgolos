@@ -454,7 +454,7 @@ class RoflService:
         lines = latin_lines if random.random() < 0.5 else normal_lines
         text = random.choice(lines)
         logger.info("router_rofl_response action=%s text=%r command=%r", action, text, command_text)
-        self.events.emit("chat.rofl_response", text)
+        self._emit_rofl_response(text)
 
     def maybe_tool_response(self, tool_name: str, response: str):
         """Заготовка для будущих рофлов отдельных инструментов."""
@@ -488,7 +488,7 @@ class RoflService:
             text,
             arguments.get("target"),
         )
-        self.events.emit("chat.rofl_response", text)
+        self._emit_rofl_response(text)
 
     def close(self):
         self.events.unsubscribe("tool.executed", self._on_tool_executed)
