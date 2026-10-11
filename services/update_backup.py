@@ -168,7 +168,7 @@ class UpdateBackupService:
                 # application rollback snapshot.
                 if relative[0].casefold() in {name.casefold() for name in _EXCLUDED_ROOTS}:
                     continue
-                if len(relative) == 1 and item.name.casefold() in _EXCLUDED_FILES:
+                if item.name.casefold() in _EXCLUDED_FILES:
                     continue
                 if item.is_symlink():
                     continue
