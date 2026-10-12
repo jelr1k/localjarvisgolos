@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import json
 import logging
 import os
 from pathlib import Path
+import psutil
 import re
 import shutil
 import subprocess
@@ -46,39 +45,25 @@ def _parse_args() -> argparse.Namespace:
 
 
 def _is_process_running(pid: int) -> bool:
+    """Check process state without parsing the localized output of tasklist."""
     if pid <= 0:
         return False
 
-    result = subprocess.run(
-        ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
-        capture_output=True,
-        text=True,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        check=False,
-    )
-    if result.returncode != 0:
+    try:
+        process = psutil.Process(pid)
+        return bool(process.is_running())
+    except psutil.NoSuchProcess:
+        # The original JARVIS process has exited; installation may proceed.
+        return False
+    except psutil.AccessDenied as exc:
+        # Unknown state is not proof of exit, so the updater must stop safely.
         raise OSError(
-            f"Не удалось проверить состояние процесса PID {pid}: "
-            f"{result.stderr.strip() or result.stdout.strip() or result.returncode}"
-        )
-
-    output = result.stdout.strip()
-    if not output:
-        return False
-    if output.casefold().startswith("info:"):
-        return False
-
-    rows = list(csv.reader(io.StringIO(output)))
-    found_pid_column = False
-    for row in rows:
-        if len(row) >= 2 and row[1].strip().isdigit():
-            found_pid_column = True
-            if int(row[1].strip()) == pid:
-                return True
-
-    if found_pid_column:
-        return False
-    raise OSError("Команда tasklist вернула неизвестный формат ответа.")
+            f"Нет доступа для проверки состояния процесса PID {pid}."
+        ) from exc
+    except psutil.Error as exc:
+        raise OSError(
+            f"Не удалось проверить состояние процесса PID {pid}: {exc}"
+        ) from exc
 
 
 def _wait_for_process_exit(pid: int, timeout: float = WAIT_TIMEOUT_SECONDS) -> None:
