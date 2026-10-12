@@ -106,41 +106,32 @@ def test_updater_rejects_wrong_version_after_restart(tmp_path):
 
 
 
-def test_process_checker_matches_exact_pid(monkeypatch):
-    from types import SimpleNamespace
-
+def test_process_checker_matches_process_state(monkeypatch):
     from start import updater
 
-    monkeypatch.setattr(
-        updater.subprocess,
-        "run",
-        lambda *args, **kwargs: SimpleNamespace(
-            returncode=0,
-            stdout='"python.exe","1234","Console","1","10 K"\n',
-            stderr="",
-        ),
-    )
+    class FakePsutilProcess:
+        def __init__(self, pid):
+            self.pid = pid
+
+        def is_running(self):
+            return self.pid == 1234
+
+    monkeypatch.setattr(updater.psutil, "Process", FakePsutilProcess)
 
     assert updater._is_process_running(1234) is True
     assert updater._is_process_running(123) is False
 
 
-def test_process_checker_raises_when_tasklist_fails(monkeypatch):
-    from types import SimpleNamespace
-
+def test_process_checker_raises_when_psutil_denies_access(monkeypatch):
     from start import updater
 
     monkeypatch.setattr(
-        updater.subprocess,
-        "run",
-        lambda *args, **kwargs: SimpleNamespace(
-            returncode=1,
-            stdout="",
-            stderr="access denied",
-        ),
+        updater.psutil,
+        "Process",
+        lambda pid: (_ for _ in ()).throw(updater.psutil.AccessDenied(pid)),
     )
 
-    with pytest.raises(OSError, match="Не удалось проверить состояние процесса"):
+    with pytest.raises(OSError, match="Нет доступа для проверки состояния процесса"):
         updater._is_process_running(1234)
 
 
