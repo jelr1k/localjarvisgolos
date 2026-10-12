@@ -109,19 +109,21 @@ def test_updater_argument_parser(monkeypatch):
     assert args.expected_size == 42
 
 
-def test_updater_process_check_uses_tasklist():
-    running = Mock(
-        returncode=0,
-        stdout='"jarvis.exe","123","Console","1","10 K"',
-        stderr="",
-    )
-    with patch("start.updater.subprocess.run", return_value=running) as run:
+def test_updater_process_check_uses_psutil():
+    with patch("start.updater.psutil.Process") as process_factory:
+        process_factory.return_value.is_running.return_value = True
         assert updater._is_process_running(123) is True
-        run.assert_called_once()
+        process_factory.assert_called_with(123)
 
-    not_running = Mock(returncode=0, stdout="INFO: no tasks", stderr="")
-    with patch("start.updater.subprocess.run", return_value=not_running):
+        process_factory.return_value.is_running.return_value = False
         assert updater._is_process_running(123) is False
+
+        process_factory.side_effect = updater.psutil.NoSuchProcess(123)
+        assert updater._is_process_running(123) is False
+
+        process_factory.side_effect = updater.psutil.AccessDenied(123)
+        with pytest.raises(OSError, match="Нет доступа для проверки состояния процесса"):
+            updater._is_process_running(123)
 
     assert updater._is_process_running(0) is False
 
