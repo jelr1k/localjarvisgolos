@@ -142,7 +142,7 @@ export function createSettingEdges(): Edge[] {
     voice: { source: "source-right", target: "target-left" },
     workspace: { source: "source-right", target: "target-left" },
     ai: { source: "source-right", target: "target-left" },
-    system: { source: "source-top", target: "target-bottom" }
+    system: { source: "source-left", target: "target-right" }
   };
   const edges: Edge[] = SETTING_GROUPS.map((group) => ({
     id: "core-" + group.id,

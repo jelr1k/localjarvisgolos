@@ -22,7 +22,8 @@
 .nexus-graph-canvas .react-flow__controls-button:hover { background: var(--surface-hover); }
 .nexus-graph-canvas .react-flow__minimap { border: 1px solid var(--border); border-radius: var(--radius-control); background: color-mix(in srgb, var(--surface) 92%, transparent); }
 .nexus-graph-canvas .react-flow__edge-path { stroke: var(--graph-edge); opacity: .68; }
-.nexus-graph-canvas .react-flow__handle { width: 6px; height: 6px; border: 1px solid var(--accent); background: var(--bg); opacity: .85; }
+.nexus-graph-canvas .react-flow__handle { width: 6px; height: 6px; border: 1px solid var(--accent); background: var(--bg); opacity: 0; transition: opacity .14s; }
+.nexus-graph-canvas .react-flow__node:hover .react-flow__handle { opacity: .55; }
 .setting-graph-node { position: relative; display: flex; width: 218px; min-height: 91px; flex-direction: column; justify-content: center; gap: 7px; padding: 11px 13px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 96%, transparent); color: var(--text); box-shadow: 0 12px 30px var(--shadow); transition: border-color .14s, background .14s, box-shadow .14s; }
 .setting-graph-node-category { min-height: 82px; border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--surface-raised) 95%, transparent); }
 .setting-graph-node-core { width: 240px; min-height: 112px; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); box-shadow: 0 0 35px color-mix(in srgb, var(--accent) 10%, transparent), 0 12px 35px var(--shadow); }
