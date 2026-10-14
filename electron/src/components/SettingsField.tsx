@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useAppState } from "../app/context";
 import { getSettingValue } from "../app/state";
 import type { SettingDefinition } from "../app/settingsCatalog";
@@ -10,6 +11,10 @@ interface SettingsFieldProps {
 export function SettingsField({ field, compact = false }: SettingsFieldProps) {
   const { state, dispatch } = useAppState();
   const value = getSettingValue(state, field.key);
+  const [numericDraft, setNumericDraft] = useState(String(value));
+  useEffect(() => {
+    if (field.kind === "number") setNumericDraft(String(value));
+  }, [field.key, field.kind, value]);
   const update = (nextValue: string | boolean | number) => {
     dispatch({ type: "settings/update", key: field.key, value: nextValue });
   };
@@ -46,12 +51,24 @@ export function SettingsField({ field, compact = false }: SettingsFieldProps) {
             <input
               id={"setting-" + field.key}
               type="number"
-              value={Number(value)}
+              value={numericDraft}
               min={field.min}
               max={field.max}
               step={field.step}
-              onChange={(event) => {
-                if (event.currentTarget.value !== "") update(Number(event.currentTarget.value));
+              onChange={(event) => setNumericDraft(event.currentTarget.value)}
+              onBlur={() => {
+                if (numericDraft.trim() === "") {
+                  setNumericDraft(String(value));
+                  return;
+                }
+                const parsed = Number(numericDraft);
+                if (!Number.isFinite(parsed)) {
+                  setNumericDraft(String(value));
+                  return;
+                }
+                const bounded = Math.min(field.max ?? Number.POSITIVE_INFINITY, Math.max(field.min ?? Number.NEGATIVE_INFINITY, parsed));
+                update(bounded);
+                setNumericDraft(String(bounded));
               }}
             />
             {field.unit && <span>{field.unit}</span>}

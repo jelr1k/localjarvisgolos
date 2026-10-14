@@ -110,7 +110,11 @@ export function SettingsGraph() {
       <PrototypeNotice compact />
       <div className="nexus-settings-workspace">
         <section className="nexus-graph-panel" aria-label="Граф настроек">
-          <div className="nexus-graph-toolbar"><span><Workflow size={15} /> SETTINGS GRAPH <b>{nodes.length.toString().padStart(2, "0")} NODES</b></span><button type="button" onClick={() => setSelectedNodeId("core")} title="Выбрать корневой узел"><Focus size={14} /> ROOT</button><button type="button" onClick={() => { try { window.localStorage.removeItem(layoutKey); } catch {} window.location.reload(); }} title="Сбросить расположение узлов"><RotateCcw size={14} /> RESET</button></div>
+          <div className="nexus-graph-toolbar"><span><Workflow size={15} /> SETTINGS GRAPH <b>{nodes.length.toString().padStart(2, "0")} NODES</b></span><button type="button" onClick={() => setSelectedNodeId("core")} title="Выбрать корневой узел"><Focus size={14} /> ROOT</button><button type="button" onClick={() => {
+              try { window.localStorage.removeItem(layoutKey); } catch {}
+              setNodes(createSettingNodes(state));
+              setSelectedNodeId("core");
+            }} title="Сбросить расположение узлов"><RotateCcw size={14} /> RESET</button></div>
           <div className="nexus-graph-canvas">
             <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange}
               onNodeClick={(_event, node) => setSelectedNodeId(node.id)}
