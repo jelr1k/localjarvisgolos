@@ -56,12 +56,6 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     kind: "select", options: THEME_OPTIONS
   },
   {
-    key: "density", group: "appearance", label: "Плотность",
-    description: "Количество свободного пространства между элементами.",
-    kind: "select",
-    options: [{ value: "comfortable", label: "Комфортная" }, { value: "compact", label: "Компактная" }, { value: "dense", label: "Плотная" }]
-  },
-  {
     key: "corners", group: "appearance", label: "Углы и рамки",
     description: "Форма карточек и полей.",
     kind: "select",
@@ -69,9 +63,9 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   },
   {
     key: "motion", group: "appearance", label: "Анимация",
-    description: "Можно отключить движение для более спокойной работы.",
+    description: "Обычная: пульсация ядра главного экрана и короткие переходы. Уменьшенная: пульсация замедляется с 4,2 до 22 секунд. Выключена: отключаются CSS-анимации и переходы. Системная настройка уменьшения движения тоже учитывается.",
     kind: "select",
-    options: [{ value: "full", label: "Полная" }, { value: "reduced", label: "Уменьшенная" }, { value: "off", label: "Отключена" }]
+    options: [{ value: "full", label: "Обычная" }, { value: "reduced", label: "Уменьшенная" }, { value: "off", label: "Выключена" }]
   },
   {
     key: "appName", group: "application", label: "Название приложения",

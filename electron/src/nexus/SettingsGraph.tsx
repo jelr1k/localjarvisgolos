@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, useNodesState, type Node, type NodeProps } from "@xyflow/react";
-import { ArrowRight, Focus, MousePointer2, PanelRight, RotateCcw, Workflow } from "lucide-react";
+import { ArrowRight, Focus, Map, MousePointer2, PanelRight, RotateCcw, Workflow } from "lucide-react";
 import { useAppState } from "../app/context";
 import { getSettingDefinition, SETTING_DEFINITIONS } from "../app/settingsCatalog";
 import type { SettingDefinition } from "../app/settingsCatalog";
@@ -11,7 +11,7 @@ import { InterfaceTuning } from "../components/InterfaceTuning";
 import { PrototypeNotice } from "../components/PrototypeNotice";
 import { createSettingEdges, createSettingNodes, getSettingsGroup, type SettingGraphNode } from "./graphModel";
 
-function SettingGraphNodeView({ data, selected }: NodeProps<SettingGraphNode>) {
+const SettingGraphNodeView = memo(function SettingGraphNodeView({ data, selected }: NodeProps<SettingGraphNode>) {
   return (
     <>
       <Handle id="target-left" type="target" position={Position.Left} isConnectable={false} />
@@ -30,8 +30,7 @@ function SettingGraphNodeView({ data, selected }: NodeProps<SettingGraphNode>) {
       </div>
     </>
   );
-}
-
+});
 const nodeTypes = { settingCard: SettingGraphNodeView };
 const edges = createSettingEdges();
 
@@ -79,6 +78,9 @@ export function SettingsGraph() {
   const [nodes, setNodes, onNodesChange] = useNodesState<SettingGraphNode>(createSettingNodes(state));
   const [selectedNodeId, setSelectedNodeId] = useState("core");
   const layoutKey = "jarvis.nexus.graph-layout.v1";
+  const nodesRef = useRef(nodes);
+
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
 
   useEffect(() => {
     setNodes((currentNodes) => currentNodes.map((node) => {
@@ -94,23 +96,24 @@ export function SettingsGraph() {
   }, [state.settings, state.interfaceMode, setNodes]);
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
-  const onNodeDragStop = (_event: MouseEvent | TouchEvent, draggedNode: SettingGraphNode) => {
+  const onNodeDragStop = useCallback((_event: MouseEvent | TouchEvent, draggedNode: SettingGraphNode) => {
     const positions: Record<string, { x: number; y: number }> = {};
-    nodes.forEach((node) => { positions[node.id] = node.id === draggedNode.id ? draggedNode.position : node.position; });
+    nodesRef.current.forEach((node) => { positions[node.id] = node.id === draggedNode.id ? draggedNode.position : node.position; });
     positions[draggedNode.id] = draggedNode.position;
     try {
       window.localStorage.setItem(layoutKey, JSON.stringify(positions));
     } catch (error) {
       console.warn("Не удалось сохранить расположение узлов.", error);
     }
-  };
-  const onChooseGroup = (id: string) => setSelectedNodeId(id);
-  const miniMapColor = useMemo(() => (node: Node) => {
+  }, []);
+  const onNodeClick = useCallback((_event: MouseEvent | TouchEvent, node: SettingGraphNode) => setSelectedNodeId(node.id), []);
+  const onChooseGroup = useCallback((id: string) => setSelectedNodeId(id), []);
+  const miniMapColor = useCallback((node: Node) => {
     const graphNode = node as SettingGraphNode;
     if (graphNode.data.kind === "core") return "#d9a76b";
     if (graphNode.data.kind === "category") return "#638a93";
-    return graphNode.id === selectedNode?.id ? "#d9a76b" : "#43515a";
-  }, [selectedNode?.id]);
+    return graphNode.id === selectedNodeId ? "#d9a76b" : "#43515a";
+  }, [selectedNodeId]);
 
   return (
     <div className="nexus-settings-page">
@@ -121,20 +124,20 @@ export function SettingsGraph() {
       <PrototypeNotice compact />
       <div className={"nexus-settings-workspace" + (preferences.inspectorVisible ? "" : " is-inspector-hidden")} style={{ "--nexus-inspector-width": `${preferences.inspectorWidth}px` } as CSSProperties}>
         <section className="nexus-graph-panel" aria-label="Граф настроек">
-          <div className="nexus-graph-toolbar"><span><Workflow size={15} /> SETTINGS GRAPH <b>{nodes.length.toString().padStart(2, "0")} NODES</b></span><button type="button" onClick={() => dispatch({ type: "interfacePreference/update", mode: "nexus", key: "inspectorVisible", value: !preferences.inspectorVisible })} title={preferences.inspectorVisible ? "Скрыть панель настроек" : "Показать панель настроек"}><PanelRight size={14} /> {preferences.inspectorVisible ? "HIDE PANEL" : "SHOW PANEL"}</button><button type="button" onClick={() => setSelectedNodeId("core")} title="Выбрать корневой узел"><Focus size={14} /> ROOT</button><button type="button" onClick={() => {
+          <div className="nexus-graph-toolbar"><span><Workflow size={15} /> SETTINGS GRAPH <b>{nodes.length.toString().padStart(2, "0")} NODES</b></span><button type="button" onClick={() => dispatch({ type: "interfacePreference/update", mode: "nexus", key: "minimapVisible", value: !preferences.minimapVisible })} title={preferences.minimapVisible ? "Скрыть мини-карту" : "Показать мини-карту"}><Map size={14} /> {preferences.minimapVisible ? "HIDE MAP" : "SHOW MAP"}</button><button type="button" onClick={() => dispatch({ type: "interfacePreference/update", mode: "nexus", key: "inspectorVisible", value: !preferences.inspectorVisible })} title={preferences.inspectorVisible ? "Скрыть панель настроек" : "Показать панель настроек"}><PanelRight size={14} /> {preferences.inspectorVisible ? "HIDE PANEL" : "SHOW PANEL"}</button><button type="button" onClick={() => setSelectedNodeId("core")} title="Выбрать корневой узел"><Focus size={14} /> ROOT</button><button type="button" onClick={() => {
               try { window.localStorage.removeItem(layoutKey); } catch {}
               setNodes(createSettingNodes(state));
               setSelectedNodeId("core");
             }} title="Сбросить расположение узлов"><RotateCcw size={14} /> RESET</button></div>
           <div className="nexus-graph-canvas">
             <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodesChange={onNodesChange}
-              onNodeClick={(_event, node) => setSelectedNodeId(node.id)}
+              onNodeClick={onNodeClick}
               onNodeDragStop={onNodeDragStop}
-              nodesConnectable={false} fitView fitViewOptions={{ padding: 0.18 }} minZoom={0.18} maxZoom={1.8}
+              nodesConnectable={false} onlyRenderVisibleElements fitView fitViewOptions={{ padding: 0.18 }} minZoom={0.18} maxZoom={1.8}
               defaultEdgeOptions={{ type: "smoothstep" }}>
               <Background color="var(--graph-dot)" gap={23} size={1} />
               <Controls showInteractive={false} />
-              <MiniMap pannable zoomable nodeColor={miniMapColor} />
+              {preferences.minimapVisible && <MiniMap pannable zoomable nodeColor={miniMapColor} />}
             </ReactFlow>
           </div>
         </section>

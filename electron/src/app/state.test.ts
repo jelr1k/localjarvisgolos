@@ -28,6 +28,18 @@ describe("shared UI state", () => {
     expect(initial.interfacePreferences.classic.textScale).toBe(100);
   });
 
+  it("accepts precise scale values and persists NEXUS minimap visibility independently", () => {
+    const initial = createInitialState();
+    const scaled = appReducer(initial, { type: "interfacePreference/update", mode: "nexus", key: "textScale", value: 117.25 });
+    const spaced = appReducer(scaled, { type: "interfacePreference/update", mode: "nexus", key: "spacingScale", value: 123.5 });
+    const hidden = appReducer(spaced, { type: "interfacePreference/update", mode: "nexus", key: "minimapVisible", value: false });
+
+    expect(hidden.interfacePreferences.nexus.textScale).toBe(117.25);
+    expect(hidden.interfacePreferences.nexus.spacingScale).toBe(123.5);
+    expect(hidden.interfacePreferences.nexus.minimapVisible).toBe(false);
+    expect(hidden.interfacePreferences.classic.minimapVisible).toBe(true);
+  });
+
   it("keeps demo chat messages local and marks the reply as non-integrated", () => {
     const initial = appReducer(createInitialState(), { type: "chat/input", value: "Открой браузер" });
     const next = appReducer(initial, { type: "chat/send" });

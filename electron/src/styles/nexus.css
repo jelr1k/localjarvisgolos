@@ -1,30 +1,30 @@
 .nexus-frame { display: flex; flex-direction: column; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 40%), var(--bg); }
-.nexus-topbar { position: relative; z-index: 5; display: flex; flex: 0 0 67px; align-items: center; gap: 25px; padding: 0 23px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bg-raised) 92%, transparent); }
-.nexus-brand { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.nexus-topbar { position: relative; z-index: 5; display: flex; flex: 0 0 67px; align-items: center; gap: calc(25px * var(--ui-spacing-scale, 1)); padding: 0 calc(23px * var(--ui-spacing-scale, 1)); border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bg-raised) 92%, transparent); }
+.nexus-brand { display: flex; flex: 0 0 auto; align-items: center; gap: calc(9px * var(--ui-spacing-scale, 1)); padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
 .nexus-brand-glyph { display: grid; width: 33px; height: 33px; place-items: center; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); }
 .nexus-brand strong, .nexus-brand small { display: block; }
 .nexus-brand strong { font-size: calc(11px * var(--ui-text-scale, 1)); letter-spacing: 2.5px; }
-.nexus-brand small { margin-top: 2px; color: var(--text-muted); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1.1px; }
-.nexus-nav { display: flex; flex: 1; align-items: center; gap: 2px; min-width: 0; height: 100%; }
-.nexus-nav-entry { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 10px; border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; white-space: nowrap; font-size: calc(10px * var(--ui-text-scale, 1)); }
+.nexus-brand small { margin-top: calc(2px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1.1px; }
+.nexus-nav { display: flex; flex: 1; align-items: center; gap: calc(2px * var(--ui-spacing-scale, 1)); min-width: 0; height: 100%; }
+.nexus-nav-entry { display: inline-flex; align-items: center; gap: calc(7px * var(--ui-spacing-scale, 1)); min-height: 36px; padding: 0 calc(10px * var(--ui-spacing-scale, 1)); border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; white-space: nowrap; font-size: calc(10px * var(--ui-text-scale, 1)); }
 .nexus-nav-entry:hover { color: var(--text); background: var(--surface); }
 .nexus-nav-entry.is-active { border-color: var(--border); color: var(--accent); background: var(--surface); }
-.nexus-topbar-meta { display: flex; align-items: center; gap: 10px; }
-.nexus-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .9px; white-space: nowrap; }
+.nexus-topbar-meta { display: flex; align-items: center; gap: calc(10px * var(--ui-spacing-scale, 1)); }
+.nexus-status { display: inline-flex; align-items: center; gap: calc(6px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .9px; white-space: nowrap; }
 .nexus-status svg { color: var(--danger); }
 .nexus-icon-button { display: grid; width: 33px; height: 33px; place-items: center; border: 1px solid var(--border); color: var(--text-secondary); background: var(--surface); cursor: pointer; }
 .nexus-icon-button:hover { border-color: var(--accent); color: var(--accent); }
-.nexus-build-tag { display: inline-flex; align-items: center; gap: 4px; padding-left: 10px; border-left: 1px solid var(--border); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .7px; white-space: nowrap; }
+.nexus-build-tag { display: inline-flex; align-items: center; gap: calc(4px * var(--ui-spacing-scale, 1)); padding-left: calc(10px * var(--ui-spacing-scale, 1)); border-left: 1px solid var(--border); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .7px; white-space: nowrap; }
 .nexus-main { flex: 1; min-height: 0; overflow: auto; }
-.nexus-main > .page-content { max-width: 1760px; padding: 27px 31px 41px; }
-.nexus-frame .page-header { margin-bottom: 20px; }
+.nexus-main > .page-content { max-width: 1760px; padding: calc(27px * var(--ui-spacing-scale, 1)) calc(31px * var(--ui-spacing-scale, 1)) calc(41px * var(--ui-spacing-scale, 1)); }
+.nexus-frame .page-header { margin-bottom: calc(20px * var(--ui-spacing-scale, 1)); }
 .nexus-frame .page-header h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(calc(32px * var(--ui-text-scale, 1)), calc(3vw * var(--ui-text-scale, 1)), calc(43px * var(--ui-text-scale, 1))); font-weight: 400; letter-spacing: -.8px; }
 .nexus-frame .page-header p { max-width: 780px; font-family: Georgia, "Times New Roman", serif; font-size: calc(12px * var(--ui-text-scale, 1)); line-height: 1.7; }
 .nexus-frame .home-hero { grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); border-color: color-mix(in srgb, var(--accent) 26%, var(--border)); background: linear-gradient(115deg, color-mix(in srgb, var(--surface) 95%, transparent), color-mix(in srgb, var(--bg-raised) 86%, transparent)); }
-.nexus-frame .hero-copy { padding: 31px 34px 38px; }
+.nexus-frame .hero-copy { padding: calc(31px * var(--ui-spacing-scale, 1)) calc(34px * var(--ui-spacing-scale, 1)) calc(38px * var(--ui-spacing-scale, 1)); }
 .nexus-frame .hero-copy h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -1.1px; }
 .nexus-frame .hero-copy h2 span { font-style: italic; }
-.nexus-frame .overview-card { min-height: 146px; padding: 16px; background: color-mix(in srgb, var(--surface) 76%, transparent); }
+.nexus-frame .overview-card { min-height: 146px; padding: calc(16px * var(--ui-spacing-scale, 1)); background: color-mix(in srgb, var(--surface) 76%, transparent); }
 .nexus-frame .overview-card-icon { border: 0; background: transparent; }
 .nexus-frame .overview-card-title { font-family: Georgia, "Times New Roman", serif; font-size: calc(14px * var(--ui-text-scale, 1)); font-weight: 500; }
 .nexus-frame .info-panel { background: color-mix(in srgb, var(--surface) 80%, transparent); }
@@ -32,12 +32,12 @@
 .nexus-frame .settings-section-card { background: color-mix(in srgb, var(--surface) 79%, transparent); }
 .nexus-frame .settings-section-heading h2 { font-family: Georgia, "Times New Roman", serif; font-size: calc(15px * var(--ui-text-scale, 1)); font-weight: 500; }
 .nexus-frame .classic-placeholder { font-family: Georgia, "Times New Roman", serif; }
-.nexus-corner-note { position: absolute; right: 24px; bottom: 13px; z-index: 4; display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1.5px; pointer-events: none; }
+.nexus-corner-note { position: absolute; right: 24px; bottom: 13px; z-index: 4; display: flex; align-items: center; gap: calc(8px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1.5px; pointer-events: none; }
 .nexus-corner-note .nexus-live-dot { width: 4px; height: 4px; box-shadow: none; }
 @media (max-width: 1280px) {
-  .nexus-topbar { gap: 14px; padding: 0 15px; }
-  .nexus-nav-entry { gap: 5px; padding: 0 7px; }
+  .nexus-topbar { gap: calc(14px * var(--ui-spacing-scale, 1)); padding: 0 calc(15px * var(--ui-spacing-scale, 1)); }
+  .nexus-nav-entry { gap: calc(5px * var(--ui-spacing-scale, 1)); padding: 0 calc(7px * var(--ui-spacing-scale, 1)); }
   .nexus-nav-entry span { font-size: calc(9px * var(--ui-text-scale, 1)); }
   .nexus-status { display: none; }
-  .nexus-main > .page-content { padding: 23px 22px 35px; }
+  .nexus-main > .page-content { padding: calc(23px * var(--ui-spacing-scale, 1)) calc(22px * var(--ui-spacing-scale, 1)) calc(35px * var(--ui-spacing-scale, 1)); }
 }

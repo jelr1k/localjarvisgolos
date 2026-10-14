@@ -1,18 +1,18 @@
-.nexus-settings-page { display: flex; height: 100%; min-height: 0; flex-direction: column; padding: 17px 21px 24px; }
-.nexus-settings-heading { display: flex; align-items: end; justify-content: space-between; gap: 18px; flex-shrink: 0; margin-bottom: 12px; }
-.nexus-settings-heading h1 { margin: 5px 0 3px; font-family: Georgia, "Times New Roman", serif; font-size: calc(29px * var(--ui-text-scale, 1)); font-weight: 400; letter-spacing: -.7px; }
+.nexus-settings-page { display: flex; height: 100%; min-height: 0; flex-direction: column; padding: calc(17px * var(--ui-spacing-scale, 1)) calc(21px * var(--ui-spacing-scale, 1)) calc(24px * var(--ui-spacing-scale, 1)); }
+.nexus-settings-heading { display: flex; align-items: end; justify-content: space-between; gap: calc(18px * var(--ui-spacing-scale, 1)); flex-shrink: 0; margin-bottom: calc(12px * var(--ui-spacing-scale, 1)); }
+.nexus-settings-heading h1 { margin: calc(5px * var(--ui-spacing-scale, 1)) 0 calc(3px * var(--ui-spacing-scale, 1)); font-family: Georgia, "Times New Roman", serif; font-size: calc(29px * var(--ui-text-scale, 1)); font-weight: 400; letter-spacing: -.7px; }
 .nexus-settings-heading p { margin: 0; color: var(--text-secondary); font-family: Georgia, "Times New Roman", serif; font-size: calc(11px * var(--ui-text-scale, 1)); }
-.nexus-graph-hint { display: inline-flex; align-items: center; gap: 7px; padding-bottom: 5px; color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: 1px; white-space: nowrap; }
+.nexus-graph-hint { display: inline-flex; align-items: center; gap: calc(7px * var(--ui-spacing-scale, 1)); padding-bottom: calc(5px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: 1px; white-space: nowrap; }
 .nexus-graph-hint svg { color: var(--accent); }
 .nexus-graph-hint span { color: var(--border); }
 .nexus-settings-page > .prototype-notice { flex-shrink: 0; }
-.nexus-settings-workspace { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr) 322px; min-height: 390px; gap: 11px; }
+.nexus-settings-workspace { display: grid; flex: 1; grid-template-columns: minmax(0, 1fr) 322px; min-height: 390px; gap: calc(11px * var(--ui-spacing-scale, 1)); }
 .nexus-graph-panel { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; border: 1px solid var(--border); background: color-mix(in srgb, var(--bg-raised) 95%, transparent); }
-.nexus-graph-toolbar { display: flex; flex-shrink: 0; align-items: center; gap: 7px; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--border-soft); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: 1.2px; }
-.nexus-graph-toolbar > span { display: flex; flex: 1; align-items: center; gap: 7px; min-width: 0; }
+.nexus-graph-toolbar { display: flex; flex-shrink: 0; align-items: center; gap: calc(7px * var(--ui-spacing-scale, 1)); min-height: 36px; padding: 0 calc(10px * var(--ui-spacing-scale, 1)); border-bottom: 1px solid var(--border-soft); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: 1.2px; }
+.nexus-graph-toolbar > span { display: flex; flex: 1; align-items: center; gap: calc(7px * var(--ui-spacing-scale, 1)); min-width: 0; }
 .nexus-graph-toolbar > span svg { color: var(--accent); }
-.nexus-graph-toolbar b { margin-left: 4px; color: var(--text-muted); font-weight: 500; }
-.nexus-graph-toolbar button { display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 0 7px; border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .7px; }
+.nexus-graph-toolbar b { margin-left: calc(4px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-weight: 500; }
+.nexus-graph-toolbar button { display: inline-flex; align-items: center; gap: calc(5px * var(--ui-spacing-scale, 1)); min-height: 24px; padding: 0 calc(7px * var(--ui-spacing-scale, 1)); border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .7px; }
 .nexus-graph-toolbar button:hover { border-color: var(--border); color: var(--accent); }
 .nexus-graph-canvas { position: relative; flex: 1; min-height: 0; overflow: hidden; background-image: radial-gradient(color-mix(in srgb, var(--graph-dot) 25%, transparent) .7px, transparent .7px); background-size: 20px 20px; }
 .nexus-graph-canvas .react-flow { position: absolute; inset: 0; background: transparent; }
@@ -24,7 +24,7 @@
 .nexus-graph-canvas .react-flow__edge-path { stroke: var(--graph-edge); opacity: .68; }
 .nexus-graph-canvas .react-flow__handle { width: 6px; height: 6px; border: 1px solid var(--accent); background: var(--bg); opacity: 0; transition: opacity .14s; }
 .nexus-graph-canvas .react-flow__node:hover .react-flow__handle { opacity: .55; }
-.setting-graph-node { position: relative; display: flex; width: 218px; min-height: 91px; flex-direction: column; justify-content: center; gap: 7px; padding: 11px 13px; border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 96%, transparent); color: var(--text); box-shadow: 0 12px 30px var(--shadow); transition: border-color .14s, background .14s, box-shadow .14s; }
+.setting-graph-node { position: relative; display: flex; width: 218px; min-height: 91px; flex-direction: column; justify-content: center; gap: calc(7px * var(--ui-spacing-scale, 1)); padding: calc(11px * var(--ui-spacing-scale, 1)) calc(13px * var(--ui-spacing-scale, 1)); border: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 96%, transparent); color: var(--text); box-shadow: 0 12px 30px var(--shadow); transition: border-color .14s, background .14s, box-shadow .14s; }
 .setting-graph-node-category { min-height: 82px; border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--surface-raised) 95%, transparent); }
 .setting-graph-node-core { width: 240px; min-height: 112px; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); box-shadow: 0 0 35px color-mix(in srgb, var(--accent) 10%, transparent), 0 12px 35px var(--shadow); }
 .setting-graph-node.is-selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent), 0 15px 42px var(--shadow); }
@@ -35,32 +35,32 @@
 .setting-graph-node small { overflow: hidden; color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .graph-node-edit { color: var(--accent); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1px; opacity: .75; }
 .nexus-inspector { display: flex; min-height: 0; flex-direction: column; overflow: auto; border: 1px solid var(--border); background: var(--surface); }
-.inspector-heading { padding: 15px 16px 13px; border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--surface-raised) 70%, transparent); }
-.inspector-heading h2 { margin: 7px 0 5px; font-family: Georgia, "Times New Roman", serif; font-size: calc(19px * var(--ui-text-scale, 1)); font-weight: 400; line-height: 1.25; }
+.inspector-heading { padding: calc(15px * var(--ui-spacing-scale, 1)) calc(16px * var(--ui-spacing-scale, 1)) calc(13px * var(--ui-spacing-scale, 1)); border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--surface-raised) 70%, transparent); }
+.inspector-heading h2 { margin: calc(7px * var(--ui-spacing-scale, 1)) 0 calc(5px * var(--ui-spacing-scale, 1)); font-family: Georgia, "Times New Roman", serif; font-size: calc(19px * var(--ui-text-scale, 1)); font-weight: 400; line-height: 1.25; }
 .inspector-heading p { margin: 0; color: var(--text-secondary); font-size: calc(10px * var(--ui-text-scale, 1)); line-height: 1.65; }
-.inspector-status { display: flex; align-items: center; gap: 7px; margin: 13px 14px 3px; color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .8px; }
-.inspector-quicklinks { display: grid; gap: 2px; padding: 8px 11px 13px; }
-.inspector-quicklinks button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 0 8px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer; text-align: left; font-size: calc(10px * var(--ui-text-scale, 1)); }
+.inspector-status { display: flex; align-items: center; gap: calc(7px * var(--ui-spacing-scale, 1)); margin: calc(13px * var(--ui-spacing-scale, 1)) calc(14px * var(--ui-spacing-scale, 1)) calc(3px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .8px; }
+.inspector-quicklinks { display: grid; gap: calc(2px * var(--ui-spacing-scale, 1)); padding: calc(8px * var(--ui-spacing-scale, 1)) calc(11px * var(--ui-spacing-scale, 1)) calc(13px * var(--ui-spacing-scale, 1)); }
+.inspector-quicklinks button { display: flex; align-items: center; justify-content: space-between; gap: calc(8px * var(--ui-spacing-scale, 1)); min-height: 34px; padding: 0 calc(8px * var(--ui-spacing-scale, 1)); border: 1px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer; text-align: left; font-size: calc(10px * var(--ui-text-scale, 1)); }
 .inspector-quicklinks button:hover { border-color: var(--border); background: var(--surface-raised); color: var(--text); }
 .inspector-quicklinks button svg { color: var(--accent); }
-.inspector-note { margin: auto 12px 12px; padding: 10px; border: 1px solid var(--border-soft); color: var(--text-muted); font-size: calc(9px * var(--ui-text-scale, 1)); line-height: 1.7; }
-.inspector-fields { padding: 0 13px; }
+.inspector-note { margin: auto calc(12px * var(--ui-spacing-scale, 1)) calc(12px * var(--ui-spacing-scale, 1)); padding: calc(10px * var(--ui-spacing-scale, 1)); border: 1px solid var(--border-soft); color: var(--text-muted); font-size: calc(9px * var(--ui-text-scale, 1)); line-height: 1.7; }
+.inspector-fields { padding: 0 calc(13px * var(--ui-spacing-scale, 1)); }
 .settings-section-compact { border: 0; background: transparent; }
-.settings-section-compact .settings-section-heading { padding: 11px 0 5px; border-bottom: 0; }
+.settings-section-compact .settings-section-heading { padding: calc(11px * var(--ui-spacing-scale, 1)) 0 calc(5px * var(--ui-spacing-scale, 1)); border-bottom: 0; }
 .settings-section-compact .settings-section-heading h2 { font-size: calc(11px * var(--ui-text-scale, 1)); }
 .settings-section-compact .settings-section-heading p { font-size: calc(9px * var(--ui-text-scale, 1)); }
 .settings-section-compact .settings-fields { padding: 0; }
-.setting-field-compact { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 7px; padding: 12px 0; }
+.setting-field-compact { grid-template-columns: minmax(0, 1fr); align-items: start; gap: calc(7px * var(--ui-spacing-scale, 1)); padding: calc(12px * var(--ui-spacing-scale, 1)) 0; }
 .setting-field-compact .setting-field-copy label { font-size: calc(10px * var(--ui-text-scale, 1)); }
 .setting-field-compact .setting-field-copy p { font-size: calc(9px * var(--ui-text-scale, 1)); }
 .setting-field-compact .setting-field-control { justify-content: stretch; }
 .setting-field-compact .setting-field-control select, .setting-field-compact .setting-field-control input[type="text"], .setting-field-compact .number-control input { height: 31px; font-size: calc(10px * var(--ui-text-scale, 1)); }
-.inspector-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding: 12px; border-top: 1px solid var(--border-soft); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .8px; }
-.inspector-footer button { display: inline-flex; align-items: center; gap: 5px; border: 0; background: transparent; color: var(--accent); cursor: pointer; font-size: calc(9px * var(--ui-text-scale, 1)); }
-.inspector-empty { padding: 12px 0; color: var(--text-muted); font-size: calc(10px * var(--ui-text-scale, 1)); }
-.nexus-graph-footer { display: flex; justify-content: space-between; gap: 12px; padding-top: 9px; color: var(--text-muted); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1px; }
+.inspector-footer { display: flex; align-items: center; justify-content: space-between; gap: calc(8px * var(--ui-spacing-scale, 1)); margin-top: auto; padding: calc(12px * var(--ui-spacing-scale, 1)); border-top: 1px solid var(--border-soft); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .8px; }
+.inspector-footer button { display: inline-flex; align-items: center; gap: calc(5px * var(--ui-spacing-scale, 1)); border: 0; background: transparent; color: var(--accent); cursor: pointer; font-size: calc(9px * var(--ui-text-scale, 1)); }
+.inspector-empty { padding: calc(12px * var(--ui-spacing-scale, 1)) 0; color: var(--text-muted); font-size: calc(10px * var(--ui-text-scale, 1)); }
+.nexus-graph-footer { display: flex; justify-content: space-between; gap: calc(12px * var(--ui-spacing-scale, 1)); padding-top: calc(9px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1px; }
 @media (max-width: 1280px) {
-  .nexus-settings-page { padding: 13px 14px 20px; }
+  .nexus-settings-page { padding: calc(13px * var(--ui-spacing-scale, 1)) calc(14px * var(--ui-spacing-scale, 1)) calc(20px * var(--ui-spacing-scale, 1)); }
   .nexus-settings-workspace { grid-template-columns: minmax(0, 1fr) 285px; }
   .nexus-graph-hint { font-size: calc(7px * var(--ui-text-scale, 1)); }
 }

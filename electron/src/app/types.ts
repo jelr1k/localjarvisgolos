@@ -82,11 +82,13 @@ export interface ChatMessage {
 export interface InterfacePreferences {
   textScale: number;
   controlScale: number;
+  spacingScale: number;
   sidebarWidth: number;
   chatWidthPercent: number;
   chatHeight: number;
   inspectorWidth: number;
   inspectorVisible: boolean;
+  minimapVisible: boolean;
 }
 
 export type InterfacePreferenceKey = keyof InterfacePreferences;

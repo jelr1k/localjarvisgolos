@@ -4,8 +4,8 @@ import type { AppAction, AppSettings, AppState, InterfaceMode, InterfacePreferen
 export const STORAGE_KEY = "jarvis-ui-preferences-v2";
 
 export const DEFAULT_INTERFACE_PREFERENCES: Record<InterfaceMode, InterfacePreferences> = {
-  classic: { textScale: 100, controlScale: 100, sidebarWidth: 236, chatWidthPercent: 100, chatHeight: 620, inspectorWidth: 322, inspectorVisible: true },
-  nexus: { textScale: 100, controlScale: 100, sidebarWidth: 236, chatWidthPercent: 100, chatHeight: 620, inspectorWidth: 322, inspectorVisible: true }
+  classic: { textScale: 100, controlScale: 100, spacingScale: 100, sidebarWidth: 236, chatWidthPercent: 100, chatHeight: 620, inspectorWidth: 322, inspectorVisible: true, minimapVisible: true },
+  nexus: { textScale: 100, controlScale: 100, spacingScale: 100, sidebarWidth: 236, chatWidthPercent: 100, chatHeight: 620, inspectorWidth: 322, inspectorVisible: true, minimapVisible: true }
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -96,11 +96,13 @@ function mergeInterfacePreferences(rawValue: unknown): Record<InterfaceMode, Int
     merged[mode] = {
       textScale: clampNumber(candidate.textScale, merged[mode].textScale, 80, 160),
       controlScale: clampNumber(candidate.controlScale, merged[mode].controlScale, 80, 160),
+      spacingScale: clampNumber(candidate.spacingScale, merged[mode].spacingScale, 70, 150),
       sidebarWidth: clampNumber(candidate.sidebarWidth, merged[mode].sidebarWidth, 180, 360),
       chatWidthPercent: clampNumber(candidate.chatWidthPercent, merged[mode].chatWidthPercent, 45, 100),
       chatHeight: clampNumber(candidate.chatHeight, merged[mode].chatHeight, 360, 900),
       inspectorWidth: clampNumber(candidate.inspectorWidth, merged[mode].inspectorWidth, 240, 480),
-      inspectorVisible: typeof candidate.inspectorVisible === "boolean" ? candidate.inspectorVisible : merged[mode].inspectorVisible
+      inspectorVisible: typeof candidate.inspectorVisible === "boolean" ? candidate.inspectorVisible : merged[mode].inspectorVisible,
+      minimapVisible: typeof candidate.minimapVisible === "boolean" ? candidate.minimapVisible : merged[mode].minimapVisible
     };
   }
   return merged;
@@ -198,18 +200,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "interfacePreference/update": {
       const current = state.interfacePreferences[action.mode];
       let value: number | boolean = action.value;
-      if (action.key === "inspectorVisible") {
+      if (action.key === "inspectorVisible" || action.key === "minimapVisible") {
         value = Boolean(action.value);
       } else {
-        const limits: Record<Exclude<keyof InterfacePreferences, "inspectorVisible">, [number, number]> = {
+        const limits: Record<Exclude<keyof InterfacePreferences, "inspectorVisible" | "minimapVisible">, [number, number]> = {
           textScale: [80, 160],
           controlScale: [80, 160],
+          spacingScale: [70, 150],
           sidebarWidth: [180, 360],
           chatWidthPercent: [45, 100],
           chatHeight: [360, 900],
           inspectorWidth: [240, 480]
         };
-        const [min, max] = limits[action.key as Exclude<keyof InterfacePreferences, "inspectorVisible">];
+        const [min, max] = limits[action.key as Exclude<keyof InterfacePreferences, "inspectorVisible" | "minimapVisible">];
         const numeric = Number(action.value);
         value = Number.isFinite(numeric) ? Math.min(max, Math.max(min, numeric)) : current[action.key] as number;
       }
