@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent, type TouchEvent as ReactTouchEvent } from "react";
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, useNodesState, type Node, type NodeProps } from "@xyflow/react";
 import { ArrowRight, Focus, Map, MousePointer2, PanelRight, RotateCcw, Workflow } from "lucide-react";
 import { useAppState } from "../app/context";
@@ -106,7 +106,7 @@ export function SettingsGraph() {
       console.warn("Не удалось сохранить расположение узлов.", error);
     }
   }, []);
-  const onNodeClick = useCallback((_event: MouseEvent | TouchEvent, node: SettingGraphNode) => setSelectedNodeId(node.id), []);
+  const onNodeClick = useCallback((_event: ReactMouseEvent | ReactTouchEvent, node: SettingGraphNode) => setSelectedNodeId(node.id), []);
   const onChooseGroup = useCallback((id: string) => setSelectedNodeId(id), []);
   const miniMapColor = useCallback((node: Node) => {
     const graphNode = node as SettingGraphNode;
