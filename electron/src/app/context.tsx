@@ -1,10 +1,10 @@
-import { createContext, useContext, useEffect, useReducer, type PropsWithChildren } from "react";
+import { createContext, useContext, useEffect, useReducer, type Dispatch, type PropsWithChildren } from "react";
 import { appReducer, loadInitialState, STORAGE_KEY } from "./state";
 import type { AppState, AppAction } from "./types";
 
 interface AppContextValue {
   state: AppState;
-  dispatch: React.Dispatch<AppAction>;
+  dispatch: Dispatch<AppAction>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);

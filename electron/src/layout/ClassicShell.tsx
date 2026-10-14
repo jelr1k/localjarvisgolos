@@ -1,15 +1,15 @@
+import type { ReactNode } from "react";
 import { ArrowRight, CircleHelp, Settings, Sparkles } from "lucide-react";
 import { NAV_ITEMS, getPageLabel } from "../app/navigation";
 import { useAppState } from "../app/context";
 import type { AppPage } from "../app/types";
 
 interface ShellProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export function ClassicShell({ children }: ShellProps) {
   const { state, dispatch } = useAppState();
-
   const navigate = (page: AppPage) => dispatch({ type: "navigate", page });
 
   return (
@@ -22,7 +22,6 @@ export function ClassicShell({ children }: ShellProps) {
             <small>ЛОКАЛЬНЫЙ АССИСТЕНТ</small>
           </span>
         </button>
-
         <div className="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div>
         <nav className="classic-nav" aria-label="Основная навигация">
           {NAV_ITEMS.map((item) => {
@@ -42,26 +41,20 @@ export function ClassicShell({ children }: ShellProps) {
             );
           })}
         </nav>
-
         <div className="sidebar-bottom">
           <div className="connection-state"><span className="status-dot" /><span>UI / сервисы отключены</span></div>
           <button className="sidebar-help" type="button" onClick={() => navigate("settings")}>
-            <Settings size={16} />
-            <span>Параметры оболочки</span>
-            <CircleHelp size={14} className="muted-icon" />
+            <Settings size={16} /><span>Параметры оболочки</span><CircleHelp size={14} className="muted-icon" />
           </button>
           <div className="sidebar-version"><span>JARVIS UI</span><span>0.2 · preview</span></div>
         </div>
       </aside>
-
       <main className="classic-main">
         <header className="classic-topbar">
           <div className="breadcrumbs"><span>JARVIS</span><span className="breadcrumb-separator">/</span><strong>{getPageLabel(state.activePage)}</strong></div>
           <div className="topbar-actions">
             <span className="preview-pill"><span /> ПРЕДПРОСМОТР</span>
-            <button className="icon-button" type="button" onClick={() => navigate("settings")} title="Настройки" aria-label="Настройки">
-              <Settings size={18} />
-            </button>
+            <button className="icon-button" type="button" onClick={() => navigate("settings")} title="Настройки" aria-label="Настройки"><Settings size={18} /></button>
           </div>
         </header>
         <div className="classic-content">{children}</div>
