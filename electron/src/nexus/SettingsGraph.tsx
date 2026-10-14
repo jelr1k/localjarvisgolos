@@ -13,14 +13,20 @@ import { createSettingEdges, createSettingNodes, getSettingsGroup, type SettingG
 function SettingGraphNodeView({ data, selected }: NodeProps<SettingGraphNode>) {
   return (
     <>
-      <Handle type="target" position={Position.Left} isConnectable={false} />
+      <Handle id="target-left" type="target" position={Position.Left} isConnectable={false} />
+      <Handle id="target-right" type="target" position={Position.Right} isConnectable={false} />
+      <Handle id="target-top" type="target" position={Position.Top} isConnectable={false} />
+      <Handle id="target-bottom" type="target" position={Position.Bottom} isConnectable={false} />
+      <Handle id="source-left" type="source" position={Position.Left} isConnectable={false} />
+      <Handle id="source-right" type="source" position={Position.Right} isConnectable={false} />
+      <Handle id="source-top" type="source" position={Position.Top} isConnectable={false} />
+      <Handle id="source-bottom" type="source" position={Position.Bottom} isConnectable={false} />
       <div className={"setting-graph-node setting-graph-node-" + data.kind + (selected ? " is-selected" : "")}>
         <div className="graph-node-header"><span>{data.tag}</span>{data.kind === "core" && <Workflow size={14} />}</div>
         <strong>{data.label}</strong>
         <small>{data.value || data.caption}</small>
         {data.kind === "setting" && <span className="graph-node-edit">ОТКРЫТЬ ПАРАМЕТР</span>}
       </div>
-      <Handle type="source" position={Position.Right} isConnectable={false} />
     </>
   );
 }

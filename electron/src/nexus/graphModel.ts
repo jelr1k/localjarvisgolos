@@ -128,10 +128,28 @@ export function createSettingNodes(state: AppState): SettingGraphNode[] {
 }
 
 export function createSettingEdges(): Edge[] {
+  const rootHandles: Record<SettingGroup, { source: string; target: string }> = {
+    appearance: { source: "source-top", target: "target-bottom" },
+    application: { source: "source-left", target: "target-right" },
+    voice: { source: "source-top", target: "target-bottom" },
+    workspace: { source: "source-right", target: "target-left" },
+    ai: { source: "source-bottom", target: "target-top" },
+    system: { source: "source-left", target: "target-right" }
+  };
+  const childHandles: Record<SettingGroup, { source: string; target: string }> = {
+    appearance: { source: "source-left", target: "target-right" },
+    application: { source: "source-left", target: "target-right" },
+    voice: { source: "source-right", target: "target-left" },
+    workspace: { source: "source-right", target: "target-left" },
+    ai: { source: "source-right", target: "target-left" },
+    system: { source: "source-top", target: "target-bottom" }
+  };
   const edges: Edge[] = SETTING_GROUPS.map((group) => ({
     id: "core-" + group.id,
     source: "core",
     target: group.id,
+    sourceHandle: rootHandles[group.id].source,
+    targetHandle: rootHandles[group.id].target,
     type: "smoothstep",
     style: { stroke: "var(--graph-edge)", strokeWidth: 1.4 }
   }));
@@ -141,6 +159,8 @@ export function createSettingEdges(): Edge[] {
       id: field.group + "-" + field.key,
       source: field.group,
       target: field.key,
+      sourceHandle: childHandles[field.group].source,
+      targetHandle: childHandles[field.group].target,
       type: "smoothstep",
       style: { stroke: "var(--graph-edge)", strokeWidth: 1.2 }
     });
