@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { ArrowRight, CircleHelp, Settings, Sparkles } from "lucide-react";
 import { NAV_ITEMS, getPageLabel } from "../app/navigation";
 import { useAppState } from "../app/context";
@@ -10,10 +10,12 @@ interface ShellProps {
 
 export function ClassicShell({ children }: ShellProps) {
   const { state, dispatch } = useAppState();
+  const preferences = state.interfacePreferences.classic;
+  const resizeStart = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   const navigate = (page: AppPage) => dispatch({ type: "navigate", page });
 
   return (
-    <div className="app-frame classic-frame">
+    <div className="app-frame classic-frame" style={{ "--classic-sidebar-width": `${preferences.sidebarWidth}px` } as CSSProperties}>
       <aside className="classic-sidebar">
         <button className="brand-lockup" type="button" onClick={() => navigate("home")} aria-label="На главную">
           <span className="brand-mark"><Sparkles size={18} /></span>
@@ -49,6 +51,37 @@ export function ClassicShell({ children }: ShellProps) {
           <div className="sidebar-version"><span>JARVIS UI</span><span>0.2 · preview</span></div>
         </div>
       </aside>
+      <div
+        className="classic-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Изменить ширину боковой панели"
+        aria-valuemin={180}
+        aria-valuemax={360}
+        aria-valuenow={preferences.sidebarWidth}
+        tabIndex={0}
+        onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          resizeStart.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: preferences.sidebarWidth };
+        }}
+        onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
+          const start = resizeStart.current;
+          if (!start || start.pointerId !== event.pointerId) return;
+          const width = Math.min(360, Math.max(180, Math.round(start.startWidth + event.clientX - start.startX)));
+          dispatch({ type: "interfacePreference/update", mode: "classic", key: "sidebarWidth", value: width });
+        }}
+        onPointerUp={(event: PointerEvent<HTMLDivElement>) => {
+          if (resizeStart.current?.pointerId === event.pointerId) resizeStart.current = null;
+        }}
+        onPointerCancel={() => { resizeStart.current = null; }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            event.preventDefault();
+            const delta = event.key === "ArrowRight" ? 10 : -10;
+            dispatch({ type: "interfacePreference/update", mode: "classic", key: "sidebarWidth", value: preferences.sidebarWidth + delta });
+          }
+        }}
+      />
       <main className="classic-main">
         <header className="classic-topbar">
           <div className="breadcrumbs"><span>JARVIS</span><span className="breadcrumb-separator">/</span><strong>{getPageLabel(state.activePage)}</strong></div>

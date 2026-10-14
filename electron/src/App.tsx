@@ -31,7 +31,10 @@ function AppLayout() {
     document.documentElement.dataset.density = state.settings.appearance.density;
     document.documentElement.dataset.corners = state.settings.appearance.corners;
     document.documentElement.dataset.motion = state.settings.appearance.motion;
-  }, [state.settings.appearance]);
+    const preferences = state.interfacePreferences[state.interfaceMode];
+    document.documentElement.style.setProperty("--ui-text-scale", String(preferences.textScale / 100));
+    document.documentElement.style.setProperty("--ui-control-scale", String(preferences.controlScale / 100));
+  }, [state.settings.appearance, state.interfaceMode, state.interfacePreferences]);
 
   return state.interfaceMode === "nexus"
     ? <NexusShell><ActivePage /></NexusShell>

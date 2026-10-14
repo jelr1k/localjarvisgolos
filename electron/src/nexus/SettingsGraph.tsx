@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, useNodesState, type Node, type NodeProps } from "@xyflow/react";
-import { ArrowRight, Focus, MousePointer2, RotateCcw, Workflow } from "lucide-react";
+import { ArrowRight, Focus, MousePointer2, PanelRight, RotateCcw, Workflow } from "lucide-react";
 import { useAppState } from "../app/context";
 import { getSettingDefinition, SETTING_DEFINITIONS } from "../app/settingsCatalog";
 import type { SettingDefinition } from "../app/settingsCatalog";
 import { getSettingValue } from "../app/state";
 import type { SettingGroup } from "../app/types";
 import { SettingsField } from "../components/SettingsField";
+import { InterfaceTuning } from "../components/InterfaceTuning";
 import { PrototypeNotice } from "../components/PrototypeNotice";
 import { createSettingEdges, createSettingNodes, getSettingsGroup, type SettingGraphNode } from "./graphModel";
 
@@ -47,6 +48,7 @@ function Inspector({ node, onChooseGroup }: { node: SettingGraphNode | undefined
           })}
         </div>
         <div className="inspector-note">Перетаскивай узлы мышью, двигай холст и приближай карту колёсиком. Координаты узлов сохраняются локально.</div>
+        <InterfaceTuning mode="nexus" compact />
       </aside>
     );
   }
@@ -65,12 +67,15 @@ function Inspector({ node, onChooseGroup }: { node: SettingGraphNode | undefined
         {fields.length > 0 ? fields.map((field) => <SettingsField key={field.key} field={field} compact />) : <p className="inspector-empty">У этой группы пока нет доступных полей.</p>}
       </div>
       {node.data.group && !node.data.setting && <div className="inspector-footer"><span>{fields.length.toString().padStart(2, "0")} ПАРАМЕТРА</span><button type="button" onClick={() => onChooseGroup("core")}>К общей карте <ArrowRight size={13} /></button></div>}
+      <InterfaceTuning mode="nexus" compact />
     </aside>
   );
 }
 
 export function SettingsGraph() {
-  const { state } = useAppState();
+  const { state, dispatch } = useAppState();
+  const preferences = state.interfacePreferences.nexus;
+  const resizeStart = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<SettingGraphNode>(createSettingNodes(state));
   const [selectedNodeId, setSelectedNodeId] = useState("core");
   const layoutKey = "jarvis.nexus.graph-layout.v1";
@@ -114,9 +119,9 @@ export function SettingsGraph() {
         <div className="nexus-graph-hint"><MousePointer2 size={15} /> ПАНОРАМА <span>·</span> МАСШТАБ <span>·</span> ПЕРЕТАСКИВАНИЕ</div>
       </div>
       <PrototypeNotice compact />
-      <div className="nexus-settings-workspace">
+      <div className={"nexus-settings-workspace" + (preferences.inspectorVisible ? "" : " is-inspector-hidden")} style={{ "--nexus-inspector-width": `${preferences.inspectorWidth}px` } as CSSProperties}>
         <section className="nexus-graph-panel" aria-label="Граф настроек">
-          <div className="nexus-graph-toolbar"><span><Workflow size={15} /> SETTINGS GRAPH <b>{nodes.length.toString().padStart(2, "0")} NODES</b></span><button type="button" onClick={() => setSelectedNodeId("core")} title="Выбрать корневой узел"><Focus size={14} /> ROOT</button><button type="button" onClick={() => {
+          <div className="nexus-graph-toolbar"><span><Workflow size={15} /> SETTINGS GRAPH <b>{nodes.length.toString().padStart(2, "0")} NODES</b></span><button type="button" onClick={() => dispatch({ type: "interfacePreference/update", mode: "nexus", key: "inspectorVisible", value: !preferences.inspectorVisible })} title={preferences.inspectorVisible ? "Скрыть панель настроек" : "Показать панель настроек"}><PanelRight size={14} /> {preferences.inspectorVisible ? "HIDE PANEL" : "SHOW PANEL"}</button><button type="button" onClick={() => setSelectedNodeId("core")} title="Выбрать корневой узел"><Focus size={14} /> ROOT</button><button type="button" onClick={() => {
               try { window.localStorage.removeItem(layoutKey); } catch {}
               setNodes(createSettingNodes(state));
               setSelectedNodeId("core");
@@ -133,7 +138,40 @@ export function SettingsGraph() {
             </ReactFlow>
           </div>
         </section>
-        <Inspector node={selectedNode} onChooseGroup={onChooseGroup} />
+        {preferences.inspectorVisible && (
+          <div
+            className="nexus-resize-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Изменить ширину панели настроек"
+            aria-valuemin={240}
+            aria-valuemax={480}
+            aria-valuenow={preferences.inspectorWidth}
+            tabIndex={0}
+            onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              resizeStart.current = { pointerId: event.pointerId, startX: event.clientX, startWidth: preferences.inspectorWidth };
+            }}
+            onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
+              const start = resizeStart.current;
+              if (!start || start.pointerId !== event.pointerId) return;
+              const width = Math.min(480, Math.max(240, Math.round(start.startWidth - (event.clientX - start.startX))));
+              dispatch({ type: "interfacePreference/update", mode: "nexus", key: "inspectorWidth", value: width });
+            }}
+            onPointerUp={(event: PointerEvent<HTMLDivElement>) => {
+              if (resizeStart.current?.pointerId === event.pointerId) resizeStart.current = null;
+            }}
+            onPointerCancel={() => { resizeStart.current = null; }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                event.preventDefault();
+                const delta = event.key === "ArrowLeft" ? 10 : -10;
+                dispatch({ type: "interfacePreference/update", mode: "nexus", key: "inspectorWidth", value: preferences.inspectorWidth + delta });
+              }
+            }}
+          />
+        )}
+        {preferences.inspectorVisible && <Inspector node={selectedNode} onChooseGroup={onChooseGroup} />}
       </div>
       <div className="nexus-graph-footer"><span>ДАННЫЕ ХРАНЯТСЯ В ЛОКАЛЬНЫХ НАСТРОЙКАХ ОКНА</span><span>НАСТРОЙКИ НЕ ПЕРЕДАЮТСЯ BACKEND</span></div>
     </div>

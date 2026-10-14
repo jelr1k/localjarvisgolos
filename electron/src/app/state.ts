@@ -1,7 +1,12 @@
 import { THEME_OPTIONS } from "./settingsCatalog";
-import type { AppAction, AppSettings, AppState, InterfaceMode, SettingKey, SettingValue, ThemeName } from "./types";
+import type { AppAction, AppSettings, AppState, InterfaceMode, InterfacePreferences, SettingKey, SettingValue, ThemeName } from "./types";
 
 export const STORAGE_KEY = "jarvis-ui-preferences-v2";
+
+export const DEFAULT_INTERFACE_PREFERENCES: Record<InterfaceMode, InterfacePreferences> = {
+  classic: { textScale: 100, controlScale: 100, sidebarWidth: 236, chatWidthPercent: 100, chatHeight: 620, inspectorWidth: 322, inspectorVisible: true },
+  nexus: { textScale: 100, controlScale: 100, sidebarWidth: 236, chatWidthPercent: 100, chatHeight: 620, inspectorWidth: 322, inspectorVisible: true }
+};
 
 export const DEFAULT_SETTINGS: AppSettings = {
   appearance: {
@@ -36,6 +41,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export function createInitialState(): AppState {
   return {
     interfaceMode: "classic",
+    interfacePreferences: structuredClone(DEFAULT_INTERFACE_PREFERENCES),
     activePage: "home",
     settings: structuredClone(DEFAULT_SETTINGS),
     chatInput: "",
@@ -74,6 +80,32 @@ function mergeStoredSettings(rawValue: unknown): AppSettings {
   };
 }
 
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function mergeInterfacePreferences(rawValue: unknown): Record<InterfaceMode, InterfacePreferences> {
+  const merged = structuredClone(DEFAULT_INTERFACE_PREFERENCES);
+  if (!rawValue || typeof rawValue !== "object") return merged;
+
+  const raw = rawValue as Partial<Record<InterfaceMode, Partial<InterfacePreferences>>>;
+  for (const mode of ["classic", "nexus"] as InterfaceMode[]) {
+    const candidate = raw[mode];
+    if (!candidate || typeof candidate !== "object") continue;
+    merged[mode] = {
+      textScale: clampNumber(candidate.textScale, merged[mode].textScale, 80, 160),
+      controlScale: clampNumber(candidate.controlScale, merged[mode].controlScale, 80, 160),
+      sidebarWidth: clampNumber(candidate.sidebarWidth, merged[mode].sidebarWidth, 180, 360),
+      chatWidthPercent: clampNumber(candidate.chatWidthPercent, merged[mode].chatWidthPercent, 45, 100),
+      chatHeight: clampNumber(candidate.chatHeight, merged[mode].chatHeight, 360, 900),
+      inspectorWidth: clampNumber(candidate.inspectorWidth, merged[mode].inspectorWidth, 240, 480),
+      inspectorVisible: typeof candidate.inspectorVisible === "boolean" ? candidate.inspectorVisible : merged[mode].inspectorVisible
+    };
+  }
+  return merged;
+}
+
 export function loadInitialState(): AppState {
   const fallback = createInitialState();
   if (typeof window === "undefined") return fallback;
@@ -81,10 +113,11 @@ export function loadInitialState(): AppState {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored) as { interfaceMode?: unknown; settings?: unknown };
+      const parsed = JSON.parse(stored) as { interfaceMode?: unknown; settings?: unknown; interfacePreferences?: unknown };
       return {
         ...fallback,
         interfaceMode: isInterfaceMode(parsed.interfaceMode) ? parsed.interfaceMode : "classic",
+        interfacePreferences: mergeInterfacePreferences(parsed.interfacePreferences),
         settings: mergeStoredSettings(parsed.settings)
       };
     }
@@ -162,6 +195,32 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         return { ...state, interfaceMode: action.value === "nexus" ? "nexus" : "classic" };
       }
       return { ...state, settings: updateNestedSetting(state.settings, action.key, action.value) };
+    case "interfacePreference/update": {
+      const current = state.interfacePreferences[action.mode];
+      let value: number | boolean = action.value;
+      if (action.key === "inspectorVisible") {
+        value = Boolean(action.value);
+      } else {
+        const limits: Record<Exclude<keyof InterfacePreferences, "inspectorVisible">, [number, number]> = {
+          textScale: [80, 160],
+          controlScale: [80, 160],
+          sidebarWidth: [180, 360],
+          chatWidthPercent: [45, 100],
+          chatHeight: [360, 900],
+          inspectorWidth: [240, 480]
+        };
+        const [min, max] = limits[action.key as Exclude<keyof InterfacePreferences, "inspectorVisible">];
+        const numeric = Number(action.value);
+        value = Number.isFinite(numeric) ? Math.min(max, Math.max(min, numeric)) : current[action.key] as number;
+      }
+      return {
+        ...state,
+        interfacePreferences: {
+          ...state.interfacePreferences,
+          [action.mode]: { ...current, [action.key]: value }
+        }
+      };
+    }
     case "chat/input":
       return { ...state, chatInput: action.value };
     case "chat/clear":

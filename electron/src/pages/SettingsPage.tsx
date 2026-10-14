@@ -2,6 +2,7 @@ import { SlidersHorizontal } from "lucide-react";
 import { SETTING_DEFINITIONS, SETTING_GROUPS } from "../app/settingsCatalog";
 import { PrototypeNotice } from "../components/PrototypeNotice";
 import { SettingsSection } from "../components/SettingsSection";
+import { InterfaceTuning } from "../components/InterfaceTuning";
 import { PageHeader } from "./PageHeader";
 
 export function SettingsPage() {
@@ -14,6 +15,7 @@ export function SettingsPage() {
         action={<span className="page-icon-badge"><SlidersHorizontal size={20} /></span>}
       />
       <PrototypeNotice />
+      <InterfaceTuning mode="classic" />
       <div className="settings-page-layout">
         <div className="settings-page-sections">
           {SETTING_GROUPS.map((group, index) => (

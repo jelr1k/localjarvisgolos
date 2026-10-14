@@ -17,6 +17,17 @@ describe("shared UI state", () => {
     expect(next.interfaceMode).toBe("classic");
   });
 
+  it("keeps interface sizing independent and clamps unsafe values", () => {
+    const initial = createInitialState();
+    const scaled = appReducer(initial, { type: "interfacePreference/update", mode: "classic", key: "textScale", value: 145 });
+    const resized = appReducer(scaled, { type: "interfacePreference/update", mode: "classic", key: "sidebarWidth", value: 40 });
+
+    expect(resized.interfacePreferences.classic.textScale).toBe(145);
+    expect(resized.interfacePreferences.classic.sidebarWidth).toBe(180);
+    expect(resized.interfacePreferences.nexus.textScale).toBe(100);
+    expect(initial.interfacePreferences.classic.textScale).toBe(100);
+  });
+
   it("keeps demo chat messages local and marks the reply as non-integrated", () => {
     const initial = appReducer(createInitialState(), { type: "chat/input", value: "Открой браузер" });
     const next = appReducer(initial, { type: "chat/send" });

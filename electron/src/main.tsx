@@ -5,6 +5,7 @@ import "./styles/base.css";
 import "./styles/classic.css";
 import "./styles/nexus.css";
 import "./styles/graph.css";
+import "./styles/customization.css";
 import App from "./App";
 
 const rootElement = document.getElementById("root");

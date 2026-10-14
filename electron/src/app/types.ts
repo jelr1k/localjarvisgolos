@@ -79,8 +79,21 @@ export interface ChatMessage {
   text: string;
 }
 
+export interface InterfacePreferences {
+  textScale: number;
+  controlScale: number;
+  sidebarWidth: number;
+  chatWidthPercent: number;
+  chatHeight: number;
+  inspectorWidth: number;
+  inspectorVisible: boolean;
+}
+
+export type InterfacePreferenceKey = keyof InterfacePreferences;
+
 export interface AppState {
   interfaceMode: InterfaceMode;
+  interfacePreferences: Record<InterfaceMode, InterfacePreferences>;
   activePage: AppPage;
   settings: AppSettings;
   chatInput: string;
@@ -90,6 +103,7 @@ export interface AppState {
 export type AppAction =
   | { type: "navigate"; page: AppPage }
   | { type: "settings/update"; key: SettingKey; value: SettingValue }
+  | { type: "interfacePreference/update"; mode: InterfaceMode; key: InterfacePreferenceKey; value: number | boolean }
   | { type: "chat/input"; value: string }
   | { type: "chat/send" }
   | { type: "chat/clear" };

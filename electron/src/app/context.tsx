@@ -16,6 +16,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
         interfaceMode: state.interfaceMode,
+        interfacePreferences: state.interfacePreferences,
         settings: state.settings
       }));
       window.localStorage.setItem("jarvis-interface", state.interfaceMode);
@@ -23,7 +24,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     } catch (error) {
       console.warn("Не удалось сохранить настройки интерфейса.", error);
     }
-  }, [state.interfaceMode, state.settings]);
+  }, [state.interfaceMode, state.interfacePreferences, state.settings]);
 
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }
