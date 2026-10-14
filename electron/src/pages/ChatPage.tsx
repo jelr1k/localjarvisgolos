@@ -49,7 +49,6 @@ export function ChatPage() {
         <div
           className="chat-resize-handle"
           role="separator"
-          aria-orientation="both"
           aria-label="Изменить размер области чата"
           tabIndex={0}
           onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
