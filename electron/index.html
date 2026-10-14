@@ -1,49 +1,13 @@
 <!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JARVIS</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="wave.css">
-  <link rel="stylesheet" href="interface-manager.css">
-</head>
-<body>
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">J</span><div><strong>JARVIS</strong><small>локальный ассистент</small></div></div>
-      <nav class="nav">
-        <button class="nav-item active" data-page="home"><span>◉</span>Главная</button>
-        <button class="nav-item" data-page="chat"><span>◌</span>Чат</button>
-        <button class="nav-item" data-page="commands"><span>⌘</span>Команды</button>
-        <button class="nav-item" data-page="workspace"><span>▣</span>Рабочая область</button>
-        <button class="nav-item" data-page="ai"><span>◇</span>ИИ</button>
-      </nav>
-      <div class="sidebar-bottom">
-        <div class="status"><i></i><span>Jarvis готов</span></div>
-        <div class="profile-wrap">
-          <button class="profile" id="profileButton" type="button" aria-expanded="false" aria-controls="profileMenu">
-            <span class="avatar">J</span>
-            <span class="profile-name"><b>Джелрик</b></span>
-            <span class="profile-chevron">⌃</span>
-          </button>
-          <div class="profile-menu" id="profileMenu" hidden>
-            <div class="profile-menu-head">
-              <span class="avatar avatar-large">J</span>
-              <div><b>Джелрик</b><small>Профиль</small></div>
-            </div>
-            <button class="profile-menu-item" id="profileSettings" type="button"><span>⚙</span>Настройки</button>
-          </div>
-        </div>
-      </div>
-    </aside>
-    <main class="main">
-      <header class="topbar"><div><span class="eyebrow">JARVIS</span><span class="crumb">/ <span id="pageName">Главная</span></span></div></header>
-      <div id="pageContainer"></div>
-    </main>
-  </div>
-  <script src="black-hole.js"></script>
-  <script src="interface-manager.js"></script>
-  <script src="renderer.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0e12" />
+    <title>JARVIS</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

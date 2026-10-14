@@ -1,59 +1,34 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
-const fs = require("fs/promises");
 
-const pagesDir = path.join(__dirname, "pages");
-const interfacesDir = path.join(__dirname, "interfaces");
-const allowedPages = new Set(["home", "chat", "commands", "workspace", "ai", "settings"]);
-
-ipcMain.handle("load-page", async (_event, page, interfaceName = "classic") => {
-  if (!allowedPages.has(page)) throw new Error("Unknown page");
-
-  const safeInterfaceName = String(interfaceName).match(/^[a-z0-9_-]+$/i)?.[0];
-
-  if (safeInterfaceName && safeInterfaceName !== "classic") {
-    const interfaceRoot = path.resolve(interfacesDir, safeInterfaceName);
-    const candidates = [
-      path.resolve(interfaceRoot, "pages", page + ".html"),
-      path.resolve(interfaceRoot, page + ".html")
-    ];
-
-    for (const customPage of candidates) {
-      if (!customPage.startsWith(interfaceRoot + path.sep)) continue;
-
-      try {
-        return await fs.readFile(customPage, "utf8");
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
+function createWindow() {
+  const win = new BrowserWindow({
+    width: 1440,
+    height: 920,
+    minWidth: 1100,
+    minHeight: 720,
+    backgroundColor: "#0b0e12",
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
     }
-  }
+  });
 
-  return fs.readFile(path.join(pagesDir, page + ".html"), "utf8");
-});
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  if (devServerUrl) {
+    void win.loadURL(devServerUrl);
+  } else {
+    void win.loadFile(path.join(__dirname, "dist", "index.html"));
+  }
+}
 
 ipcMain.handle("restart-app", () => {
   app.relaunch();
   app.exit(0);
 });
-
-function createWindow() {
-  const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1100,
-    minHeight: 700,
-    backgroundColor: "#111210",
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-
-  win.loadFile(path.join(__dirname, "index.html"));
-}
 
 app.whenReady().then(() => {
   createWindow();
