@@ -54,11 +54,11 @@ function isThemeName(value: unknown): value is ThemeName {
 function mergeStoredSettings(rawValue: unknown): AppSettings {
   if (!rawValue || typeof rawValue !== "object") return structuredClone(DEFAULT_SETTINGS);
   const raw = rawValue as Partial<AppSettings>;
-  const appearance = raw.appearance && typeof raw.appearance === "object" ? raw.appearance : {};
-  const application = raw.application && typeof raw.application === "object" ? raw.application : {};
-  const voice = raw.voice && typeof raw.voice === "object" ? raw.voice : {};
-  const workspace = raw.workspace && typeof raw.workspace === "object" ? raw.workspace : {};
-  const ai = raw.ai && typeof raw.ai === "object" ? raw.ai : {};
+  const appearance: Partial<AppSettings["appearance"]> = raw.appearance && typeof raw.appearance === "object" ? raw.appearance : {};
+  const application: Partial<AppSettings["application"]> = raw.application && typeof raw.application === "object" ? raw.application : {};
+  const voice: Partial<AppSettings["voice"]> = raw.voice && typeof raw.voice === "object" ? raw.voice : {};
+  const workspace: Partial<AppSettings["workspace"]> = raw.workspace && typeof raw.workspace === "object" ? raw.workspace : {};
+  const ai: Partial<AppSettings["ai"]> = raw.ai && typeof raw.ai === "object" ? raw.ai : {};
 
   return {
     appearance: {

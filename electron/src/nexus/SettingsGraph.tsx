@@ -1,4 +1,3 @@
-import type { MouseEvent as ReactMouseEvent, TouchEvent as ReactTouchEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Background, Controls, Handle, MiniMap, Position, ReactFlow, useNodesState, type Node, type NodeProps } from "@xyflow/react";
 import { ArrowRight, Focus, MousePointer2, RotateCcw, Workflow } from "lucide-react";
@@ -84,7 +83,7 @@ export function SettingsGraph() {
   }, [state.settings, state.interfaceMode, setNodes]);
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);
-  const onNodeDragStop = (_event: ReactMouseEvent | ReactTouchEvent, draggedNode: SettingGraphNode) => {
+  const onNodeDragStop = (_event: MouseEvent | TouchEvent, draggedNode: SettingGraphNode) => {
     const positions: Record<string, { x: number; y: number }> = {};
     nodes.forEach((node) => { positions[node.id] = node.id === draggedNode.id ? draggedNode.position : node.position; });
     positions[draggedNode.id] = draggedNode.position;
