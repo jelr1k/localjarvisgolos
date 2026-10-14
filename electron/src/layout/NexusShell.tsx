@@ -10,6 +10,7 @@ interface ShellProps {
 
 export function NexusShell({ children }: ShellProps) {
   const { state, dispatch } = useAppState();
+  const appName = state.settings.application.appName.trim() || "Kirieshcka v2";
   const navigate = (page: AppPage) => dispatch({ type: "navigate", page });
 
   return (
@@ -17,7 +18,7 @@ export function NexusShell({ children }: ShellProps) {
       <header className="nexus-topbar">
         <button className="nexus-brand" type="button" onClick={() => navigate("home")} aria-label="На главную">
           <span className="nexus-brand-glyph"><Sparkles size={17} /></span>
-          <span><strong>NEXUS</strong><small>JARVIS WORKSPACE</small></span>
+          <span><strong>NEXUS</strong><small>{appName}</small></span>
         </button>
         <nav className="nexus-nav" aria-label="Навигация NEXUS">
           {NAV_ITEMS.map((item) => {
@@ -37,7 +38,7 @@ export function NexusShell({ children }: ShellProps) {
         </div>
       </header>
       <main className={"nexus-main nexus-page-" + state.activePage}>{children}</main>
-      <div className="nexus-corner-note"><span className="nexus-live-dot" /> {getPageLabel(state.activePage).toUpperCase()} / СХЕМА ИНТЕРФЕЙСА</div>
+      <div className="nexus-corner-note"><span className="nexus-live-dot" /> {getPageLabel(state.activePage).toUpperCase()} / РАБОЧАЯ ОБЛАСТЬ</div>
     </div>
   );
 }

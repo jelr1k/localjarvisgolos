@@ -19,7 +19,7 @@ export interface SettingDefinition {
 }
 
 export const SETTING_GROUPS: Array<{ id: SettingGroup; label: string; description: string }> = [
-  { id: "appearance", label: "Вид интерфейса", description: "Как выглядит Jarvis и как устроено рабочее пространство." },
+  { id: "appearance", label: "Вид интерфейса", description: "Как выглядит приложение и как устроено рабочее пространство." },
   { id: "application", label: "Приложение", description: "Названия и режим работы оболочки." },
   { id: "voice", label: "Голос", description: "Параметры будущего голосового контура." },
   { id: "workspace", label: "Рабочая область", description: "Ограничения и путь к рабочим файлам." },
@@ -63,7 +63,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   },
   {
     key: "motion", group: "appearance", label: "Анимация",
-    description: "Обычная: пульсация ядра главного экрана и короткие переходы. Уменьшенная: пульсация замедляется с 4,2 до 22 секунд. Выключена: отключаются CSS-анимации и переходы. Системная настройка уменьшения движения тоже учитывается.",
+    description: "Обычная: заметная пульсация ядра главного экрана примерно раз в 3,2 секунды и короткие переходы. Уменьшенная: мягкая пульсация примерно раз в 8 секунд. Выключена: CSS-анимации и переходы отключены.",
     kind: "select",
     options: [{ value: "full", label: "Обычная" }, { value: "reduced", label: "Уменьшенная" }, { value: "off", label: "Выключена" }]
   },

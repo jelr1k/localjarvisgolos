@@ -1,4 +1,4 @@
-# Jarvis UI prototype
+# Kirieshcka v2 UI prototype
 
 This branch is the interface-only architecture phase. It intentionally does not connect to the real voice, AI, command-router, or file-system services from the application backend.
 

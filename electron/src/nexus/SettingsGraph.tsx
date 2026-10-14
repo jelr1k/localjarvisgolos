@@ -34,7 +34,7 @@ const SettingGraphNodeView = memo(function SettingGraphNodeView({ data, selected
 const nodeTypes = { settingCard: SettingGraphNodeView };
 const edges = createSettingEdges();
 
-function Inspector({ node, onChooseGroup }: { node: SettingGraphNode | undefined; onChooseGroup: (id: string) => void }) {
+const Inspector = memo(function Inspector({ node, onChooseGroup }: { node: SettingGraphNode | undefined; onChooseGroup: (id: string) => void }) {
   if (!node || node.id === "core") {
     return (
       <aside className="nexus-inspector">
@@ -69,7 +69,7 @@ function Inspector({ node, onChooseGroup }: { node: SettingGraphNode | undefined
       <InterfaceTuning mode="nexus" compact />
     </aside>
   );
-}
+});
 
 export function SettingsGraph() {
   const { state, dispatch } = useAppState();
@@ -83,16 +83,22 @@ export function SettingsGraph() {
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
 
   useEffect(() => {
-    setNodes((currentNodes) => currentNodes.map((node) => {
-      if (!node.data.setting) return node;
-      const field = getSettingDefinition(node.data.setting);
-      const value = getSettingValue(state, node.data.setting);
-      let formatted = String(value);
-      if (typeof value === "boolean") formatted = value ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО";
-      else if (field.options) formatted = field.options.find((option) => option.value === String(value))?.label ?? String(value);
-      else if (typeof value === "number") formatted = String(value) + (field.unit ? " " + field.unit : "");
-      return { ...node, data: { ...node.data, value: formatted } };
-    }));
+    setNodes((currentNodes) => {
+      let changed = false;
+      const nextNodes = currentNodes.map((node) => {
+        if (!node.data.setting) return node;
+        const field = getSettingDefinition(node.data.setting);
+        const value = getSettingValue(state, node.data.setting);
+        let formatted = String(value);
+        if (typeof value === "boolean") formatted = value ? "ВКЛЮЧЕНО" : "ВЫКЛЮЧЕНО";
+        else if (field.options) formatted = field.options.find((option) => option.value === String(value))?.label ?? String(value);
+        else if (typeof value === "number") formatted = String(value) + (field.unit ? " " + field.unit : "");
+        if (node.data.value === formatted) return node;
+        changed = true;
+        return { ...node, data: { ...node.data, value: formatted } };
+      });
+      return changed ? nextNodes : currentNodes;
+    });
   }, [state.settings, state.interfaceMode, setNodes]);
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId);

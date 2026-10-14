@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { Eye, EyeOff, PanelRight, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useAppState } from "../app/context";
 import type { InterfaceMode, InterfacePreferenceKey, InterfacePreferences } from "../app/types";
 
@@ -23,7 +22,6 @@ const DEFAULTS: InterfacePreferences = {
 };
 
 interface RangeSettingProps {
-  prefKey: NumericPreferenceKey;
   label: string;
   min: number;
   max: number;
@@ -32,33 +30,14 @@ interface RangeSettingProps {
   onValueChange: (value: number) => void;
 }
 
-function RangeSetting({ prefKey, label, min, max, unit, value, onValueChange }: RangeSettingProps) {
-  const [draft, setDraft] = useState(String(value));
-
-  useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
-
-  const commitDraft = () => {
-    if (draft.trim() === "") {
-      setDraft(String(value));
-      return;
-    }
-    const parsed = Number(draft);
-    if (!Number.isFinite(parsed)) {
-      setDraft(String(value));
-      return;
-    }
-    const bounded = Math.min(max, Math.max(min, parsed));
-    onValueChange(bounded);
-    setDraft(String(bounded));
-  };
+function RangeSetting({ label, min, max, unit, value, onValueChange }: RangeSettingProps) {
+  const wholeValue = Math.round(value);
 
   return (
     <div className="interface-tuning-range">
       <span className="interface-tuning-range-label">
         <span>{label}</span>
-        <output>{value}{unit}</output>
+        <output>{wholeValue}{unit}</output>
       </span>
       <div className="interface-tuning-range-controls">
         <input
@@ -66,35 +45,10 @@ function RangeSetting({ prefKey, label, min, max, unit, value, onValueChange }: 
           type="range"
           min={min}
           max={max}
-          step="any"
-          value={value}
-          onChange={(event) => {
-            const next = Number(event.currentTarget.value);
-            onValueChange(next);
-            setDraft(String(next));
-          }}
+          step={1}
+          value={wholeValue}
+          onChange={(event) => onValueChange(Math.round(Number(event.currentTarget.value)))}
           aria-label={label}
-        />
-        <input
-          className="interface-tuning-number"
-          type="number"
-          min={min}
-          max={max}
-          step="any"
-          value={draft}
-          onChange={(event) => setDraft(event.currentTarget.value)}
-          onBlur={commitDraft}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              event.currentTarget.blur();
-            } else if (event.key === "Escape") {
-              setDraft(String(value));
-              event.currentTarget.blur();
-            }
-          }}
-          aria-label={label + ": точное значение"}
-          title={`Допустимый диапазон: ${min}–${max}${unit}`}
         />
       </div>
     </div>
@@ -124,7 +78,6 @@ export function InterfaceTuning({ mode, compact = false }: InterfaceTuningProps)
   ) => (
     <RangeSetting
       key={prefKey}
-      prefKey={prefKey}
       label={label}
       min={min}
       max={max}
@@ -140,7 +93,7 @@ export function InterfaceTuning({ mode, compact = false }: InterfaceTuningProps)
         <div>
           <span className="eyebrow">PERSONALIZATION / {mode === "classic" ? "CLASSIC" : "NEXUS"}</span>
           <h2>Масштаб и раскладка</h2>
-          {!compact && <p>Ползунок для быстрой настройки или точное значение в поле справа.</p>}
+          {!compact && <p>Все значения целые. Перемещай ползунки, чтобы подстроить интерфейс.</p>}
         </div>
         <button type="button" className="interface-tuning-reset" onClick={reset} title="Сбросить настройки этой оболочки">
           <RotateCcw size={14} /><span>Сброс</span>
@@ -165,7 +118,6 @@ export function InterfaceTuning({ mode, compact = false }: InterfaceTuningProps)
             onClick={() => update("inspectorVisible", !preferences.inspectorVisible)}
             aria-pressed={preferences.inspectorVisible}
           >
-            <PanelRight size={15} />
             <span>{preferences.inspectorVisible ? "Скрыть панель настроек" : "Показать панель настроек"}</span>
           </button>
           <button
@@ -174,15 +126,14 @@ export function InterfaceTuning({ mode, compact = false }: InterfaceTuningProps)
             onClick={() => update("minimapVisible", !preferences.minimapVisible)}
             aria-pressed={preferences.minimapVisible}
           >
-            {preferences.minimapVisible ? <EyeOff size={15} /> : <Eye size={15} />}
             <span>{preferences.minimapVisible ? "Скрыть мини-карту" : "Показать мини-карту"}</span>
           </button>
         </>
       )}
       <p className="interface-tuning-note">
         {mode === "classic"
-          ? "Перетаскивай границу боковой панели или угол чата. Размеры можно точно подстроить ползунками или числами."
-          : "Панель настроек и мини-карту можно скрывать независимо друг от друга. Настройки Classic хранятся отдельно."}
+          ? "Можно перетаскивать границу боковой панели и угол чата. Значения меняются целыми шагами."
+          : "Панель настроек и мини-карта скрываются независимо. Параметры Classic хранятся отдельно."}
       </p>
     </section>
   );

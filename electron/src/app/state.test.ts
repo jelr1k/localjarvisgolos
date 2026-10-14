@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { appReducer, createInitialState } from "./state";
 
 describe("shared UI state", () => {
+  it("uses the selected application name as the default identity", () => {
+    const initial = createInitialState();
+    expect(initial.settings.application.appName).toBe("Kirieshcka v2");
+    expect(initial.settings.application.assistantName).toBe("Kirieshcka v2");
+  });
+
   it("switches only between the supported Classic and NEXUS views", () => {
     const initial = createInitialState();
     const next = appReducer(initial, { type: "settings/update", key: "interfaceMode", value: "nexus" });
@@ -28,14 +34,14 @@ describe("shared UI state", () => {
     expect(initial.interfacePreferences.classic.textScale).toBe(100);
   });
 
-  it("accepts precise scale values and persists NEXUS minimap visibility independently", () => {
+  it("rounds interface scales to whole numbers and keeps NEXUS minimap visibility independent", () => {
     const initial = createInitialState();
     const scaled = appReducer(initial, { type: "interfacePreference/update", mode: "nexus", key: "textScale", value: 117.25 });
     const spaced = appReducer(scaled, { type: "interfacePreference/update", mode: "nexus", key: "spacingScale", value: 123.5 });
     const hidden = appReducer(spaced, { type: "interfacePreference/update", mode: "nexus", key: "minimapVisible", value: false });
 
-    expect(hidden.interfacePreferences.nexus.textScale).toBe(117.25);
-    expect(hidden.interfacePreferences.nexus.spacingScale).toBe(123.5);
+    expect(hidden.interfacePreferences.nexus.textScale).toBe(117);
+    expect(hidden.interfacePreferences.nexus.spacingScale).toBe(124);
     expect(hidden.interfacePreferences.nexus.minimapVisible).toBe(false);
     expect(hidden.interfacePreferences.classic.minimapVisible).toBe(true);
   });

@@ -1,18 +1,18 @@
 .nexus-frame { display: flex; flex-direction: column; background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 40%), var(--bg); }
-.nexus-topbar { position: relative; z-index: 5; display: flex; flex: 0 0 67px; align-items: center; gap: calc(25px * var(--ui-spacing-scale, 1)); padding: 0 calc(23px * var(--ui-spacing-scale, 1)); border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bg-raised) 92%, transparent); }
-.nexus-brand { display: flex; flex: 0 0 auto; align-items: center; gap: calc(9px * var(--ui-spacing-scale, 1)); padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.nexus-topbar { position: relative; z-index: 5; display: flex; flex: 0 0 auto; min-height: calc(67px * var(--ui-spacing-scale, 1)); flex-wrap: wrap; align-items: center; gap: calc(25px * var(--ui-spacing-scale, 1)); padding: 0 calc(23px * var(--ui-spacing-scale, 1)); border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--bg-raised) 92%, transparent); }
+.nexus-brand { display: flex; flex: 0 0 auto; min-width: 0; align-items: center; gap: calc(9px * var(--ui-spacing-scale, 1)); padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
 .nexus-brand-glyph { display: grid; width: 33px; height: 33px; place-items: center; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); }
 .nexus-brand strong, .nexus-brand small { display: block; }
 .nexus-brand strong { font-size: calc(11px * var(--ui-text-scale, 1)); letter-spacing: 2.5px; }
 .nexus-brand small { margin-top: calc(2px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(7px * var(--ui-text-scale, 1)); letter-spacing: 1.1px; }
 .nexus-nav { display: flex; flex: 1; align-items: center; gap: calc(2px * var(--ui-spacing-scale, 1)); min-width: 0; height: 100%; }
-.nexus-nav-entry { display: inline-flex; align-items: center; gap: calc(7px * var(--ui-spacing-scale, 1)); min-height: 36px; padding: 0 calc(10px * var(--ui-spacing-scale, 1)); border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; white-space: nowrap; font-size: calc(10px * var(--ui-text-scale, 1)); }
+.nexus-nav-entry { display: inline-flex; align-items: center; gap: calc(7px * var(--ui-spacing-scale, 1)); min-height: calc(36px * var(--ui-control-scale, 1)); padding: 0 calc(10px * var(--ui-spacing-scale, 1) * var(--ui-control-scale, 1)); border: 1px solid transparent; background: transparent; color: var(--text-muted); cursor: pointer; white-space: nowrap; font-size: calc(10px * var(--ui-text-scale, 1)); }
 .nexus-nav-entry:hover { color: var(--text); background: var(--surface); }
 .nexus-nav-entry.is-active { border-color: var(--border); color: var(--accent); background: var(--surface); }
-.nexus-topbar-meta { display: flex; align-items: center; gap: calc(10px * var(--ui-spacing-scale, 1)); }
+.nexus-topbar-meta { display: flex; flex-wrap: wrap; align-items: center; gap: calc(10px * var(--ui-spacing-scale, 1)); }
 .nexus-status { display: inline-flex; align-items: center; gap: calc(6px * var(--ui-spacing-scale, 1)); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .9px; white-space: nowrap; }
 .nexus-status svg { color: var(--danger); }
-.nexus-icon-button { display: grid; width: 33px; height: 33px; place-items: center; border: 1px solid var(--border); color: var(--text-secondary); background: var(--surface); cursor: pointer; }
+.nexus-icon-button { display: grid; flex: 0 0 auto; width: calc(33px * var(--ui-control-scale, 1)); height: calc(33px * var(--ui-control-scale, 1)); place-items: center; border: 1px solid var(--border); color: var(--text-secondary); background: var(--surface); cursor: pointer; }
 .nexus-icon-button:hover { border-color: var(--accent); color: var(--accent); }
 .nexus-build-tag { display: inline-flex; align-items: center; gap: calc(4px * var(--ui-spacing-scale, 1)); padding-left: calc(10px * var(--ui-spacing-scale, 1)); border-left: 1px solid var(--border); color: var(--text-muted); font-size: calc(8px * var(--ui-text-scale, 1)); letter-spacing: .7px; white-space: nowrap; }
 .nexus-main { flex: 1; min-height: 0; overflow: auto; }
@@ -20,7 +20,7 @@
 .nexus-frame .page-header { margin-bottom: calc(20px * var(--ui-spacing-scale, 1)); }
 .nexus-frame .page-header h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(calc(32px * var(--ui-text-scale, 1)), calc(3vw * var(--ui-text-scale, 1)), calc(43px * var(--ui-text-scale, 1))); font-weight: 400; letter-spacing: -.8px; }
 .nexus-frame .page-header p { max-width: 780px; font-family: Georgia, "Times New Roman", serif; font-size: calc(12px * var(--ui-text-scale, 1)); line-height: 1.7; }
-.nexus-frame .home-hero { grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); border-color: color-mix(in srgb, var(--accent) 26%, var(--border)); background: linear-gradient(115deg, color-mix(in srgb, var(--surface) 95%, transparent), color-mix(in srgb, var(--bg-raised) 86%, transparent)); }
+.nexus-frame .home-hero { grid-template-columns: minmax(0, 1.25fr) minmax(250px, .75fr); border-color: color-mix(in srgb, var(--accent) 26%, var(--border)); background: linear-gradient(115deg, color-mix(in srgb, var(--surface) 95%, transparent), color-mix(in srgb, var(--bg-raised) 86%, transparent)); }
 .nexus-frame .hero-copy { padding: calc(31px * var(--ui-spacing-scale, 1)) calc(34px * var(--ui-spacing-scale, 1)) calc(38px * var(--ui-spacing-scale, 1)); }
 .nexus-frame .hero-copy h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -1.1px; }
 .nexus-frame .hero-copy h2 span { font-style: italic; }

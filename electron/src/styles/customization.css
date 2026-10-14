@@ -6,12 +6,6 @@
   --density-padding: calc(21px * var(--ui-spacing-scale, 1));
   --density-gap: calc(18px * var(--ui-spacing-scale, 1));
 }
-button,
-input,
-select,
-textarea {
-  zoom: var(--ui-control-scale, 1);
-}
 .classic-sidebar {
   flex: 0 0 var(--classic-sidebar-width, 236px);
 }
@@ -75,8 +69,8 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: calc(7px * var(--ui-spacing-scale, 1));
-  min-height: 30px;
-  padding: 0 calc(9px * var(--ui-spacing-scale, 1));
+  min-height: calc(30px * var(--ui-control-scale, 1));
+  padding: 0 calc(9px * var(--ui-spacing-scale, 1) * var(--ui-control-scale, 1));
   border: 1px solid var(--border);
   background: var(--bg-raised);
   color: var(--text-secondary);
@@ -225,10 +219,7 @@ textarea {
 }
 
 .interface-tuning-range-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 90px;
-  align-items: center;
-  gap: calc(10px * var(--ui-spacing-scale, 1));
+  display: block;
   min-width: 0;
 }
 .interface-tuning-slider {
@@ -237,26 +228,6 @@ textarea {
   margin: 0;
   accent-color: var(--accent);
   cursor: ew-resize;
-}
-.interface-tuning-number {
-  width: 100%;
-  min-width: 0;
-  height: 30px;
-  padding: 0 calc(6px * var(--ui-spacing-scale, 1));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  outline: 0;
-  background: var(--bg-raised);
-  color: var(--text);
-  font-size: calc(10px * var(--ui-text-scale, 1));
-  font-variant-numeric: tabular-nums;
-}
-.interface-tuning-number:focus {
-  border-color: var(--accent);
-}
-.interface-tuning-number::-webkit-inner-spin-button,
-.interface-tuning-number::-webkit-outer-spin-button {
-  margin-left: 3px;
 }
 .nexus-graph-canvas .react-flow__node.dragging .setting-graph-node {
   box-shadow: none;
@@ -267,10 +238,4 @@ textarea {
 }
 .nexus-graph-canvas .react-flow__node.dragging {
   will-change: transform;
-}
-@media (max-width: 1020px) {
-  .interface-tuning-range-controls {
-    grid-template-columns: minmax(0, 1fr) 78px;
-    gap: 7px;
-  }
 }

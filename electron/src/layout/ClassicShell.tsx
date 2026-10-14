@@ -1,5 +1,5 @@
 import { useRef, type CSSProperties, type PointerEvent, type ReactNode } from "react";
-import { ArrowRight, CircleHelp, Settings, Sparkles } from "lucide-react";
+import { ArrowRight, Settings, Sparkles, UserRound } from "lucide-react";
 import { NAV_ITEMS, getPageLabel } from "../app/navigation";
 import { useAppState } from "../app/context";
 import type { AppPage } from "../app/types";
@@ -11,6 +11,7 @@ interface ShellProps {
 export function ClassicShell({ children }: ShellProps) {
   const { state, dispatch } = useAppState();
   const preferences = state.interfacePreferences.classic;
+  const appName = state.settings.application.appName.trim() || "Kirieshcka v2";
   const resizeStart = useRef<{ pointerId: number; startX: number; startWidth: number } | null>(null);
   const navigate = (page: AppPage) => dispatch({ type: "navigate", page });
 
@@ -20,7 +21,7 @@ export function ClassicShell({ children }: ShellProps) {
         <button className="brand-lockup" type="button" onClick={() => navigate("home")} aria-label="На главную">
           <span className="brand-mark"><Sparkles size={18} /></span>
           <span className="brand-copy">
-            <strong>{state.settings.application.appName || "JARVIS"}</strong>
+            <strong>{appName}</strong>
             <small>ЛОКАЛЬНЫЙ АССИСТЕНТ</small>
           </span>
         </button>
@@ -45,10 +46,11 @@ export function ClassicShell({ children }: ShellProps) {
         </nav>
         <div className="sidebar-bottom">
           <div className="connection-state"><span className="status-dot" /><span>UI / сервисы отключены</span></div>
-          <button className="sidebar-help" type="button" onClick={() => navigate("settings")}>
-            <Settings size={16} /><span>Параметры оболочки</span><CircleHelp size={14} className="muted-icon" />
-          </button>
-          <div className="sidebar-version"><span>JARVIS UI</span><span>0.2 · preview</span></div>
+          <div className="sidebar-profile" aria-label={"Текущее приложение: " + appName}>
+            <span className="sidebar-profile-avatar"><UserRound size={15} /></span>
+            <span className="sidebar-profile-copy"><strong>{appName}</strong><small>ЛОКАЛЬНЫЙ ПРОФИЛЬ</small></span>
+          </div>
+          <div className="sidebar-version"><span>DESKTOP</span><span>0.2 · LOCAL</span></div>
         </div>
       </aside>
       <div
@@ -84,7 +86,7 @@ export function ClassicShell({ children }: ShellProps) {
       />
       <main className="classic-main">
         <header className="classic-topbar">
-          <div className="breadcrumbs"><span>JARVIS</span><span className="breadcrumb-separator">/</span><strong>{getPageLabel(state.activePage)}</strong></div>
+          <div className="breadcrumbs"><span>{appName}</span><span className="breadcrumb-separator">/</span><strong>{getPageLabel(state.activePage)}</strong></div>
           <div className="topbar-actions">
             <span className="preview-pill"><span /> ПРЕДПРОСМОТР</span>
             <button className="icon-button" type="button" onClick={() => navigate("settings")} title="Настройки" aria-label="Настройки"><Settings size={18} /></button>

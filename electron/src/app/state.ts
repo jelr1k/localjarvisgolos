@@ -13,11 +13,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
     theme: "mono-graphite",
     density: "comfortable",
     corners: "sharp",
-    motion: "reduced"
+    motion: "full"
   },
   application: {
-    appName: "JARVIS",
-    assistantName: "Jarvis",
+    appName: "Kirieshcka v2",
+    assistantName: "Kirieshcka v2",
     testingMode: false
   },
   voice: {
@@ -65,6 +65,10 @@ function mergeStoredSettings(rawValue: unknown): AppSettings {
   const voice: Partial<AppSettings["voice"]> = raw.voice && typeof raw.voice === "object" ? raw.voice : {};
   const workspace: Partial<AppSettings["workspace"]> = raw.workspace && typeof raw.workspace === "object" ? raw.workspace : {};
   const ai: Partial<AppSettings["ai"]> = raw.ai && typeof raw.ai === "object" ? raw.ai : {};
+  const normalizeLegacyName = (value: unknown, fallback: string) => {
+    if (typeof value !== "string" || value.trim() === "" || value.trim().toLowerCase() === "jarvis") return fallback;
+    return value.trim();
+  };
 
   return {
     appearance: {
@@ -72,7 +76,12 @@ function mergeStoredSettings(rawValue: unknown): AppSettings {
       ...appearance,
       theme: isThemeName(appearance.theme) ? appearance.theme : DEFAULT_SETTINGS.appearance.theme
     },
-    application: { ...DEFAULT_SETTINGS.application, ...application },
+    application: {
+      ...DEFAULT_SETTINGS.application,
+      ...application,
+      appName: normalizeLegacyName(application.appName, DEFAULT_SETTINGS.application.appName),
+      assistantName: normalizeLegacyName(application.assistantName, DEFAULT_SETTINGS.application.assistantName)
+    },
     voice: { ...DEFAULT_SETTINGS.voice, ...voice },
     workspace: { ...DEFAULT_SETTINGS.workspace, ...workspace },
     ai: { ...DEFAULT_SETTINGS.ai, ...ai },
@@ -82,7 +91,7 @@ function mergeStoredSettings(rawValue: unknown): AppSettings {
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
+  return Math.round(Math.min(max, Math.max(min, value)));
 }
 
 function mergeInterfacePreferences(rawValue: unknown): Record<InterfaceMode, InterfacePreferences> {
@@ -214,7 +223,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         };
         const [min, max] = limits[action.key as Exclude<keyof InterfacePreferences, "inspectorVisible" | "minimapVisible">];
         const numeric = Number(action.value);
-        value = Number.isFinite(numeric) ? Math.min(max, Math.max(min, numeric)) : current[action.key] as number;
+        value = Number.isFinite(numeric) ? Math.round(Math.min(max, Math.max(min, numeric))) : current[action.key] as number;
       }
       return {
         ...state,

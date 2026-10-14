@@ -21,7 +21,7 @@ export function ChatPage() {
       <PrototypeNotice />
       <section className="chat-workspace" style={{ width: `${preferences.chatWidthPercent}%`, height: `${preferences.chatHeight}px` }}>
         <div className="chat-workspace-head">
-          <div className="chat-agent"><span className="chat-agent-mark"><Sparkles size={17} /></span><span><strong>{state.settings.application.assistantName || "Jarvis"}</strong><small>Локальный диалог · демонстрационный режим</small></span></div>
+          <div className="chat-agent"><span className="chat-agent-mark"><Sparkles size={17} /></span><span><strong>{state.settings.application.assistantName || "Kirieshcka v2"}</strong><small>Локальный диалог · демонстрационный режим</small></span></div>
           <span className="not-connected"><i /> Нет подключения к ИИ</span>
         </div>
         <div className="chat-messages" role="log" aria-live="polite">
@@ -36,7 +36,7 @@ export function ChatPage() {
           {state.chatMessages.map((message) => (
             <article key={message.id} className={"chat-message " + message.role}>
               <span className="chat-message-avatar">{message.role === "assistant" ? <Bot size={16} /> : <UserRound size={16} />}</span>
-              <div><small>{message.role === "assistant" ? state.settings.application.assistantName || "JARVIS" : "ВЫ"}</small><p>{message.text}</p></div>
+              <div><small>{message.role === "assistant" ? state.settings.application.assistantName || "Kirieshcka v2" : "ВЫ"}</small><p>{message.text}</p></div>
             </article>
           ))}
         </div>
