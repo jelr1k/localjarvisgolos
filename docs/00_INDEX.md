@@ -25,7 +25,7 @@ docs/
 │   ├── AI_WORK_GUIDE.md
 │   ├── LOGGING_SYSTEM.md
 │   ├── TTS_ARCHITECTURE.md
-│   └── PATH_PORTABILITY_TZ.md
+│   └── PATH_PORTABILITY.md
 ├── 03_FEATURES/
 │   ├── AUTO_ALIASES.md
 │   ├── COMMAND_REFERENCE.md
@@ -38,7 +38,8 @@ docs/
 │   ├── BUG_CHAT_SCROLL_DURING_GENERATION.md
 │   └── BUG_VOICE_FILE_NAME_RESOLUTION.md
 └── 07_REVIEWS/
-    └── CODE_REVIEW_2026-09-19.md
+    ├── CODE_REVIEW_2026-09-19.md
+    └── TECHNICAL_AUDIT_2026-10-16.md
 ```
 
 ## Что где искать
@@ -62,7 +63,7 @@ docs/
 Отдельные текущие баги, которые требуют самостоятельного исправления. Решённые баги удаляются или переносятся в историю, а не остаются навечно в рабочей документации.
 
 ### 07 — Reviews
-Исторические ревью и их выводы. Они не являются источником требований. Решения из ревью после принятия переносятся в Requirements/Status/Issues.
+Исторические ревью и их выводы. `CODE_REVIEW_2026-09-19.md` — предыдущий разбор, `TECHNICAL_AUDIT_2026-10-16.md` — обзор текущей реализации, рисков и приоритетов исправления. Эти документы не являются источником требований. Решения из ревью после принятия переносятся в Requirements/Status/Issues.
 
 ## Правило для новых документов
 
